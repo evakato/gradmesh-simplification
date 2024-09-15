@@ -1,3 +1,4 @@
+#include <cctype>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -11,5 +12,5 @@
 #include "patch.hpp"
 #include "gradmesh.hpp"
 
-std::vector<std::string> splitString(const std::string &str, char delimiter);
-std::vector<Patch> readFile(const std::string &filename);
+std::vector<std::string> splitString(const std::string &str);
+GradMesh readFile(const std::string &filename);

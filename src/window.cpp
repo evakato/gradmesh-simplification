@@ -1,12 +1,18 @@
 #include "window.hpp"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 bool GmsWindow::isDragging = false;
 bool GmsWindow::isClicked = false;
 PointId GmsWindow::selectedPoint = {-1, -1};
 glm::vec2 GmsWindow::mousePos = {0.0f, 0.0f};
+float GmsWindow::zoom = 0.5f;
+glm::vec2 GmsWindow::viewPos{0, 0};
 
 double startX, startY;
 double endX, endY;
+bool middleMouseButtonPressed = false;
 
 GmsWindow::GmsWindow(int width, int height, std::string name) : width(width), height(height), name(name)
 {
@@ -41,8 +47,14 @@ void GmsWindow::processInput()
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+    if (glfwGetKey(window, GLFW_KEY_EQUAL) == GLFW_PRESS)
+        GmsWindow::zoom -= 0.15f;
+    if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS)
+        GmsWindow::zoom += 0.15f;
+
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPositionCallback);
+    glfwSetScrollCallback(window, scrollCallback);
 }
 
 void GmsWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
@@ -74,6 +86,21 @@ void GmsWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, 
         // selectedPoint.primitiveId = -1;
         // selectedPoint.pointId = -1;
     }
+    if (button == GLFW_MOUSE_BUTTON_MIDDLE)
+    {
+        if (action == GLFW_PRESS)
+        {
+            middleMouseButtonPressed = true;
+            glfwGetCursorPos(window, &startX, &startY);
+            mousePos = getNDCCoordinates(startX, startY);
+            std::cout << "Middle button pressed\n";
+        }
+        else if (action == GLFW_RELEASE)
+        {
+            middleMouseButtonPressed = false;
+            std::cout << "Middle button released\n";
+        }
+    }
 }
 
 void GmsWindow::cursorPositionCallback(GLFWwindow *window, double xpos, double ypos)
@@ -81,6 +108,16 @@ void GmsWindow::cursorPositionCallback(GLFWwindow *window, double xpos, double y
     ImGui_ImplGlfw_CursorPosCallback(window, xpos, ypos);
     if (ImGui::GetIO().WantCaptureMouse)
         return;
+
+    if (middleMouseButtonPressed)
+    {
+        double deltaX = xpos - startX;
+        double deltaY = ypos - startY;
+        viewPos.x -= 0.001f * deltaX;
+        viewPos.y -= 0.001f * deltaY;
+        startX = xpos;
+        startY = ypos;
+    }
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
     {
@@ -98,6 +135,12 @@ void GmsWindow::cursorPositionCallback(GLFWwindow *window, double xpos, double y
     }
 }
 
+void GmsWindow::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
+{
+    // std::cout << "Scroll X offset: " << xoffset << " Scroll Y offset: " << yoffset << std::endl;
+    GmsWindow::zoom += -1.0f * yoffset * 0.15f;
+}
+
 glm::vec2 GmsWindow::getNDCCoordinates(float screenX, float screenY)
 {
     GLint viewport[4];
@@ -106,4 +149,36 @@ glm::vec2 GmsWindow::getNDCCoordinates(float screenX, float screenY)
     float convertedX = screenX / viewport[2] * 2 - 1;
     float convertedY = -1 * (screenY / viewport[3] * 2 - 1);
     return glm::vec2(convertedX, convertedY);
+}
+
+void saveImage(const char *filename, int width, int height)
+{
+    createDir(IMAGE_DIR);
+    unsigned char *pixels = new unsigned char[width * height * 4];
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+    for (int y = 0; y < height / 2; ++y)
+        for (int x = 0; x < width * 4; ++x)
+            std::swap(pixels[y * width * 4 + x], pixels[(height - 1 - y) * width * 4 + x]);
+
+    int stride_in_bytes = width * 4;
+    if (stbi_write_png(filename, width, height, 4, pixels, stride_in_bytes))
+        std::cout << "Image saved to " << filename << std::endl;
+    else
+        std::cout << "Failed to save image!" << std::endl;
+
+    delete[] pixels;
+}
+
+void createDir(std::string_view dir)
+{
+    if (!std::filesystem::exists(dir))
+    {
+        if (std::filesystem::create_directory(dir))
+            std::cout << "Directory created successfully!" << std::endl;
+        else
+            std::cout << "Failed to create directory!" << std::endl;
+    }
+    else
+        std::cout << "Directory already exists." << std::endl;
 }

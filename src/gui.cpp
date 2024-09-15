@@ -1,6 +1,6 @@
 #include "gui.hpp"
 
-GmsGui::GmsGui(GLFWwindow *window) : window(window)
+GmsGui::GmsGui(GLFWwindow *window, std::string &filename) : window(window), filename(filename)
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -22,6 +22,71 @@ GmsGui::~GmsGui()
 
 void GmsGui::createGUIFrame()
 {
+    ImGui::SetNextWindowPos(ImVec2(GUI_POS, 0));
+    ImGui::SetNextWindowSize(ImVec2(GUI_WIDTH, SCR_HEIGHT));
+
+    ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_NoTitleBar);
+
+    ImGui::Text(("Viewing: " + filename).c_str());
+    ImGui::Spacing();
+    ImGui::Spacing();
+
+    if (ImGui::BeginTabBar("Rendering Mode"))
+    {
+        if (ImGui::BeginTabItem(modeNames[RENDER_PATCHES]))
+        {
+            currentMode = {RENDER_PATCHES};
+
+            if (GmsWindow::validSelectedPoint())
+            {
+                ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
+                ImGui::SameLine();
+                ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
+            }
+            else
+            {
+                ImGui::Text("Selected point: none");
+            }
+
+            showHermiteMatrixTable();
+            showRenderSettings();
+
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))
+        {
+            currentMode = {RENDER_CURVES};
+            imCurrentColor = ImVec4(currentColor.x, currentColor.y, currentColor.z, 1.00f);
+            currentColorChanged = ImGui::ColorEdit3("Current color", (float *)&imCurrentColor);
+            ImGui::SliderFloat("Curve width", &lineWidth, 0.0f, 10.0f);
+
+            if (GmsWindow::validSelectedPoint())
+            {
+                ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
+                ImGui::SameLine();
+                ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
+            }
+            else
+            {
+                ImGui::Text("Selected point: none");
+            }
+
+            ImGui::EndTabItem();
+        }
+        selectedTab = modeNames[currentMode];
+        ImGui::EndTabBar();
+    }
+
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Text("Maximum hardware tessellation level: %i", maxHWTessellation);
+    // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+    ImGui::End();
+}
+
+void GmsGui::renderGUI()
+{
     if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0)
     {
         ImGui_ImplGlfw_Sleep(10);
@@ -29,75 +94,16 @@ void GmsGui::createGUIFrame()
     }
 
     ImGui::GetIO().FontGlobalScale = 1.0f;
-    ImGui::SetNextWindowSize(ImVec2(0.0, 0.0), ImGuiCond_Always);
+    // ImGui::SetNextWindowSize(ImVec2(0.0, 0.0), ImGuiCond_Always);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    {
 
-        ImGui::SetNextWindowPos(ImVec2(GUI_POS, 0));
-        ImGui::SetNextWindowSize(ImVec2(GUI_WIDTH, SCR_HEIGHT));
+    ImGui::StyleColorsLight();
 
-        ImGui::Begin("Hello, world!");
-
-        if (ImGui::BeginTabBar("Rendering Mode"))
-        {
-            if (ImGui::BeginTabItem(modeNames[RENDER_PATCHES]))
-            {
-                currentMode = {RENDER_PATCHES};
-
-                if (GmsWindow::validSelectedPoint())
-                {
-                    ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
-                    ImGui::SameLine();
-                    ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
-                }
-                else
-                {
-                    ImGui::Text("Selected point: none");
-                }
-
-                showHermiteMatrixTable();
-                showRenderSettings();
-
-                ImGui::EndTabItem();
-            }
-            if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))
-            {
-                currentMode = {RENDER_CURVES};
-                imCurrentColor = ImVec4(currentColor.x, currentColor.y, currentColor.z, 1.00f);
-                currentColorChanged = ImGui::ColorEdit3("Current color", (float *)&imCurrentColor);
-                ImGui::SliderFloat("Curve width", &lineWidth, 0.0f, 10.0f);
-
-                if (GmsWindow::validSelectedPoint())
-                {
-                    ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
-                    ImGui::SameLine();
-                    ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
-                }
-                else
-                {
-                    ImGui::Text("Selected point: none");
-                }
-
-                ImGui::EndTabItem();
-            }
-            selectedTab = modeNames[currentMode];
-            ImGui::EndTabBar();
-        }
-
-        ImGui::Spacing();
-        ImGui::Spacing();
-        ImGui::Text("Maximum hardware tessellation level: %i", maxHWTessellation);
-        // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-
-        ImGui::End();
-    }
-}
-
-void GmsGui::renderGUI()
-{
     createGUIFrame();
+    ShowWindowMenuBar();
+
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
@@ -176,4 +182,41 @@ void GmsGui::showHermiteMatrixTable()
 
     ImGui::Spacing();
     ImGui::Spacing();
+}
+
+void GmsGui::ShowWindowMenuBar()
+{
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImVec2(GL_LENGTH, 20));
+
+    ImGui::Begin("Gradient mesh renderer", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar);
+
+    if (ImGui::BeginMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("Open", "Ctrl+O"))
+            {
+            }
+            if (ImGui::MenuItem("Save", "Ctrl+S"))
+            {
+                saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+    ImGui::End();
+}
+
+static std::string extractFileName(const std::string &filepath)
+{
+    size_t lastSlash = filepath.find_last_of("/\\");
+    size_t start = (lastSlash == std::string::npos) ? 0 : lastSlash + 1;
+    size_t lastDot = filepath.find_last_of('.');
+    if (lastDot == std::string::npos || lastDot < start)
+    {
+        return filepath.substr(start);
+    }
+    return filepath.substr(start, lastDot - start);
 }

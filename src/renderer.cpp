@@ -11,12 +11,27 @@ GmsRenderer::GmsRenderer(GmsWindow &window, GmsGui &gui) : window{window}, gui{g
     int maxTessellation;
     glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &maxTessellation);
     gui.maxHWTessellation = maxTessellation;
+
+    setProjectionMatrix();
 }
 
 GmsRenderer::~GmsRenderer()
 {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+}
+
+void GmsRenderer::setProjectionMatrix()
+{
+    projectionMatrix = glm::mat4(1.0f);
+    float height = std::exp(GmsWindow::zoom);
+    float width = 1.0f * height;
+    float left = -width * 0.5f + GmsWindow::viewPos.x;
+    float right = width * 0.5f + GmsWindow::viewPos.x;
+    float bottom = height * 0.5f + GmsWindow::viewPos.y;
+    float top = -height * 0.5f + GmsWindow::viewPos.y;
+
+    projectionMatrix = glm::ortho(left, right, bottom, top, -1.0f, 1.0f);
 }
 
 const void GmsRenderer::setupShaders()
@@ -64,6 +79,7 @@ const void GmsRenderer::render()
 {
     startRenderFrame();
     window.processInput();
+    setProjectionMatrix();
 }
 
 const void GmsRenderer::highlightSelectedPoint(int numOfVerts)
@@ -79,7 +95,7 @@ const void GmsRenderer::highlightSelectedPoint(int numOfVerts)
     }
 }
 
-const void initializeOpenGL()
+void initializeOpenGL()
 {
     // glad: load all OpenGL function pointers
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -88,8 +104,14 @@ const void initializeOpenGL()
         return;
     }
 
-    glViewport(0, 0, SCR_HEIGHT, SCR_HEIGHT);
+    glViewport(0, 0, GL_LENGTH, GL_LENGTH);
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void setUniformProjectionMatrix(GLuint shaderId, glm::mat4 &projectionMatrix)
+{
+    GLint projectionLoc = glGetUniformLocation(shaderId, "projection");
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projectionMatrix[0][0]);
 }

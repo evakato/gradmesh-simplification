@@ -13,7 +13,6 @@ void main() {
 
     // Set tessellation levels
     float tessLevel = 16.0; // Set tessellation level as desired
-    float tessLevel2 = 4.0; // Set tessellation level as desired
     gl_TessLevelInner[0] = tessLevel; // Inner horizontal
     gl_TessLevelInner[1] = tessLevel; // Inner vertical
     gl_TessLevelOuter[0] = tessLevel; // Top

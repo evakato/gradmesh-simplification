@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -9,12 +11,6 @@ struct PointId
 {
     int primitiveId;
     int pointId;
-};
-
-struct Vertex
-{
-    glm::vec2 coords;
-    glm::vec3 color;
 };
 
 struct Point
@@ -39,6 +35,7 @@ struct Twist
 };
 struct HalfEdge
 {
+    glm::vec2 interval;
     Twist twist;
     glm::vec3 color;
     std::pair<int, int> handleIdxs;
@@ -50,12 +47,36 @@ struct HalfEdge
     int parentIdx;
 };
 
+struct Vertex
+{
+    glm::vec2 coords;
+    glm::vec3 color;
+    Vertex operator*(float scalar) const
+    {
+        return Vertex{
+            coords * scalar,
+            color * scalar};
+    }
+    Vertex operator+(const Vertex &other) const
+    {
+        return Vertex{
+            coords + other.coords,
+            color + other.color};
+    }
+    Vertex operator-() const
+    {
+        return Vertex{-coords, -color};
+    }
+};
+
 inline constexpr int VERTS_PER_PATCH{16};
 inline constexpr int VERTS_PER_CURVE{4};
 inline constexpr int SCR_WIDTH{1280};
-inline constexpr int SCR_HEIGHT{920};
-inline constexpr int GUI_WIDTH{SCR_WIDTH - SCR_HEIGHT};
+inline constexpr int SCR_HEIGHT{960};
+inline constexpr int GL_LENGTH{920};
+inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
+inline constexpr std::string_view IMAGE_DIR{"img"};
 
 inline constexpr unsigned int curveIndicesForPatch[] = {
     0, 4, 5, 1,
@@ -78,12 +99,6 @@ inline constexpr unsigned int cmi[][4] = {
     {3, 7, 11, 6},
     {15, 14, 13, 10},
     {12, 8, 4, 9},
-};
-inline constexpr float tw[][2] = {
-    {1, -1},
-    {1, -1},
-    {-1, 1},
-    {-1, 1},
 };
 
 inline std::vector<unsigned int>
@@ -109,3 +124,20 @@ inline std::vector<unsigned int> generateHandleEBO(int numPatches)
     }
     return indices;
 }
+
+using CurveVector = std::array<Vertex, 4>;
+
+inline std::ostream &operator<<(std::ostream &os, const Vertex &vertex)
+{
+    os << "Coords: (" << vertex.coords.x << ", " << vertex.coords.y << "), "
+       << "Color: (" << vertex.color.r << ", " << vertex.color.g << ", " << vertex.color.b << ")";
+    return os;
+}
+
+// glm is column-major
+constexpr glm::mat4 hermiteBasisMat = glm::mat4(
+    1.0f, 0.0f, -3.0f, 2.0f, // First column
+    0.0f, 1.0f, -2.0f, 1.0f, // Second column
+    0.0f, 0.0f, -1.0f, 1.0f, // Third column
+    0.0f, 0.0f, 3.0f, -2.0f  // Fourth column
+);

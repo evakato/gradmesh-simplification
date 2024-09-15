@@ -5,6 +5,8 @@
 #include "window.hpp"
 
 #include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <vector>
 
@@ -17,6 +19,7 @@ public:
     const void render();
 
 protected:
+    void setProjectionMatrix();
     const void setupShaders();
     const void startRenderFrame();
     const void setVertexData(std::vector<GLfloat> newData);
@@ -25,6 +28,8 @@ protected:
     GLuint VAO, VBO, EBO;
     GLuint curveShaderId, pointShaderId, lineShaderId;
 
+    glm::mat4 projectionMatrix;
+
     std::vector<GLfloat> vertexData;
     GmsGui &gui;
 
@@ -32,4 +37,5 @@ private:
     GmsWindow &window;
 };
 
-const void initializeOpenGL();
+void initializeOpenGL();
+void setUniformProjectionMatrix(GLuint shaderId, glm::mat4 &projectionMatrix);

@@ -5,6 +5,7 @@
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
+#include <cassert>
 #include <vector>
 
 // The Patch class describes a single bicubic patch as a 4x4 control matrix
@@ -26,6 +27,7 @@ public:
         assert(col >= 0 && col < 4);
         return controlMatrix[row * 4 + col];
     }
+    void setControlMatrix(size_t index, Vertex v) { controlMatrix[index] = v; }
     void setControlMatrix(std::vector<Vertex> newControlMatrix)
     {
         controlMatrix = newControlMatrix;
@@ -48,6 +50,8 @@ public:
 
     const std::vector<GLfloat> getGLControlMatrixData() const;
     const std::vector<GLfloat> getGLCoordinates() const;
+
+    const CurveVector getCurveVector(int faceEdgeIdx);
 
 private:
     const void populatePointData();

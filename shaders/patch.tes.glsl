@@ -2,6 +2,8 @@
 
 layout (quads, equal_spacing, ccw) in;
 
+uniform mat4 projection;
+
 in vec3[] patchCoords;
 in vec3[] patchColors;
 
@@ -47,7 +49,7 @@ void main() {
     mat4 bColMat = mapToMat4(patchColors, 2);
     vec3 color = vec3(dot(vH, rColMat * uH), dot(vH, gColMat * uH), dot(vH, bColMat * uH));
 
-    gl_Position = vec4(position, 0.0, 1.0);
+    gl_Position = projection * vec4(position, 0.0, 1.0);
     vertColor = vec4(color, 1.0);
 }
 

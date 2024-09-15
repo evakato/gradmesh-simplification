@@ -17,7 +17,7 @@ public:
         RENDER_CURVES
     };
 
-    GmsGui(GLFWwindow *window);
+    GmsGui(GLFWwindow *window, std::string &filename);
     ~GmsGui();
     void renderGUI();
     bool isCurrentMode(RenderMode mode) { return currentMode == mode; }
@@ -28,10 +28,10 @@ public:
     glm::vec3 currentColor = glm::vec3{0.45f, 0.55f, 0.6f};
     bool currentColorChanged{false};
 
-    bool drawControlPoints = false;
-    bool drawHandles = false;
+    bool drawControlPoints = true;
+    bool drawHandles = true;
     float handleLineWidth = 2.0f;
-    bool drawCurves = false;
+    bool drawCurves = true;
     float curveLineWidth = 2.0f;
     bool drawPatches = true;
 
@@ -43,14 +43,17 @@ private:
     void createGUIFrame();
     void showHermiteMatrixTable();
     void showRenderSettings();
+    void ShowWindowMenuBar();
 
     GLFWwindow *window;
     RenderMode currentMode = {RENDER_PATCHES};
     const char *selectedTab;
+    bool open = true;
 
     static constexpr char *modeNames[2] = {(char *)"Patch", (char *)"Curve"};
 
     ImVec4 imCurrentColor;
+    std::string &filename;
 };
 
 static constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
@@ -71,3 +74,5 @@ static constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S_v(1,1)",
     "S(1,1)",
 };
+
+static std::string extractFileName(const std::string &filepath);

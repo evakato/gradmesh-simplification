@@ -16,7 +16,7 @@ PatchRenderer::~PatchRenderer()
     glDeleteBuffers(1, &VBO);
 }
 
-const void PatchRenderer::renderPatches()
+void PatchRenderer::renderPatches()
 {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -28,7 +28,9 @@ const void PatchRenderer::renderPatches()
         // GmsRenderer::setVertexData(patches[0].getGLControlMatrixData());
         GmsRenderer::setVertexData(getAllPatchVertexData(patches));
         // render patches
-        glUseProgram(gradMeshShaderId);
+        glUseProgram(patchShaderId);
+        setUniformProjectionMatrix(patchShaderId, projectionMatrix);
+
         glLineWidth(1.0f);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_PATCH);
         for (int i = 0; i < patches.size(); i++)
@@ -46,6 +48,9 @@ const void PatchRenderer::renderPatches()
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, curveEBO.size() * sizeof(unsigned int), curveEBO.data(), GL_STATIC_DRAW);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
         glLineWidth(gui.curveLineWidth);
+
+        setUniformProjectionMatrix(curveShaderId, projectionMatrix);
+
         glDrawElements(GL_PATCHES, 16 * patches.size(), GL_UNSIGNED_INT, 0);
     }
 
@@ -56,9 +61,12 @@ const void PatchRenderer::renderPatches()
         // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(handleIndicesForPatch), handleIndicesForPatch, GL_STATIC_DRAW);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, handleEBO.size() * sizeof(unsigned int), handleEBO.data(), GL_STATIC_DRAW);
         glLineWidth(gui.handleLineWidth);
+        setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         glDrawElements(GL_LINES, 16 * patches.size(), GL_UNSIGNED_INT, 0);
 
         glUseProgram(pointShaderId);
+        setUniformProjectionMatrix(pointShaderId, projectionMatrix);
+
         GmsRenderer::highlightSelectedPoint(12);
         for (int i = 0; i < patches.size(); i++)
             glDrawArrays(GL_POINTS, i * 12 + 4, 8);
@@ -68,12 +76,14 @@ const void PatchRenderer::renderPatches()
     {
         glUseProgram(pointShaderId);
         GmsRenderer::highlightSelectedPoint(12);
+        setUniformProjectionMatrix(pointShaderId, projectionMatrix);
+
         for (int i = 0; i < patches.size(); i++)
             glDrawArrays(GL_POINTS, i * 12, 4);
     }
 }
 
-const void PatchRenderer::updatePatchData()
+void PatchRenderer::updatePatchData()
 {
     if (GmsWindow::isClicked)
     {
@@ -89,7 +99,7 @@ const void PatchRenderer::updatePatchData()
     }
 }
 
-const void PatchRenderer::render()
+void PatchRenderer::render()
 {
     GmsRenderer::render();
     updatePatchData();
@@ -106,14 +116,14 @@ const void PatchRenderer::render()
     }
 }
 
-const void PatchRenderer::setupShaders()
+void PatchRenderer::setupShaders()
 {
-    std::vector gradMeshShaders{
+    std::vector patchShaders{
         ShaderSource{"../shaders/patch.vs.glsl", GL_VERTEX_SHADER},
         ShaderSource{"../shaders/patch.tcs.glsl", GL_TESS_CONTROL_SHADER},
         ShaderSource{"../shaders/patch.tes.glsl", GL_TESS_EVALUATION_SHADER},
         ShaderSource{"../shaders/patch.fs.glsl", GL_FRAGMENT_SHADER},
     };
 
-    gradMeshShaderId = linkShaders(gradMeshShaders);
+    patchShaderId = linkShaders(patchShaders);
 }

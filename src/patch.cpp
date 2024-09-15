@@ -1,6 +1,9 @@
 #include "patch.hpp"
 
-Patch::Patch(std::vector<Vertex> controlMatrix) : controlMatrix{controlMatrix} {}
+Patch::Patch(std::vector<Vertex> controlMatrix) : controlMatrix{controlMatrix}
+{
+    populatePointData();
+}
 
 Patch::Patch(std::vector<glm::vec2> points, std::vector<glm::vec3> cols)
 {
@@ -115,6 +118,24 @@ const std::vector<GLfloat> Patch::getGLCoordinates() const
         coordinateData.push_back(point.color.z);
     }
     return coordinateData;
+}
+
+const CurveVector Patch::getCurveVector(int faceEdgeIdx)
+{
+    switch (faceEdgeIdx)
+    {
+    case 0:
+        return {(*this)(0, 0), (*this)(0, 1), (*this)(0, 2), (*this)(0, 3)};
+    case 1:
+        return {(*this)(0, 3), (*this)(1, 3), (*this)(2, 3), (*this)(3, 3)};
+    case 2:
+        return {(*this)(3, 3), (*this)(3, 2), (*this)(3, 1), (*this)(3, 0)};
+    case 3:
+        return {(*this)(3, 0), (*this)(2, 0), (*this)(1, 0), (*this)(0, 0)};
+    default:
+        assert(false && "Invalid faceEdgeIdx");
+        return {};
+    }
 }
 
 const PointId getSelectedPointId(const std::vector<Patch> &patches, glm::vec2 pos)
