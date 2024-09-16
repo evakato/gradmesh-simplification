@@ -1,12 +1,16 @@
 #include "patch_renderer.hpp"
+#include "gms_app.hpp"
 
-PatchRenderer::PatchRenderer(GmsWindow &window, GmsGui &gui, std::vector<Patch> &patchData) : GmsRenderer(window, gui), patches(patchData)
+PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Patch> &patchData) : GmsRenderer(window, appState), patches(patchData)
 {
+}
+
+void PatchRenderer::bindBuffers()
+{
+    GmsRenderer::bindBuffers();
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-
     setupShaders();
-
     GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
 }
 
@@ -20,9 +24,9 @@ void PatchRenderer::renderPatches()
 {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glPolygonMode(GL_FRONT_AND_BACK, gui.isWireframeMode ? GL_LINE : GL_FILL);
+    // glPolygonMode(GL_FRONT_AND_BACK, gui.isWireframeMode ? GL_LINE : GL_FILL);
 
-    if (gui.drawPatches)
+    if (appState.renderPatches)
     {
         // same with this call
         GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
@@ -34,26 +38,26 @@ void PatchRenderer::renderPatches()
             glDrawArrays(GL_PATCHES, i * VERTS_PER_PATCH, VERTS_PER_PATCH);
     }
 
-    if (gui.drawCurves)
+    if (appState.renderCurves)
     {
         GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getCurveData));
         std::vector<unsigned int> curveEBO = generateCurveEBO(patches.size());
         glUseProgram(curveShaderId);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, curveEBO.size() * sizeof(unsigned int), curveEBO.data(), GL_STATIC_DRAW);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
-        glLineWidth(gui.curveLineWidth);
+        glLineWidth(appState.curveLineWidth);
         setUniformProjectionMatrix(curveShaderId, projectionMatrix);
         glDrawElements(GL_PATCHES, 16 * patches.size(), GL_UNSIGNED_INT, 0);
     }
 
-    if (gui.drawHandles)
+    if (appState.renderHandles)
     {
         const std::vector<GLfloat> pointHandleData = getAllPatchData(patches, &Patch::getPointHandleData);
         GmsRenderer::setVertexData(pointHandleData);
         std::vector<unsigned int> handleEBO = generateHandleEBO(pointHandleData.size() / 5);
         glUseProgram(lineShaderId);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, handleEBO.size() * sizeof(unsigned int), handleEBO.data(), GL_STATIC_DRAW);
-        glLineWidth(gui.handleLineWidth);
+        glLineWidth(appState.handleLineWidth);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         glDrawElements(GL_LINES, handleEBO.size(), GL_UNSIGNED_INT, 0);
 
@@ -65,7 +69,7 @@ void PatchRenderer::renderPatches()
         glDrawArrays(GL_POINTS, 0, allPatchHandleData.size() / 5);
     }
 
-    if (gui.drawControlPoints)
+    if (appState.renderControlPoints)
     {
         const std::vector<GLfloat> allPatchPointData = getAllPatchData(patches, &Patch::getPointData);
         GmsRenderer::setVertexData(allPatchPointData);
@@ -102,25 +106,20 @@ void PatchRenderer::render()
     updatePatchData();
     renderPatches();
 
-    if (gui.patchColorChange)
-    {
-        patches[0].setControlMatrix(gui.currentPatchData);
-        gui.patchColorChange = false;
-    }
-    else
-    {
-        gui.currentPatchData = patches[0].getControlMatrix();
-    }
+    /*
+        if (gui.patchColorChange)
+        {
+            patches[0].setControlMatrix(gui.currentPatchData);
+            gui.patchColorChange = false;
+        }
+        else
+        {
+            gui.currentPatchData = patches[0].getControlMatrix();
+        }
+        **/
 }
 
 void PatchRenderer::setupShaders()
 {
-    std::vector patchShaders{
-        ShaderSource{"../shaders/patch.vs.glsl", GL_VERTEX_SHADER},
-        ShaderSource{"../shaders/patch.tcs.glsl", GL_TESS_CONTROL_SHADER},
-        ShaderSource{"../shaders/patch.tes.glsl", GL_TESS_EVALUATION_SHADER},
-        ShaderSource{"../shaders/patch.fs.glsl", GL_FRAGMENT_SHADER},
-    };
-
     patchShaderId = linkShaders(patchShaders);
 }

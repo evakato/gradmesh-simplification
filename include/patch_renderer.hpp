@@ -1,7 +1,5 @@
 #pragma once
 
-#include "gui.hpp"
-#include "patch.hpp"
 #include "renderer.hpp"
 #include "types.hpp"
 #include "window.hpp"
@@ -14,10 +12,11 @@
 class PatchRenderer : public GmsRenderer
 {
 public:
-    PatchRenderer(GmsWindow &window, GmsGui &gui, std::vector<Patch> &patchData);
+    PatchRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Patch> &patchData);
     ~PatchRenderer();
 
     void render();
+    void bindBuffers();
 
 protected:
     void renderPatches();
@@ -27,6 +26,5 @@ protected:
     GLuint EBO;
     GLuint patchShaderId;
 
-    // TODO: create a base class to inherit patch and curve rendering separately
     std::vector<Patch> &patches;
 };

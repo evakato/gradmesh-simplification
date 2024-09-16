@@ -1,6 +1,6 @@
 #include "curve_renderer.hpp"
 
-CurveRenderer::CurveRenderer(GmsWindow &window, GmsGui &gui, std::vector<Curve> &curveData) : GmsRenderer(window, gui), curves(curveData)
+CurveRenderer::CurveRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Curve> &curveData) : GmsRenderer(window, appState), curves(curveData)
 {
     GmsRenderer::setVertexData(getAllGLVertexData(curves));
 }

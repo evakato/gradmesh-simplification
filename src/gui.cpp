@@ -1,16 +1,9 @@
 #include "gui.hpp"
+#include "gms_app.hpp"
 
-GmsGui::GmsGui(GLFWwindow *window, std::string &filename) : window(window), filename(filename)
+GmsGui::GmsGui(GmsWindow &window, GmsAppState &appState) : gmsWindow(window), appState(appState)
 {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 150");
+    createImguiContext(window.getGLFWwindow());
 }
 
 GmsGui::~GmsGui()
@@ -20,14 +13,25 @@ GmsGui::~GmsGui()
     ImGui::DestroyContext();
 }
 
-void GmsGui::createGUIFrame()
+void GmsGui::render()
+{
+    prepareImguiFrame(gmsWindow.getGLFWwindow());
+
+    showRightBar();
+    showWindowMenuBar();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void GmsGui::showRightBar()
 {
     ImGui::SetNextWindowPos(ImVec2(GUI_POS, 0));
     ImGui::SetNextWindowSize(ImVec2(GUI_WIDTH, SCR_HEIGHT));
 
     ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_NoTitleBar);
 
-    ImGui::Text(("Viewing: " + filename).c_str());
+    ImGui::Text(("Viewing: " + appState.filename).c_str());
     ImGui::Spacing();
     ImGui::Spacing();
 
@@ -35,19 +39,21 @@ void GmsGui::createGUIFrame()
     {
         if (ImGui::BeginTabItem(modeNames[RENDER_PATCHES]))
         {
-            currentMode = {RENDER_PATCHES};
+            appState.currentMode = {RENDER_PATCHES};
 
-            if (GmsWindow::validSelectedPoint())
-            {
-                ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
-                ImGui::SameLine();
-                ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
-            }
-            else
-            {
-                ImGui::Text("Selected point: none");
-            }
+            /*
+                        if (GmsWindow::validSelectedPoint())
+                        {
+                            ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
+                            ImGui::SameLine();
+                            ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
+                        }
+                        else
+                        {
+                            ImGui::Text("Selected point: none");
+                        }
 
+                        */
             showHermiteMatrixTable();
             showRenderSettings();
 
@@ -55,7 +61,8 @@ void GmsGui::createGUIFrame()
         }
         if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))
         {
-            currentMode = {RENDER_CURVES};
+            appState.currentMode = {RENDER_CURVES};
+            /*
             imCurrentColor = ImVec4(currentColor.x, currentColor.y, currentColor.z, 1.00f);
             currentColorChanged = ImGui::ColorEdit3("Current color", (float *)&imCurrentColor);
             ImGui::SliderFloat("Curve width", &lineWidth, 0.0f, 10.0f);
@@ -70,67 +77,40 @@ void GmsGui::createGUIFrame()
             {
                 ImGui::Text("Selected point: none");
             }
+            */
 
             ImGui::EndTabItem();
         }
-        selectedTab = modeNames[currentMode];
         ImGui::EndTabBar();
     }
 
     ImGui::Spacing();
     ImGui::Spacing();
-    ImGui::Text("Maximum hardware tessellation level: %i", maxHWTessellation);
+    ImGui::Text("Maximum hardware tessellation level: %i", appState.maxHWTessellation);
     // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
     ImGui::End();
 }
 
-void GmsGui::renderGUI()
-{
-    if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0)
-    {
-        ImGui_ImplGlfw_Sleep(10);
-        return;
-    }
-
-    ImGui::GetIO().FontGlobalScale = 1.0f;
-    // ImGui::SetNextWindowSize(ImVec2(0.0, 0.0), ImGuiCond_Always);
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    ImGui::StyleColorsLight();
-
-    createGUIFrame();
-    ShowWindowMenuBar();
-
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-}
-
 void GmsGui::showRenderSettings()
 {
-    ImGui::Checkbox("Wireframe mode", &isWireframeMode);
-
-    ImGui::Checkbox("Draw control points", &drawControlPoints);
-
-    ImGui::Checkbox("Draw handles", &drawHandles);
-    if (drawHandles)
+    ImGui::Checkbox("Wireframe mode", &appState.isWireframeMode);
+    ImGui::Checkbox("Draw control points", &appState.renderControlPoints);
+    ImGui::Checkbox("Draw handles", &appState.renderHandles);
+    if (appState.renderHandles)
     {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
-        ImGui::SliderFloat("Line width", &handleLineWidth, 0.0f, 10.0f);
+        ImGui::SliderFloat("Line width", &appState.handleLineWidth, 0.0f, 10.0f);
     }
-
-    ImGui::Checkbox("Draw curves", &drawCurves);
-    if (drawCurves)
+    ImGui::Checkbox("Draw curves", &appState.renderCurves);
+    if (appState.renderCurves)
     {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0f);
-        ImGui::SliderFloat("Curve width", &curveLineWidth, 0.0f, 10.0f);
+        ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
     }
-
-    ImGui::Checkbox("Draw patches", &drawPatches);
+    ImGui::Checkbox("Draw patches", &appState.renderPatches);
 }
 
 void GmsGui::showHermiteMatrixTable()
@@ -146,7 +126,7 @@ void GmsGui::showHermiteMatrixTable()
         for (int i = 0; i < 16; i++)
         {
             char label[32];
-            sprintf(label, "%.2f,%.2f", currentPatchData[i].coords.x, currentPatchData[i].coords.y);
+            sprintf(label, "%.2f,%.2f", appState.currentPatchData[i].coords.x, appState.currentPatchData[i].coords.y);
             ImGui::TableNextColumn();
 
             bool is_selected = (selected_index == i);
@@ -164,7 +144,7 @@ void GmsGui::showHermiteMatrixTable()
     {
         ImGui::Spacing();
 
-        glm::vec3 &patchColor = currentPatchData[selected_index].color;
+        glm::vec3 &patchColor = appState.currentPatchData[selected_index].color;
         ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
 
         ImGui::Text("Control point at");
@@ -173,7 +153,6 @@ void GmsGui::showHermiteMatrixTable()
         ImGui::SetNextItemWidth(200.0f);
         if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
         {
-            patchColorChange = true;
             patchColor.x = patchPointColor.x;
             patchColor.y = patchPointColor.y;
             patchColor.z = patchPointColor.z;
@@ -184,7 +163,7 @@ void GmsGui::showHermiteMatrixTable()
     ImGui::Spacing();
 }
 
-void GmsGui::ShowWindowMenuBar()
+void GmsGui::showWindowMenuBar()
 {
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(GL_LENGTH, 20));
@@ -200,7 +179,7 @@ void GmsGui::ShowWindowMenuBar()
             }
             if (ImGui::MenuItem("Save", "Ctrl+S"))
             {
-                saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
+                saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
             }
             ImGui::EndMenu();
         }
@@ -219,4 +198,31 @@ static std::string extractFileName(const std::string &filepath)
         return filepath.substr(start);
     }
     return filepath.substr(start, lastDot - start);
+}
+
+void createImguiContext(GLFWwindow *window)
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 150");
+}
+
+void prepareImguiFrame(GLFWwindow *window)
+{
+    if (glfwGetWindowAttrib(window, GLFW_ICONIFIED) != 0)
+    {
+        ImGui_ImplGlfw_Sleep(10);
+        return;
+    }
+
+    ImGui::GetIO().FontGlobalScale = 1.0f;
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    ImGui::StyleColorsLight();
 }

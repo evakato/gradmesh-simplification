@@ -1,24 +1,38 @@
 #include "renderer.hpp"
+#include "gms_app.hpp"
 
-GmsRenderer::GmsRenderer(GmsWindow &window, GmsGui &gui) : window{window}, gui{gui}
+GmsRenderer::GmsRenderer(GmsWindow &window, GmsAppState &appState) : window{window}, appState{appState} {}
+
+void GmsRenderer::bindBuffers()
 {
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    setupShaders();
 
-    int maxTessellation;
-    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &maxTessellation);
-    gui.maxHWTessellation = maxTessellation;
+    // link shaders
+    curveShaderId = linkShaders(curveShaders);
+    pointShaderId = linkShaders(pointShaders);
+    lineShaderId = linkShaders(lineShaders);
 
+    // set window/gui data
     setProjectionMatrix();
+    glGetIntegerv(GL_MAX_TESS_GEN_LEVEL, &appState.maxHWTessellation);
 }
 
 GmsRenderer::~GmsRenderer()
 {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
+}
+
+void GmsRenderer::render()
+{
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    window.processInput();
+    setProjectionMatrix();
 }
 
 void GmsRenderer::setProjectionMatrix()
@@ -34,38 +48,7 @@ void GmsRenderer::setProjectionMatrix()
     projectionMatrix = glm::ortho(left, right, bottom, top, -1.0f, 1.0f);
 }
 
-const void GmsRenderer::setupShaders()
-{
-    std::vector curveShaders{
-        ShaderSource{"../shaders/bezier.vs.glsl", GL_VERTEX_SHADER},
-        ShaderSource{"../shaders/bezier.tcs.glsl", GL_TESS_CONTROL_SHADER},
-        ShaderSource{"../shaders/bezier.tes.glsl", GL_TESS_EVALUATION_SHADER},
-        ShaderSource{"../shaders/bezier.fs.glsl", GL_FRAGMENT_SHADER},
-    };
-
-    std::vector pointShaders{
-        ShaderSource{"../shaders/controlpt.vs.glsl", GL_VERTEX_SHADER},
-        ShaderSource{"../shaders/controlpt.fs.glsl", GL_FRAGMENT_SHADER},
-    };
-
-    std::vector lineShaders{
-        ShaderSource{"../shaders/controlpt.vs.glsl", GL_VERTEX_SHADER},
-        ShaderSource{"../shaders/line.fs.glsl", GL_FRAGMENT_SHADER},
-    };
-
-    curveShaderId = linkShaders(curveShaders);
-    pointShaderId = linkShaders(pointShaders);
-    lineShaderId = linkShaders(lineShaders);
-}
-
-const void GmsRenderer::startRenderFrame()
-{
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    glLineWidth(gui.lineWidth);
-}
-
-const void GmsRenderer::setVertexData(std::vector<GLfloat> newData)
+void GmsRenderer::setVertexData(std::vector<GLfloat> newData)
 {
     vertexData = newData;
     glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(GLfloat), vertexData.data(), GL_DYNAMIC_DRAW);
@@ -75,14 +58,7 @@ const void GmsRenderer::setVertexData(std::vector<GLfloat> newData)
     glEnableVertexAttribArray(1);
 }
 
-const void GmsRenderer::render()
-{
-    startRenderFrame();
-    window.processInput();
-    setProjectionMatrix();
-}
-
-const void GmsRenderer::highlightSelectedPoint(int numOfVerts)
+void GmsRenderer::highlightSelectedPoint(int numOfVerts)
 {
     if (GmsWindow::validSelectedPoint())
     {

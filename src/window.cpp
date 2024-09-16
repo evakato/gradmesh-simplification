@@ -105,12 +105,10 @@ void GmsWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, 
             middleMouseButtonPressed = true;
             glfwGetCursorPos(window, &startX, &startY);
             mousePos = getNDCCoordinates(startX, startY);
-            std::cout << "Middle button pressed\n";
         }
         else if (action == GLFW_RELEASE)
         {
             middleMouseButtonPressed = false;
-            std::cout << "Middle button released\n";
         }
     }
 }

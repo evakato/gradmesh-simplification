@@ -1,37 +1,36 @@
 #pragma once
 
-#include "gui.hpp"
-#include "shader.hpp"
-#include "window.hpp"
+#include <vector>
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <vector>
+#include "shader.hpp"
+#include "window.hpp"
+
+class GmsAppState;
 
 class GmsRenderer
 {
 public:
-    GmsRenderer(GmsWindow &window, GmsGui &gui);
+    GmsRenderer(GmsWindow &window, GmsAppState &appState);
     ~GmsRenderer();
 
-    const void render();
+    void render();
 
 protected:
     void setProjectionMatrix();
-    const void setupShaders();
-    const void startRenderFrame();
-    const void setVertexData(std::vector<GLfloat> newData);
-    const void highlightSelectedPoint(int numOfVerts);
+    void bindBuffers();
+    void setVertexData(std::vector<GLfloat> newData);
+    void highlightSelectedPoint(int numOfVerts);
 
     GLuint VAO, VBO, EBO;
     GLuint curveShaderId, pointShaderId, lineShaderId;
 
     glm::mat4 projectionMatrix;
-
     std::vector<GLfloat> vertexData;
-    GmsGui &gui;
+    GmsAppState &appState;
 
 private:
     GmsWindow &window;

@@ -9,16 +9,17 @@
 
 #include <vector>
 
-class CurveRenderer: public GmsRenderer {
-    public:
-        CurveRenderer(GmsWindow& window, GmsGui& gui, std::vector<Curve>& curveData);
-        ~CurveRenderer();
+class CurveRenderer : public GmsRenderer
+{
+public:
+    CurveRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Curve> &curveData);
+    ~CurveRenderer();
 
-        const void render();
+    const void render();
 
-    protected:
-        const void renderCurves();
-        const void updateCurveData();
+protected:
+    const void renderCurves();
+    const void updateCurveData();
 
-        std::vector<Curve>& curves;
+    std::vector<Curve> &curves;
 };
