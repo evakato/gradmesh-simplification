@@ -94,12 +94,7 @@ inline constexpr unsigned int handleIndicesForPatch[] = {
     3, 9,
     3, 11};
 
-inline constexpr unsigned int cmi[][4] = {
-    {0, 1, 2, 5},
-    {3, 7, 11, 6},
-    {15, 14, 13, 10},
-    {12, 8, 4, 9},
-};
+inline constexpr unsigned int cornerIndices[4] = {0, 3, 12, 15};
 
 inline std::vector<unsigned int>
 generateCurveEBO(int numPatches)
@@ -113,14 +108,15 @@ generateCurveEBO(int numPatches)
     }
     return indices;
 }
-inline std::vector<unsigned int> generateHandleEBO(int numPatches)
+inline std::vector<unsigned int> generateHandleEBO(int numVertices)
 {
     std::vector<unsigned int> indices;
-    for (int set = 0; set < numPatches; ++set)
+    for (int i = 0; i < numVertices; i += 3)
     {
-        int baseIndex = set * 12;
-        for (int i = 0; i < 16; ++i)
-            indices.push_back(handleIndicesForPatch[i] + baseIndex);
+        indices.push_back(i);     // First line's start
+        indices.push_back(i + 1); // First line's end
+        indices.push_back(i);     // Second line's start
+        indices.push_back(i + 2); // Second line's end
     }
     return indices;
 }

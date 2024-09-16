@@ -111,11 +111,6 @@ GradMesh readFile(const std::string &filename)
             if (std::stoi(tokens[17]))
             {
                 halfEdge.parentIdx = std::stoi(tokens[18]);
-                if (std::stoi(tokens[19]) < 0)
-                {
-
-                    std::cout << "edge " << i << ": " << tokens[18] << " is parent idx and patch idx is " << tokens[15] << "\n";
-                }
                 /*
                 if (std::stoi(tokens[19]) >= 0)
                 {
@@ -138,6 +133,5 @@ GradMesh readFile(const std::string &filename)
             gradMesh.addEdge(halfEdge);
         }
     }
-    gradMesh.setChildrenData();
     return std::move(gradMesh);
 }

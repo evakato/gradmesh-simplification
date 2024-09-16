@@ -7,7 +7,7 @@ PatchRenderer::PatchRenderer(GmsWindow &window, GmsGui &gui, std::vector<Patch> 
 
     setupShaders();
 
-    GmsRenderer::setVertexData(getAllPatchVertexData(patches));
+    GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
 }
 
 PatchRenderer::~PatchRenderer()
@@ -25,66 +25,62 @@ void PatchRenderer::renderPatches()
     if (gui.drawPatches)
     {
         // same with this call
-        // GmsRenderer::setVertexData(patches[0].getGLControlMatrixData());
-        GmsRenderer::setVertexData(getAllPatchVertexData(patches));
-        // render patches
+        GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
         glUseProgram(patchShaderId);
         setUniformProjectionMatrix(patchShaderId, projectionMatrix);
-
         glLineWidth(1.0f);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_PATCH);
         for (int i = 0; i < patches.size(); i++)
             glDrawArrays(GL_PATCHES, i * VERTS_PER_PATCH, VERTS_PER_PATCH);
     }
 
-    // curves, lines, and points
-    GmsRenderer::setVertexData(getAllPatchCoordData(patches));
-
     if (gui.drawCurves)
     {
+        GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getCurveData));
         std::vector<unsigned int> curveEBO = generateCurveEBO(patches.size());
-
         glUseProgram(curveShaderId);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, curveEBO.size() * sizeof(unsigned int), curveEBO.data(), GL_STATIC_DRAW);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
         glLineWidth(gui.curveLineWidth);
-
         setUniformProjectionMatrix(curveShaderId, projectionMatrix);
-
         glDrawElements(GL_PATCHES, 16 * patches.size(), GL_UNSIGNED_INT, 0);
     }
 
     if (gui.drawHandles)
     {
-        std::vector<unsigned int> handleEBO = generateHandleEBO(patches.size());
+        const std::vector<GLfloat> pointHandleData = getAllPatchData(patches, &Patch::getPointHandleData);
+        GmsRenderer::setVertexData(pointHandleData);
+        std::vector<unsigned int> handleEBO = generateHandleEBO(pointHandleData.size() / 5);
         glUseProgram(lineShaderId);
-        // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(handleIndicesForPatch), handleIndicesForPatch, GL_STATIC_DRAW);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, handleEBO.size() * sizeof(unsigned int), handleEBO.data(), GL_STATIC_DRAW);
         glLineWidth(gui.handleLineWidth);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
-        glDrawElements(GL_LINES, 16 * patches.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_LINES, handleEBO.size(), GL_UNSIGNED_INT, 0);
 
+        const std::vector<GLfloat> allPatchHandleData = getAllPatchData(patches, &Patch::getHandleData);
+        GmsRenderer::setVertexData(allPatchHandleData);
         glUseProgram(pointShaderId);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
-
-        GmsRenderer::highlightSelectedPoint(12);
-        for (int i = 0; i < patches.size(); i++)
-            glDrawArrays(GL_POINTS, i * 12 + 4, 8);
+        // GmsRenderer::highlightSelectedPoint(12);
+        glDrawArrays(GL_POINTS, 0, allPatchHandleData.size() / 5);
     }
 
     if (gui.drawControlPoints)
     {
+        const std::vector<GLfloat> allPatchPointData = getAllPatchData(patches, &Patch::getPointData);
+        GmsRenderer::setVertexData(allPatchPointData);
         glUseProgram(pointShaderId);
-        GmsRenderer::highlightSelectedPoint(12);
+        // const std::vector<Vertex> allPointData = getAllPatchPointData(patches);
+        //  GmsRenderer::highlightSelectedPoint(12);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
 
-        for (int i = 0; i < patches.size(); i++)
-            glDrawArrays(GL_POINTS, i * 12, 4);
+        glDrawArrays(GL_POINTS, 0, allPatchPointData.size() / 5);
     }
 }
 
 void PatchRenderer::updatePatchData()
 {
+    /*
     if (GmsWindow::isClicked)
     {
         GmsWindow::selectedPoint = getSelectedPointId(patches, GmsWindow::mousePos);
@@ -97,6 +93,7 @@ void PatchRenderer::updatePatchData()
         //  size_t offset = GmsWindow::selectedPoint.primitiveId * 4 * sizeof(glm::vec2) + (GmsWindow::selectedPoint.pointId * sizeof(glm::vec2));
         //  glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(glm::vec2), &GmsWindow::mousePos);
     }
+    */
 }
 
 void PatchRenderer::render()

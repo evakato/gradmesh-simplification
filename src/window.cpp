@@ -55,6 +55,18 @@ void GmsWindow::processInput()
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPositionCallback);
     glfwSetScrollCallback(window, scrollCallback);
+    glfwSetKeyCallback(window, keyCallback);
+}
+
+void GmsWindow::keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+    if (action == GLFW_PRESS)
+    {
+        if (key == GLFW_KEY_S && (mods & GLFW_MOD_CONTROL))
+        {
+            std::cout << "Ctrl + S was pressed\n";
+        }
+    }
 }
 
 void GmsWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)

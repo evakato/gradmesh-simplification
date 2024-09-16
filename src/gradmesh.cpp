@@ -4,23 +4,12 @@ std::shared_ptr<std::vector<Patch>> GradMesh::generatePatchData()
 {
     patches = std::make_shared<std::vector<Patch>>();
 
-    int patchfaceIdx = 0;
     for (Face &face : faces)
     {
-        std::cout << patchfaceIdx << ": ";
-
         const auto &topEdge = edges[face.halfEdgeIdx];
         const auto &rightEdge = edges[topEdge.nextIdx];
         const auto &bottomEdge = edges[rightEdge.nextIdx];
         const auto &leftEdge = edges[bottomEdge.nextIdx];
-
-        if (topEdge.handleIdxs.first == -1 ||
-            rightEdge.handleIdxs.first == -1 ||
-            bottomEdge.handleIdxs.first == -1 ||
-            leftEdge.handleIdxs.first == -1)
-        {
-            std::cout << "yappari sou omotta";
-        }
 
         auto [m0, m0v, m1v, m0uv] = computeEdgeDerivatives(topEdge);
         auto [m1, m1u, m3u, m1uv] = computeEdgeDerivatives(rightEdge);
@@ -32,33 +21,15 @@ std::shared_ptr<std::vector<Patch>> GradMesh::generatePatchData()
                                              -m2u, -m2uv, m3uv, m3u, //
                                              m2, -m2v, -m3v, m3};
 
-        std::cout << "\n";
-        patches->push_back(Patch{controlMatrix});
-        patchfaceIdx++;
+        std::bitset<4> isChild = ((topEdge.handleIdxs.first == -1) << 3 |
+                                  (rightEdge.handleIdxs.first == -1) << 2 |
+                                  (bottomEdge.handleIdxs.first == -1) << 1 |
+                                  (leftEdge.handleIdxs.first == -1));
+
+        patches->push_back(Patch{controlMatrix, isChild});
     }
 
     return patches;
-}
-
-void GradMesh::setChildrenData()
-{
-    for (HalfEdge &edge : edges)
-    {
-        if (edge.parentIdx != -1)
-        {
-            // likely a bandaid fix for certain .hemesh files..
-            HalfEdge &parent = edges[edge.parentIdx];
-            if (edge.handleIdxs.first != -1)
-            {
-                edge.originIdx = parent.originIdx;
-                edge.handleIdxs.first = parent.handleIdxs.first;
-                edge.handleIdxs.second = parent.handleIdxs.second;
-            }
-            else
-            {
-            }
-        }
-    }
 }
 
 CurveVector GradMesh::getCurve(int halfEdgeIdx)
@@ -70,8 +41,6 @@ CurveVector GradMesh::getCurve(int halfEdgeIdx)
     auto &nextEdge = edges[edge.nextIdx];
 
     CurveVector curveVector{Vertex{origin.coords, edge.color}, Vertex{handle1.coords, handle1.color}, -Vertex{handle2.coords, handle2.color}, Vertex{points[nextEdge.originIdx].coords, nextEdge.color}};
-    // std::cout << "parent vector";
-    // std::cout << curveVector[0] << curveVector[1] << curveVector[2] << curveVector[3] << std::endl;
     return curveVector;
 }
 
@@ -79,19 +48,7 @@ std::array<Vertex, 4> GradMesh::computeEdgeDerivatives(const HalfEdge &currEdge)
 {
     std::array<Vertex, 4> edgeDerivatives;
 
-    if (currEdge.handleIdxs.first == -1)
-    {
-        // std::cout << currIndex << ", " << currEdge.interval[0] << ", " << currEdge.interval[1] << "\n";
-
-        CurveVector parentCurve = getCurve(currEdge.parentIdx);
-        Vertex v = interpolateCubic(parentCurve, currEdge.interval[0]);
-
-        edgeDerivatives[0] = Vertex{v.coords, currEdge.color};
-        float scale = currEdge.interval[1] - currEdge.interval[0];
-        edgeDerivatives[1] = interpolateCubicDerivative(parentCurve, currEdge.interval[0]) * scale;
-        edgeDerivatives[2] = interpolateCubicDerivative(parentCurve, currEdge.interval[1]) * scale;
-    }
-    else
+    if (currEdge.parentIdx == -1)
     {
         auto &origin = points[currEdge.originIdx];
         auto &handle1 = handles[currEdge.handleIdxs.first];
@@ -100,6 +57,26 @@ std::array<Vertex, 4> GradMesh::computeEdgeDerivatives(const HalfEdge &currEdge)
         edgeDerivatives[0] = Vertex{origin.coords, currEdge.color};
         edgeDerivatives[1] = Vertex{handle1.coords, handle1.color};
         edgeDerivatives[2] = -Vertex{handle2.coords, handle2.color};
+    }
+    else
+    {
+        CurveVector parentCurve = getCurve(currEdge.parentIdx);
+        Vertex v = interpolateCubic(parentCurve, currEdge.interval[0]);
+        edgeDerivatives[0] = Vertex{v.coords, currEdge.color};
+        if (currEdge.handleIdxs.first == -1)
+        {
+            // std::cout << currIndex << ", " << currEdge.interval[0] << ", " << currEdge.interval[1] << "\n";
+            float scale = currEdge.interval[1] - currEdge.interval[0];
+            edgeDerivatives[1] = interpolateCubicDerivative(parentCurve, currEdge.interval[0]) * scale;
+            edgeDerivatives[2] = interpolateCubicDerivative(parentCurve, currEdge.interval[1]) * scale;
+        }
+        else
+        {
+            auto &handle1 = handles[currEdge.handleIdxs.first];
+            auto &handle2 = handles[currEdge.handleIdxs.second];
+            edgeDerivatives[1] = Vertex{handle1.coords, handle1.color};
+            edgeDerivatives[2] = -Vertex{handle2.coords, handle2.color};
+        }
     }
     edgeDerivatives[3] = Vertex{currEdge.twist.coords, currEdge.twist.color};
 
@@ -134,7 +111,6 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
 
 Vertex interpolateCubic(CurveVector curve, float t)
 {
-    std::cout << "t: " << t << "\n";
     glm::vec4 tVec = glm::vec4(1.0f, t, t * t, t * t * t) * hermiteBasisMat;
     return curve[0] * tVec[0] + curve[1] * tVec[1] + curve[2] * tVec[2] + curve[3] * tVec[3];
 }

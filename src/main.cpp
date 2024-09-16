@@ -31,7 +31,7 @@ int main()
 {
     // std::string filename = "../meshes/recoloring_meshes/local-refinement.hemesh";
     std::string filename = "../meshes/recoloring_meshes/tulips.hemesh";
-    // std::string filename = "../meshes/global_duck.hemesh";
+    // std::string filename = "../meshes/exp_3.hemesh";
     GradMesh newMesh = readFile(filename);
 
     patches = *(newMesh.generatePatchData());

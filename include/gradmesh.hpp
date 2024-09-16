@@ -1,5 +1,6 @@
 #pragma once
 
+#include <bitset>
 #include <iostream>
 #include <memory>
 #include <vector>
@@ -34,7 +35,6 @@ public:
     }
 
     std::shared_ptr<std::vector<Patch>> generatePatchData();
-    void setChildrenData();
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
 
