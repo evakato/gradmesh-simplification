@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 #include "gradmesh.hpp"
@@ -13,7 +14,7 @@ namespace Merging
 {
     void merge(GradMesh &mesh);
     int chooseEdge(const std::vector<Face> &faces, const std::vector<HalfEdge> &edges);
-    const float splittingFactor(GradMesh &mesh, HalfEdge &face1e1, HalfEdge &face1e2, HalfEdge &face1e4, HalfEdge &face2e1, HalfEdge &face2e2, HalfEdge &face2e4);
+    const float splittingFactor(GradMesh &mesh, HalfEdge &face1e1, HalfEdge &face1e2, HalfEdge &face1e4, HalfEdge &face2e1, HalfEdge &face2e2, HalfEdge &face2e4, std::pair<int, int> childrenMerge);
     void mergePatches(GradMesh &mesh, int halfEdgeIdx);
 
     inline glm::vec2 absSum(glm::vec2 coords1, glm::vec2 coords2)

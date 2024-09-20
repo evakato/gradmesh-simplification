@@ -24,9 +24,7 @@ class GmsAppState
 public:
     RenderMode currentMode = {RENDER_PATCHES};
 
-    // filename = "../meshes/recoloring_meshes/local-refinement.hemesh";
-    std::string filename = "../meshes/exp_1.hemesh";
-    // std::string filename = "../meshes/recoloring_meshes/tulips.hemesh";
+    std::string filename = "../meshes/exp_3.hemesh";
     bool isWireframeMode = false;
     bool renderControlPoints = true;
     bool renderHandles = true;

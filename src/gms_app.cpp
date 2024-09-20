@@ -5,6 +5,7 @@ GmsApp::GmsApp() : currMesh{readFile(appState.filename)},
 {
     initializeOpenGL();
     patchRenderer.bindBuffers();
+    // filename = "../meshes/recoloring_meshes/local-refinement.hemesh";
 }
 
 void GmsApp::run()
