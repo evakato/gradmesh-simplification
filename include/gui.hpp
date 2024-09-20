@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 #include "types.hpp"
 #include "window.hpp"
 
@@ -7,6 +9,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
+
+#include "imfilebrowser.h"
 
 class GmsAppState;
 
@@ -26,13 +30,16 @@ private:
     GmsWindow &gmsWindow;
     GmsAppState &appState;
 
-    static constexpr char *modeNames[2] = {(char *)"Patch", (char *)"Curve"};
+    std::filesystem::path meshDir = "../meshes";
+    ImGui::FileBrowser fileDialog{0, meshDir};
 };
 
 void createImguiContext(GLFWwindow *window);
 void prepareImguiFrame(GLFWwindow *window);
+void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::FileBrowser &fileDialog);
 
-static constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
+constexpr char *modeNames[2] = {(char *)"Patch", (char *)"Curve"};
+constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S(0,0)",
     "S_v(0,0)",
     "S_v(0,1)",

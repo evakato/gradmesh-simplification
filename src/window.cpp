@@ -51,6 +51,8 @@ void GmsWindow::processInput()
         GmsWindow::zoom -= 0.15f;
     if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS)
         GmsWindow::zoom += 0.15f;
+    // if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    //  saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
 
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPositionCallback);
@@ -65,6 +67,10 @@ void GmsWindow::keyCallback(GLFWwindow *window, int key, int scancode, int actio
         if (key == GLFW_KEY_S && (mods & GLFW_MOD_CONTROL))
         {
             std::cout << "Ctrl + S was pressed\n";
+        }
+        if (key == GLFW_KEY_O && (mods & GLFW_MOD_CONTROL))
+        {
+            std::cout << "Ctrl + O was pressed\n";
         }
     }
 }

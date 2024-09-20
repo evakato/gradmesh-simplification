@@ -19,7 +19,7 @@ void main()
 
     borderColor = vec3(0.0, 0.0, 0.0);
     if (gl_VertexID == selectedIndex) {
-        borderColor = vec3(0.0, 0.4, 1.0);
+        //borderColor = vec3(0.0, 0.4, 1.0);
     };
 
     /*

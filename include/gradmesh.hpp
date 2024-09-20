@@ -5,8 +5,9 @@
 #include <memory>
 #include <vector>
 
-#include "types.hpp"
+#include "merging.hpp"
 #include "patch.hpp"
+#include "types.hpp"
 
 class GradMesh
 {
@@ -29,14 +30,18 @@ public:
     {
         edges.push_back(edge);
     }
-    HalfEdge &getEdge(int idx)
+    const Handle &getHandle(int idx)
     {
-        return edges[idx];
+        return handles[idx];
     }
+    void fixEdges();
+    void candidateMerges();
 
     std::shared_ptr<std::vector<Patch>> generatePatchData();
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
+    friend void Merging::merge(GradMesh &mesh);
+    friend void Merging::mergePatches(GradMesh &mesh, int halfEdgeIdx);
 
 private:
     CurveVector getCurve(int halfEdgeIdx);

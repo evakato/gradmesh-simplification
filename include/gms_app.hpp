@@ -4,6 +4,7 @@
 #include "fileio.hpp"
 #include "gradmesh.hpp"
 #include "gui.hpp"
+#include "merging.hpp"
 #include "patch.hpp"
 #include "patch_renderer.hpp"
 #include "renderer.hpp"
@@ -24,8 +25,8 @@ public:
     RenderMode currentMode = {RENDER_PATCHES};
 
     // filename = "../meshes/recoloring_meshes/local-refinement.hemesh";
-    // filename = "../meshes/exp_3.hemesh";
-    std::string filename = "../meshes/recoloring_meshes/tulips.hemesh";
+    std::string filename = "../meshes/exp_1.hemesh";
+    // std::string filename = "../meshes/recoloring_meshes/tulips.hemesh";
     bool isWireframeMode = false;
     bool renderControlPoints = true;
     bool renderHandles = true;
@@ -34,6 +35,9 @@ public:
     float handleLineWidth = 2.0f;
     float curveLineWidth = 2.0f;
     int maxHWTessellation;
+
+    bool filenameChanged = false;
+    bool doMerge = false;
 
     std::vector<Vertex> currentPatchData = std::vector<Vertex>(16);
 };
@@ -48,10 +52,10 @@ public:
 private:
     GmsAppState appState{};
 
-    GradMesh currMesh;
-    std::vector<Patch> patches;
-
     GmsWindow gmsWindow{SCR_WIDTH, SCR_HEIGHT, "gms"};
     GmsGui gui{gmsWindow, appState};
-    PatchRenderer patchRenderer;
+    PatchRenderer patchRenderer{gmsWindow, appState};
+
+    GradMesh currMesh;
+    std::vector<Patch> patches;
 };

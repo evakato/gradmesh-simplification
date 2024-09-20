@@ -20,6 +20,8 @@ void GmsGui::render()
     showRightBar();
     showWindowMenuBar();
 
+    processKeyInput(gmsWindow.getGLFWwindow(), appState, fileDialog);
+
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
@@ -56,6 +58,13 @@ void GmsGui::showRightBar()
                         */
             showHermiteMatrixTable();
             showRenderSettings();
+
+            ImGui::Spacing();
+            ImGui::Spacing();
+            if (ImGui::Button("Merge next edge"))
+            {
+                appState.doMerge = true;
+            }
 
             ImGui::EndTabItem();
         }
@@ -168,6 +177,9 @@ void GmsGui::showWindowMenuBar()
     ImGui::SetNextWindowPos(ImVec2(0, 0));
     ImGui::SetNextWindowSize(ImVec2(GL_LENGTH, 20));
 
+    fileDialog.SetTitle("title");
+    fileDialog.SetTypeFilters({".hemesh"});
+
     ImGui::Begin("Gradient mesh renderer", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_MenuBar);
 
     if (ImGui::BeginMenuBar())
@@ -176,6 +188,7 @@ void GmsGui::showWindowMenuBar()
         {
             if (ImGui::MenuItem("Open", "Ctrl+O"))
             {
+                fileDialog.Open();
             }
             if (ImGui::MenuItem("Save", "Ctrl+S"))
             {
@@ -186,6 +199,15 @@ void GmsGui::showWindowMenuBar()
         ImGui::EndMenuBar();
     }
     ImGui::End();
+
+    fileDialog.Display();
+    if (fileDialog.HasSelected())
+    {
+        std::cout << "Selected filename" << fileDialog.GetSelected().string() << std::endl;
+        appState.filename = fileDialog.GetSelected().string();
+        appState.filenameChanged = true;
+        fileDialog.ClearSelected();
+    }
 }
 
 static std::string extractFileName(const std::string &filepath)
@@ -225,4 +247,12 @@ void prepareImguiFrame(GLFWwindow *window)
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     ImGui::StyleColorsLight();
+}
+
+void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::FileBrowser &fileDialog)
+{
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+        fileDialog.Open();
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
 }

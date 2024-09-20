@@ -1,7 +1,7 @@
 #include "patch_renderer.hpp"
 #include "gms_app.hpp"
 
-PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Patch> &patchData) : GmsRenderer(window, appState), patches(patchData)
+PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState)
 {
 }
 
@@ -10,8 +10,8 @@ void PatchRenderer::bindBuffers()
     GmsRenderer::bindBuffers();
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    setupShaders();
-    GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
+    patchShaderId = linkShaders(patchShaders);
+    // GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
 }
 
 PatchRenderer::~PatchRenderer()
@@ -20,7 +20,7 @@ PatchRenderer::~PatchRenderer()
     glDeleteBuffers(1, &VBO);
 }
 
-void PatchRenderer::renderPatches()
+void PatchRenderer::renderPatches(std::vector<Patch> &patches)
 {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -100,11 +100,11 @@ void PatchRenderer::updatePatchData()
     */
 }
 
-void PatchRenderer::render()
+void PatchRenderer::render(std::vector<Patch> &patches)
 {
     GmsRenderer::render();
     updatePatchData();
-    renderPatches();
+    renderPatches(patches);
 
     /*
         if (gui.patchColorChange)
@@ -117,9 +117,4 @@ void PatchRenderer::render()
             gui.currentPatchData = patches[0].getControlMatrix();
         }
         **/
-}
-
-void PatchRenderer::setupShaders()
-{
-    patchShaderId = linkShaders(patchShaders);
 }

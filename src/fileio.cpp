@@ -89,8 +89,7 @@ GradMesh readFile(const std::string &filename)
             HalfEdge halfEdge;
             halfEdge.interval.x = std::stof(tokens[0]);
             halfEdge.interval.y = std::stof(tokens[1]);
-            Twist twist{glm::vec2(std::stof(tokens[2]), std::stof(tokens[3])), glm::vec3(std::stof(tokens[4]), std::stof(tokens[5]), std::stof(tokens[6]))};
-            halfEdge.twist = twist;
+            halfEdge.twist = {glm::vec2(std::stof(tokens[2]), std::stof(tokens[3])), glm::vec3(std::stof(tokens[4]), std::stof(tokens[5]), std::stof(tokens[6]))};
             halfEdge.color = glm::vec3(std::stof(tokens[7]), std::stof(tokens[8]), std::stof(tokens[9]));
             if (std::stoi(tokens[10]) >= 0)
             {
@@ -103,6 +102,9 @@ GradMesh readFile(const std::string &filename)
 
             if (std::stoi(tokens[12]) >= 0)
                 halfEdge.twinIdx = std::stoi(tokens[12]);
+            else
+                halfEdge.twinIdx = -1;
+
             halfEdge.prevIdx = std::stoi(tokens[13]);
             halfEdge.nextIdx = std::stoi(tokens[14]);
             halfEdge.patchIdx = std::stoi(tokens[15]);
@@ -124,6 +126,7 @@ GradMesh readFile(const std::string &filename)
                 */
                 // std::cout << i << " is child type shi whose parent is " << halfEdge.parentIdx << "\n";
                 //   halfEdge.originIdx = gradMesh.getEdge(parentIdx).originIdx;
+                halfEdge.originIdx = -1;
             }
             else
             {
@@ -133,5 +136,8 @@ GradMesh readFile(const std::string &filename)
             gradMesh.addEdge(halfEdge);
         }
     }
+
+    gradMesh.fixEdges();
+    std::cout << gradMesh;
     return std::move(gradMesh);
 }

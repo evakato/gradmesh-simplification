@@ -22,6 +22,7 @@ void Patch::populatePointData(std::bitset<4> isChild)
         curveData[i + 4] = Vertex{hermiteToBezier(parentCoords, map.bezierConversionMultiplier, handleVertex.coords), handleVertex.color};
     }
 
+    std::cout << isChild << std::endl;
     if (isChild.none())
     {
         for (std::size_t i = 0; i < 4; ++i)

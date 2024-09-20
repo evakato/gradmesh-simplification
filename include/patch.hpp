@@ -103,8 +103,6 @@ inline constexpr std::array<int, 8> handleIdxs = {1, 4, 2, 7, 11, 14, 8, 13};
 
 inline constexpr std::array<int, 12> cornerAndHandleIndices = {0, 3, 12, 15, 1, 2, 4, 7, 8, 11, 13, 14};
 
-// bezier conversion multiplier
-inline constexpr float BCM{1.0f / 3.0f};
 struct BezierConversionMap
 {
     int parentPointIdx;

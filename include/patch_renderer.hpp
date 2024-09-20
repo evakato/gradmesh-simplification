@@ -12,19 +12,16 @@
 class PatchRenderer : public GmsRenderer
 {
 public:
-    PatchRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Patch> &patchData);
+    PatchRenderer(GmsWindow &window, GmsAppState &appState);
     ~PatchRenderer();
 
-    void render();
+    void render(std::vector<Patch> &patches);
     void bindBuffers();
 
 protected:
-    void renderPatches();
+    void renderPatches(std::vector<Patch> &patches);
     void updatePatchData();
-    void setupShaders();
 
     GLuint EBO;
     GLuint patchShaderId;
-
-    std::vector<Patch> &patches;
 };
