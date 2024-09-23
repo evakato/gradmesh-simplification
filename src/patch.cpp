@@ -1,59 +1,44 @@
 #include "patch.hpp"
 
-Patch::Patch(std::vector<Vertex> controlMatrix, std::bitset<4> isChild) : controlMatrix{controlMatrix}
+Patch::Patch(std::vector<Vertex> controlMatrix, std::bitset<4> isChild, std::vector<Vertex> pointData) : controlMatrix{controlMatrix}, pointData{pointData}
 {
     populatePointData(isChild);
+    setAABB();
 }
 
 void Patch::populatePointData(std::bitset<4> isChild)
 {
-    curveData[0] = controlMatrix[0];
-    curveData[1] = controlMatrix[3];
-    curveData[2] = controlMatrix[12];
-    curveData[3] = controlMatrix[15];
-
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < VERTS_PER_CURVE; i++)
     {
-        BezierConversionMap map = convertToBezier[i];
-        int handleIdx = handleIndices[i];
-        Vertex &handleVertex = controlMatrix[handleIdx];
-        glm::vec2 parentCoords = controlMatrix[map.parentPointIdx].coords;
-
-        curveData[i + 4] = Vertex{hermiteToBezier(parentCoords, map.bezierConversionMultiplier, handleVertex.coords), handleVertex.color};
-    }
-
-    std::cout << isChild << std::endl;
-    if (isChild.none())
-    {
-        for (std::size_t i = 0; i < 4; ++i)
+        for (int j = 0; j < 2; j++)
         {
-            pointData.push_back(controlMatrix[cornerIndices[i]]);
-        }
-        for (std::size_t i = 0; i < 8; i++)
-        {
-            BezierConversionMap map = convertToBezier[i];
-            int handleIdx = handleIndices[i];
-            Vertex &handleVertex = controlMatrix[handleIdx];
-            glm::vec2 parentCoords = controlMatrix[map.parentPointIdx].coords;
-            handleData.push_back(Vertex{hermiteToBezier(parentCoords, map.bezierConversionMultiplier, handleVertex.coords), handleVertex.color});
-        }
-
-        for (std::size_t i = 0; i < 4; ++i)
-        {
-            pointHandleData.push_back(controlMatrix[cornerIndices[i]]);
-            for (std::size_t j = 0; j < 2; j++)
+            BezierConversionMap map = convertToBezier[i * 2 + j];
+            int handleIdx = handleIndices[i * 2 + j];
+            Vertex &originalHandle = controlMatrix[handleIdx];
+            Vertex parentControlPoint = controlMatrix[map.parentPointIdx];
+            Vertex convertedHandle = Vertex{hermiteToBezier(parentControlPoint.coords, map.bezierConversionMultiplier, originalHandle.coords), originalHandle.color};
+            if (j == 0)
             {
-                int matchingIdx = test[i * 2 + j];
-                BezierConversionMap map = convertToBezier[matchingIdx];
-                int handleIdx = handleIndices[matchingIdx];
-                Vertex &handleVertex = controlMatrix[handleIdx];
-                glm::vec2 parentCoords = controlMatrix[map.parentPointIdx].coords;
-                pointHandleData.push_back(Vertex{hermiteToBezier(parentCoords, map.bezierConversionMultiplier, handleVertex.coords), handleVertex.color});
+                curveData[i * 4] = parentControlPoint;
+                curveData[i * 4 + 1] = convertedHandle;
+            }
+            else
+            {
+                curveData[i * 4 + 3] = parentControlPoint;
+                curveData[i * 4 + 2] = convertedHandle;
+            }
+
+            if (!isChild.test(i))
+            {
+                handleData.push_back(convertedHandle);
+                pointHandleData.push_back(parentControlPoint);
+                pointHandleData.push_back(convertedHandle);
             }
         }
     }
 }
 
+/*
 const void Patch::updateHandleControlMatrix(int controlMatrixIdx, int mapHandleIdx, glm::vec2 geometricXY)
 {
     BezierConversionMap map = convertToBezier[mapHandleIdx]; // mapHandleIdx is [0,8]
@@ -72,6 +57,7 @@ const void Patch::updateHandlePointData(int cornerIdx, glm::vec2 cornerGeometric
         pointData[conversionIdx + 4].coords = hermiteToBezier(cornerGeometricXY, map.bezierConversionMultiplier, handleVertex.coords);
     }
 }
+*/
 
 const PointId getSelectedPointId(const std::vector<Patch> &patches, glm::vec2 pos)
 {
@@ -89,6 +75,7 @@ const PointId getSelectedPointId(const std::vector<Patch> &patches, glm::vec2 po
     return {-1, -1};
 }
 
+/*
 const void setPatchCoords(std::vector<Patch> &patches, PointId id, glm::vec2 newCoords)
 {
     Patch &currentPatch = patches[id.primitiveId];
@@ -107,6 +94,7 @@ const void setPatchCoords(std::vector<Patch> &patches, PointId id, glm::vec2 new
         currentPatch[controlMatrixIdx].coords = newCoords;
     }
 }
+*/
 
 const std::vector<GLfloat> getGLCoordinates(std::vector<Vertex> vertices)
 {
@@ -120,4 +108,15 @@ const std::vector<GLfloat> getGLCoordinates(std::vector<Vertex> vertices)
         coordinateData.push_back(point.color.z);
     }
     return coordinateData;
+}
+
+const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos)
+{
+    for (std::size_t i = 0; i < patches.size(); ++i)
+    {
+        const auto &patch = patches[i];
+        if (patch.insideAABB(pos))
+            return i;
+    }
+    return -1;
 }

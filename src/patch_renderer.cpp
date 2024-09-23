@@ -41,25 +41,21 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
     if (appState.renderCurves)
     {
         GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getCurveData));
-        std::vector<unsigned int> curveEBO = generateCurveEBO(patches.size());
         glUseProgram(curveShaderId);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, curveEBO.size() * sizeof(unsigned int), curveEBO.data(), GL_STATIC_DRAW);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
         glLineWidth(appState.curveLineWidth);
         setUniformProjectionMatrix(curveShaderId, projectionMatrix);
-        glDrawElements(GL_PATCHES, 16 * patches.size(), GL_UNSIGNED_INT, 0);
+        glDrawArrays(GL_PATCHES, 0, 16 * patches.size());
     }
 
     if (appState.renderHandles)
     {
         const std::vector<GLfloat> pointHandleData = getAllPatchData(patches, &Patch::getPointHandleData);
         GmsRenderer::setVertexData(pointHandleData);
-        std::vector<unsigned int> handleEBO = generateHandleEBO(pointHandleData.size() / 5);
         glUseProgram(lineShaderId);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, handleEBO.size() * sizeof(unsigned int), handleEBO.data(), GL_STATIC_DRAW);
         glLineWidth(appState.handleLineWidth);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
-        glDrawElements(GL_LINES, handleEBO.size(), GL_UNSIGNED_INT, 0);
+        glDrawArrays(GL_LINES, 0, pointHandleData.size() / 2);
 
         const std::vector<GLfloat> allPatchHandleData = getAllPatchData(patches, &Patch::getHandleData);
         GmsRenderer::setVertexData(allPatchHandleData);
@@ -82,15 +78,19 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
     }
 }
 
-void PatchRenderer::updatePatchData()
+void PatchRenderer::updatePatchData(std::vector<Patch> &patches)
 {
-    /*
     if (GmsWindow::isClicked)
     {
-        GmsWindow::selectedPoint = getSelectedPointId(patches, GmsWindow::mousePos);
-        // gmsgui::setCurrentColor(getColorAtPoint(curves, GmsWindow::selectedPoint));
+        int selectedPatch = getSelectedPatch(patches, GmsWindow::mousePos);
+        appState.selectedPatchId = selectedPatch;
+        if (selectedPatch != -1)
+            appState.currentPatchData = patches[selectedPatch].getControlMatrix();
+        // GmsWindow::selectedPoint = getSelectedPointId(patches, GmsWindow::mousePos);
+        //  gmsgui::setCurrentColor(getColorAtPoint(curves, GmsWindow::selectedPoint));
         GmsWindow::isClicked = false;
     }
+    /*
     else if (GmsWindow::isDragging && GmsWindow::validSelectedPoint())
     {
         setPatchCoords(patches, GmsWindow::selectedPoint, GmsWindow::mousePos);
@@ -103,7 +103,7 @@ void PatchRenderer::updatePatchData()
 void PatchRenderer::render(std::vector<Patch> &patches)
 {
     GmsRenderer::render();
-    updatePatchData();
+    updatePatchData(patches);
     renderPatches(patches);
 
     /*

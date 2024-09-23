@@ -138,6 +138,6 @@ GradMesh readFile(const std::string &filename)
     }
 
     gradMesh.fixEdges();
-    std::cout << gradMesh;
+    // std::cout << gradMesh;
     return std::move(gradMesh);
 }

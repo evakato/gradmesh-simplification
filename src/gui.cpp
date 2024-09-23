@@ -35,6 +35,8 @@ void GmsGui::showRightBar()
 
     ImGui::Text(("Viewing: " + appState.filename).c_str());
     ImGui::Spacing();
+    ImGui::Text("Maximum hardware tessellation level: %i", appState.maxHWTessellation);
+    ImGui::Spacing();
     ImGui::Spacing();
 
     if (ImGui::BeginTabBar("Rendering Mode"))
@@ -56,7 +58,15 @@ void GmsGui::showRightBar()
                         }
 
                         */
-            showHermiteMatrixTable();
+            if (appState.selectedPatchId != -1)
+            {
+                showHermiteMatrixTable();
+            }
+            else
+            {
+                ImGui::Text("No patch selected");
+            }
+
             showRenderSettings();
 
             ImGui::Spacing();
@@ -93,9 +103,6 @@ void GmsGui::showRightBar()
         ImGui::EndTabBar();
     }
 
-    ImGui::Spacing();
-    ImGui::Spacing();
-    ImGui::Text("Maximum hardware tessellation level: %i", appState.maxHWTessellation);
     // ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
     ImGui::End();
@@ -129,6 +136,7 @@ void GmsGui::showHermiteMatrixTable()
     ImGui::Spacing();
     ImGui::Spacing();
 
+    ImGui::Text("Selected patch: %i", appState.selectedPatchId);
     ImGui::Text("Hermite control matrix:");
     if (ImGui::BeginTable("split1", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
     {

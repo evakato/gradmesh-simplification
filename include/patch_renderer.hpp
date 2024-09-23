@@ -20,7 +20,7 @@ public:
 
 protected:
     void renderPatches(std::vector<Patch> &patches);
-    void updatePatchData();
+    void updatePatchData(std::vector<Patch> &patches);
 
     GLuint EBO;
     GLuint patchShaderId;

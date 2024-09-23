@@ -23,18 +23,28 @@ std::shared_ptr<std::vector<Patch>> GradMesh::generatePatchData()
                                                  -m2u, -m2uv, m3uv, m3u, //
                                                  m2, -m2v, -m3v, m3};
 
-            std::bitset<4> isChild = ((topEdge.handleIdxs.first == -1) << 3 |
-                                      (rightEdge.handleIdxs.first == -1) << 2 |
-                                      (bottomEdge.handleIdxs.first == -1) << 1 |
-                                      (leftEdge.handleIdxs.first == -1));
+            std::bitset<4> isChild = ((topEdge.isBar()) << 0 |
+                                      (rightEdge.isBar()) << 1 |
+                                      (bottomEdge.isBar()) << 2 |
+                                      (leftEdge.isBar()) << 3);
 
-            patches->push_back(Patch{controlMatrix, isChild});
+            patches->push_back(Patch{controlMatrix, isChild, generatePointData()});
         }
     }
 
     return patches;
 }
 
+std::vector<Vertex> GradMesh::generatePointData() const
+{
+    std::vector<Vertex> pointData;
+    for (const Point &point : points)
+    {
+        if (point.halfEdgeIdx != -1)
+            pointData.push_back({point.coords, glm::vec3{1.0f}});
+    }
+    return pointData;
+}
 CurveVector GradMesh::getCurve(int halfEdgeIdx)
 {
     HalfEdge &edge = edges[halfEdgeIdx];
@@ -147,22 +157,88 @@ void GradMesh::candidateMerges()
     }
 }
 
+void GradMesh::replaceChildWithParent(int childEdgeIdx)
+{
+    auto &child = edges[childEdgeIdx];
+    auto &parent = edges[child.parentIdx];
+    child.originIdx = parent.originIdx;
+    child.handleIdxs = parent.handleIdxs;
+    child.color = parent.color;
+    child.parentIdx = -1;
+    child.twinIdx = parent.twinIdx;
+    edges[child.twinIdx].twinIsTJunction = false;
+    edges[child.twinIdx].twinIdx = childEdgeIdx;
+}
+
+void GradMesh::addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t)
+{
+    auto &bar1 = edges[bar1Idx];
+    auto &bar2 = edges[bar2Idx];
+    auto &stem = edges[stemIdx];
+    HalfEdge parentEdge;
+    parentEdge.color = bar1.color;
+    std::pair<int, int> newHandles = edges[parentTwinIdx].handleIdxs;
+    parentEdge.handleIdxs = {newHandles.second, newHandles.first};
+    parentEdge.twinIdx = parentTwinIdx;
+    parentEdge.originIdx = bar1.originIdx;
+    parentEdge.nextIdx = bar2.nextIdx;
+    parentEdge.parentIdx = -1;
+    parentEdge.childrenIdxs = {bar1Idx, bar2Idx, stemIdx};
+    int parentIdx = addEdge(parentEdge);
+
+    points[bar2.originIdx].halfEdgeIdx = -1;
+
+    bar1.parentIdx = parentIdx;
+    bar2.parentIdx = parentIdx;
+    stem.parentIdx = parentIdx;
+    bar1.handleIdxs = {-1, -1};
+    bar2.handleIdxs = {-1, -1};
+    bar1.originIdx = -1;
+    bar2.originIdx = -1;
+    stem.originIdx = -1;
+    bar1.interval = {0, t};
+    bar2.interval = {t, 1};
+    stem.interval = {t, t};
+    bar1.twinIdx = -1;
+    bar2.twinIdx = -1;
+    edges[parentTwinIdx].twinIdx = parentIdx;
+    edges[parentTwinIdx].twinIsTJunction = true;
+
+    // TODO: this needs to be expanded recursively
+    std::cout << parentEdge.childrenIdxs[0] << std::endl;
+
+    for (int childIdx : bar1.childrenIdxs)
+    {
+        edges[childIdx].parentIdx = parentIdx;
+        edges[childIdx].interval *= t;
+        // std::cout << "child: " << childIdx << " interval: " << edges[childIdx].interval << " parent: " << edges[childIdx].parentIdx << std::endl;
+    }
+    for (int childIdx : bar2.childrenIdxs)
+    {
+        std::cout << "inside bar 2 child" << std::endl;
+        edges[childIdx].parentIdx = parentIdx;
+        edges[childIdx].interval *= t;
+    }
+}
+
 std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
 {
-    for (auto point : gradMesh.points)
+    for (int i = 0; i < gradMesh.points.size(); i++)
     {
-        out << "Point with edge " << point.halfEdgeIdx << ": (" << point.coords.x << ", " << point.coords.y << ")\n";
+        auto &point = gradMesh.points[i];
+        out << "Point " << i << " with edge " << point.halfEdgeIdx << ": (" << point.coords.x << ", " << point.coords.y << ")\n";
     }
     for (int i = 0; i < gradMesh.handles.size(); i++)
     {
         auto &handle = gradMesh.handles[i];
-        out << "Handle " << i << " with edge " << handle.halfEdgeIdx << ": (" << handle.coords.x << ", " << handle.coords.y << ")\n";
+        // out << "Handle " << i << " with edge " << handle.halfEdgeIdx << ": (" << handle.coords.x << ", " << handle.coords.y << ")\n";
     }
     for (int i = 0; i < gradMesh.faces.size(); i++)
     {
         auto &patch = gradMesh.faces[i];
         out << "Face " << i << " with edge " << patch.halfEdgeIdx << "\n";
     }
+    size_t validEdges = 0;
     for (int i = 0; i < gradMesh.edges.size(); i++)
     {
         auto &edge = gradMesh.edges[i];
@@ -172,13 +248,18 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
         }
         else
         {
+            validEdges++;
+            if (edge.interval.x == edge.interval.y && edge.parentIdx != -1)
+                out << "STEM ";
             out << "Edge " << i << " has origin: " << edge.originIdx << " and has color: (" << edge.color.x << ", " << edge.color.y << ", " << edge.color.z << "). ";
+            out << " interval is: " << edge.interval.x << ", " << edge.interval.y << ". ";
             out << "Handle idxs: " << edge.handleIdxs.first << " and " << edge.handleIdxs.second << ". ";
             out << "next is " << edge.nextIdx << " and prev is " << edge.prevIdx;
-            out << "FACEIdx is " << edge.patchIdx;
+            out << " FACE idx is " << edge.patchIdx;
             out << "parent is " << edge.parentIdx << " and twin is " << edge.twinIdx << "\n";
         }
     }
+    out << "There are " << validEdges << " valid edges in the mesh\n";
     return out;
 }
 

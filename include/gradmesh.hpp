@@ -33,6 +33,7 @@ public:
     int addEdge(HalfEdge edge)
     {
         edges.push_back(edge);
+        std::cout << "Adding half-edge: " << edges.size() - 1 << std::endl;
         return edges.size() - 1;
     }
     const Handle &getHandle(int idx)
@@ -60,6 +61,9 @@ public:
 
         return getParentTangent(currEdge, handleNum);
     }
+    void replaceChildWithParent(int childEdgeIdx);
+    void addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t);
+
     void fixEdges();
     void candidateMerges();
 
@@ -72,6 +76,7 @@ public:
 private:
     CurveVector getCurve(int halfEdgeIdx);
     std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge);
+    std::vector<Vertex> generatePointData() const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;

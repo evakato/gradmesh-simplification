@@ -24,7 +24,7 @@ class GmsAppState
 public:
     RenderMode currentMode = {RENDER_PATCHES};
 
-    std::string filename = "../meshes/exp_3.hemesh";
+    std::string filename = "../meshes/order1.hemesh";
     bool isWireframeMode = false;
     bool renderControlPoints = true;
     bool renderHandles = true;
@@ -37,6 +37,7 @@ public:
     bool filenameChanged = false;
     bool doMerge = false;
 
+    int selectedPatchId = -1;
     std::vector<Vertex> currentPatchData = std::vector<Vertex>(16);
 };
 

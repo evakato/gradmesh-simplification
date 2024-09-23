@@ -60,6 +60,16 @@ struct HalfEdge
     int originIdx;
     int parentIdx;
     int childIdxDegenerate = -1;
+    bool twinIsTJunction = false;
+    std::vector<int> childrenIdxs = {};
+    bool isBar() const
+    {
+        return parentIdx != -1 && (interval.x != interval.y);
+    }
+    bool isStem() const
+    {
+        return parentIdx != -1 && (interval.x == interval.y);
+    }
 };
 
 struct Vertex
@@ -74,6 +84,10 @@ struct Vertex
     Vertex(const Handle &handle)
         : coords(handle.coords), color(handle.color)
     {
+    }
+    Vertex(const glm::vec2 coords) : coords(coords)
+    {
+        color = glm::vec3(1.0f);
     }
     Vertex operator*(float scalar) const
     {
@@ -104,51 +118,13 @@ inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 
-inline constexpr unsigned int curveIndicesForPatch[] = {
-    0, 4, 5, 1,
-    3, 11, 10, 2,
-    0, 6, 8, 2,
-    3, 9, 7, 1};
-
-inline constexpr unsigned int handleIndicesForPatch[] = {
-    0, 4,
-    0, 6,
-    1, 5,
-    1, 7,
-    2, 8,
-    2, 10,
-    3, 9,
-    3, 11};
-
-inline constexpr unsigned int cornerIndices[4] = {0, 3, 12, 15};
-
-inline std::vector<unsigned int>
-generateCurveEBO(int numPatches)
-{
-    std::vector<unsigned int> indices;
-    for (int set = 0; set < numPatches; ++set)
-    {
-        int baseIndex = set * 12;
-        for (int i = 0; i < 16; ++i)
-            indices.push_back(curveIndicesForPatch[i] + baseIndex);
-    }
-    return indices;
-}
-inline std::vector<unsigned int> generateHandleEBO(int numVertices)
-{
-    std::vector<unsigned int> indices;
-    for (int i = 0; i < numVertices; i += 3)
-    {
-        indices.push_back(i);     // First line's start
-        indices.push_back(i + 1); // First line's end
-        indices.push_back(i);     // Second line's start
-        indices.push_back(i + 2); // Second line's end
-    }
-    return indices;
-}
-
 using CurveVector = std::array<Vertex, 4>;
 
+inline std::ostream &operator<<(std::ostream &os, const glm::vec2 &coords)
+{
+    os << "Coords: (" << coords.x << ", " << coords.y << "), ";
+    return os;
+}
 inline std::ostream &operator<<(std::ostream &os, const Vertex &vertex)
 {
     os << "Coords: (" << vertex.coords.x << ", " << vertex.coords.y << "), "

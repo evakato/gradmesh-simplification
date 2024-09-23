@@ -22,4 +22,8 @@ namespace Merging
         return {std::abs(coords1.x) + std::abs(coords2.x),
                 std::abs(coords1.y) + std::abs(coords2.y)};
     }
+    inline bool twoChildrenSameParent(int p1Idx, int p2Idx)
+    {
+        return (p1Idx != -1 && p2Idx != -1 && p1Idx == p2Idx);
+    }
 }
