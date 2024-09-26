@@ -60,7 +60,6 @@ struct HalfEdge
     int originIdx;
     int parentIdx;
     int childIdxDegenerate = -1;
-    bool twinIsTJunction = false;
     std::vector<int> childrenIdxs = {};
     bool isBar() const
     {
@@ -69,6 +68,10 @@ struct HalfEdge
     bool isStem() const
     {
         return parentIdx != -1 && (interval.x == interval.y);
+    }
+    bool isNormal() const
+    {
+        return parentIdx == -1 && childrenIdxs.size() == 0;
     }
 };
 
@@ -117,6 +120,10 @@ inline constexpr int GL_LENGTH{920};
 inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
+
+inline constexpr glm::vec3 blue{0.0f, 0.0f, 1.0f};
+inline constexpr glm::vec3 black{0.0f};
+inline constexpr glm::vec3 white{1.0f};
 
 using CurveVector = std::array<Vertex, 4>;
 

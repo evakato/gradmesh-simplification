@@ -71,9 +71,34 @@ void GmsGui::showRightBar()
 
             ImGui::Spacing();
             ImGui::Spacing();
-            if (ImGui::Button("Merge next edge"))
+
+            if (ImGui::CollapsingHeader("Merging", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                appState.doMerge = true;
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Text("Select an edge:");
+                ImGui::SameLine();
+                static int counter = 0;
+                ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
+                if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+                {
+                    counter--;
+                }
+                ImGui::SameLine();
+                if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+                {
+                    counter++;
+                }
+                ImGui::PopItemFlag();
+                ImGui::SameLine();
+                ImGui::Text("%d", counter);
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                if (ImGui::Button("Merge edge"))
+                {
+                    appState.doMerge = true;
+                }
             }
 
             ImGui::EndTabItem();

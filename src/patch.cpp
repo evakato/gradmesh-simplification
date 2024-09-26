@@ -1,113 +1,77 @@
 #include "patch.hpp"
 
-Patch::Patch(std::vector<Vertex> controlMatrix, std::bitset<4> isChild, std::vector<Vertex> pointData) : controlMatrix{controlMatrix}, pointData{pointData}
+Patch::Patch(std::vector<Vertex> controlMatrix, std::bitset<4> isChild) : controlMatrix{controlMatrix}, isChild{isChild}
 {
-    populatePointData(isChild);
+    populateCurveData();
     setAABB();
 }
 
-void Patch::populatePointData(std::bitset<4> isChild)
+void Patch::populateCurveData()
 {
-    for (int i = 0; i < VERTS_PER_CURVE; i++)
+    for (int i = 0; i < 4; i++)
     {
-        for (int j = 0; j < 2; j++)
-        {
-            BezierConversionMap map = convertToBezier[i * 2 + j];
-            int handleIdx = handleIndices[i * 2 + j];
-            Vertex &originalHandle = controlMatrix[handleIdx];
-            Vertex parentControlPoint = controlMatrix[map.parentPointIdx];
-            Vertex convertedHandle = Vertex{hermiteToBezier(parentControlPoint.coords, map.bezierConversionMultiplier, originalHandle.coords), originalHandle.color};
-            if (j == 0)
-            {
-                curveData[i * 4] = parentControlPoint;
-                curveData[i * 4 + 1] = convertedHandle;
-            }
-            else
-            {
-                curveData[i * 4 + 3] = parentControlPoint;
-                curveData[i * 4 + 2] = convertedHandle;
-            }
-
-            if (!isChild.test(i))
-            {
-                handleData.push_back(convertedHandle);
-                pointHandleData.push_back(parentControlPoint);
-                pointHandleData.push_back(convertedHandle);
-            }
-        }
+        std::array<int, 4> curveIdxs = patchCurveIndices[i];
+        Vertex p0 = Vertex{controlMatrix[curveIdxs[0]].coords, black};
+        Vertex p3 = Vertex{controlMatrix[curveIdxs[3]].coords, black};
+        curveData[i * 4 + 0] = p0;
+        curveData[i * 4 + 1] = Vertex{hermiteToBezier(p0.coords, BCM, controlMatrix[curveIdxs[1]].coords), black};
+        curveData[i * 4 + 2] = Vertex{hermiteToBezier(p3.coords, -BCM, controlMatrix[curveIdxs[2]].coords), black};
+        curveData[i * 4 + 3] = p3;
     }
 }
 
-/*
-const void Patch::updateHandleControlMatrix(int controlMatrixIdx, int mapHandleIdx, glm::vec2 geometricXY)
+const std::vector<GLfloat> getAllPatchGLPointData(std::vector<Patch> &patches, std::vector<int> idxs, std::optional<glm::vec3> color)
 {
-    BezierConversionMap map = convertToBezier[mapHandleIdx]; // mapHandleIdx is [0,8]
-    Vertex &parentVertex = controlMatrix[map.parentPointIdx];
-    controlMatrix[controlMatrixIdx].coords = bezierToHermite(geometricXY, parentVertex.coords, map.bezierConversionMultiplier);
+    std::vector<GLfloat> allPatchData;
+    for (auto &patch : patches)
+    {
+        const std::vector<Vertex> &curveData = patch.getCurveData();
+        for (int i = 0; i < 4; i++)
+            if (!patch.curveIsChild(i))
+                for (int idx : idxs)
+                    vertexToGlData(allPatchData, curveData[i * 4 + idx], color);
+    }
+    return allPatchData;
 }
 
-const void Patch::updateHandlePointData(int cornerIdx, glm::vec2 cornerGeometricXY)
+void vertexToGlData(std::vector<GLfloat> &glData, Vertex v, std::optional<glm::vec3> color)
 {
-    const std::array<int, 2> matchingHandleIdxs = findMatchingHandles[cornerIdx];
-    for (int i = 0; i < 2; i++)
+    glData.push_back(v.coords.x);
+    glData.push_back(v.coords.y);
+    if (color)
     {
-        int conversionIdx = matchingHandleIdxs[i];
-        BezierConversionMap map = convertToBezier[conversionIdx];
-        Vertex &handleVertex = controlMatrix[handleIndices[conversionIdx]];
-        pointData[conversionIdx + 4].coords = hermiteToBezier(cornerGeometricXY, map.bezierConversionMultiplier, handleVertex.coords);
+        glData.push_back(color->x);
+        glData.push_back(color->y);
+        glData.push_back(color->z);
     }
-}
-*/
-
-const PointId getSelectedPointId(const std::vector<Patch> &patches, glm::vec2 pos)
-{
-    for (int i = 0; i < patches.size(); ++i)
-    {
-        const auto &pointData = patches[i].getPointData();
-        for (int j = 0; j < 12; j++)
-        {
-            if (glm::distance(pos, pointData[j].coords) <= 0.03f)
-            {
-                return {i, j};
-            }
-        }
-    }
-    return {-1, -1};
-}
-
-/*
-const void setPatchCoords(std::vector<Patch> &patches, PointId id, glm::vec2 newCoords)
-{
-    Patch &currentPatch = patches[id.primitiveId];
-    const int controlMatrixIdx = cornerAndHandleIndices[id.pointId];
-    currentPatch.setPointDataCoords(id.pointId, newCoords);
-
-    // if selected point is a handle, we have to calculate the tangent from the geometric data
-    if (id.pointId >= 4)
-    {
-        currentPatch.updateHandleControlMatrix(controlMatrixIdx, id.pointId - 4, newCoords);
-    }
-    // else if selected point is a corner, we have to recalculate the positions of the tangents
     else
     {
-        currentPatch.updateHandlePointData(id.pointId, newCoords);
-        currentPatch[controlMatrixIdx].coords = newCoords;
+        glData.push_back(v.color.x);
+        glData.push_back(v.color.y);
+        glData.push_back(v.color.z);
     }
 }
-*/
 
-const std::vector<GLfloat> getGLCoordinates(std::vector<Vertex> vertices)
+void Patch::setCurveSelected(int curveIdx)
 {
-    std::vector<GLfloat> coordinateData;
-    for (const auto &point : vertices)
-    {
-        coordinateData.push_back(point.coords.x);
-        coordinateData.push_back(point.coords.y);
-        coordinateData.push_back(point.color.x);
-        coordinateData.push_back(point.color.y);
-        coordinateData.push_back(point.color.z);
-    }
-    return coordinateData;
+    assert(curveIdx >= 0 && curveIdx < 4);
+    curveData[curveIdx * 4 + 0].color = blue;
+    curveData[curveIdx * 4 + 1].color = blue;
+    curveData[curveIdx * 4 + 2].color = blue;
+    curveData[curveIdx * 4 + 3].color = blue;
+}
+
+void Patch::setAABB()
+{
+    glm::vec2 p0 = controlMatrix[0].coords;
+    glm::vec2 p1 = controlMatrix[3].coords;
+    glm::vec2 p2 = controlMatrix[12].coords;
+    glm::vec2 p3 = controlMatrix[15].coords;
+    float minX = std::min(std::min(std::min(p0.x, p1.x), p2.x), p3.x);
+    float maxX = std::max(std::max(std::max(p0.x, p1.x), p2.x), p3.x);
+    float minY = std::min(std::min(std::min(p0.y, p1.y), p2.y), p3.y);
+    float maxY = std::max(std::max(std::max(p0.y, p1.y), p2.y), p3.y);
+    aabb = AABB{minX, maxX, minY, maxY};
 }
 
 const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos)

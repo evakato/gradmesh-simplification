@@ -36,6 +36,6 @@ void main() {
     vec3 pos = bezier4(curve_coords[0], curve_coords[1], curve_coords[2], curve_coords[3], t);
     vec3 col = bezier4(curve_colors[0], curve_colors[1], curve_colors[2], curve_colors[3], t);
 
-    gl_Position = projection * vec4(pos, 1.0);
     vert_color = col;
+    gl_Position = projection * vec4(pos, 1.0);
 }

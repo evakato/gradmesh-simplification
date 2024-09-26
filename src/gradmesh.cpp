@@ -28,23 +28,13 @@ std::shared_ptr<std::vector<Patch>> GradMesh::generatePatchData()
                                       (bottomEdge.isBar()) << 2 |
                                       (leftEdge.isBar()) << 3);
 
-            patches->push_back(Patch{controlMatrix, isChild, generatePointData()});
+            patches->push_back(Patch{controlMatrix, isChild});
         }
     }
 
     return patches;
 }
 
-std::vector<Vertex> GradMesh::generatePointData() const
-{
-    std::vector<Vertex> pointData;
-    for (const Point &point : points)
-    {
-        if (point.halfEdgeIdx != -1)
-            pointData.push_back({point.coords, glm::vec3{1.0f}});
-    }
-    return pointData;
-}
 CurveVector GradMesh::getCurve(int halfEdgeIdx)
 {
     HalfEdge &edge = edges[halfEdgeIdx];
@@ -136,27 +126,6 @@ void GradMesh::fixEdges()
     std::cout << "There are " << count << " weird edges.\n";
 }
 
-void GradMesh::candidateMerges()
-{
-    int faceNum = 0;
-    for (Face &face : faces)
-    {
-        if (face.halfEdgeIdx != -1)
-        {
-            std::cout << "face" << faceNum << ": ";
-            int top = face.halfEdgeIdx;
-            auto &topEdge = edges[top];
-            int right = topEdge.nextIdx;
-            auto &rightEdge = edges[right];
-            int bottom = rightEdge.nextIdx;
-            auto &bottomEdge = edges[bottom];
-            int left = bottomEdge.nextIdx;
-            std::cout << "top, right, bottom, left: " << top << ", " << right << ", " << bottom << ", " << left << "\n";
-            faceNum++;
-        }
-    }
-}
-
 void GradMesh::replaceChildWithParent(int childEdgeIdx)
 {
     auto &child = edges[childEdgeIdx];
@@ -166,7 +135,6 @@ void GradMesh::replaceChildWithParent(int childEdgeIdx)
     child.color = parent.color;
     child.parentIdx = -1;
     child.twinIdx = parent.twinIdx;
-    edges[child.twinIdx].twinIsTJunction = false;
     edges[child.twinIdx].twinIdx = childEdgeIdx;
 }
 
@@ -202,7 +170,6 @@ void GradMesh::addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwi
     bar1.twinIdx = -1;
     bar2.twinIdx = -1;
     edges[parentTwinIdx].twinIdx = parentIdx;
-    edges[parentTwinIdx].twinIsTJunction = true;
 
     // TODO: this needs to be expanded recursively
     std::cout << parentEdge.childrenIdxs[0] << std::endl;
@@ -236,7 +203,18 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
     for (int i = 0; i < gradMesh.faces.size(); i++)
     {
         auto &patch = gradMesh.faces[i];
-        out << "Face " << i << " with edge " << patch.halfEdgeIdx << "\n";
+        int top = patch.halfEdgeIdx;
+        if (top != -1)
+        {
+            out << "Face " << i << ": ";
+            auto &topEdge = gradMesh.edges[top];
+            int right = topEdge.nextIdx;
+            auto &rightEdge = gradMesh.edges[right];
+            int bottom = rightEdge.nextIdx;
+            auto &bottomEdge = gradMesh.edges[bottom];
+            int left = bottomEdge.nextIdx;
+            out << "top, right, bottom, left: " << top << ", " << right << ", " << bottom << ", " << left << "\n";
+        }
     }
     size_t validEdges = 0;
     for (int i = 0; i < gradMesh.edges.size(); i++)

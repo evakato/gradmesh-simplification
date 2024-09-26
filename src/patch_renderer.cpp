@@ -29,7 +29,7 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
     if (appState.renderPatches)
     {
         // same with this call
-        GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
+        GmsRenderer::setVertexData(getAllPatchGLData(patches, &Patch::getControlMatrix));
         glUseProgram(patchShaderId);
         setUniformProjectionMatrix(patchShaderId, projectionMatrix);
         glLineWidth(1.0f);
@@ -40,7 +40,7 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
 
     if (appState.renderCurves)
     {
-        GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getCurveData));
+        GmsRenderer::setVertexData(getAllPatchGLData(patches, &Patch::getCurveData));
         glUseProgram(curveShaderId);
         glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
         glLineWidth(appState.curveLineWidth);
@@ -50,14 +50,14 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
 
     if (appState.renderHandles)
     {
-        const std::vector<GLfloat> pointHandleData = getAllPatchData(patches, &Patch::getPointHandleData);
+        const std::vector<GLfloat> pointHandleData = getAllPatchGLPointData(patches, {0, 1, 3, 2}, black);
         GmsRenderer::setVertexData(pointHandleData);
         glUseProgram(lineShaderId);
         glLineWidth(appState.handleLineWidth);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         glDrawArrays(GL_LINES, 0, pointHandleData.size() / 2);
 
-        const std::vector<GLfloat> allPatchHandleData = getAllPatchData(patches, &Patch::getHandleData);
+        const std::vector<GLfloat> allPatchHandleData = getAllPatchGLPointData(patches, {1, 2}, black);
         GmsRenderer::setVertexData(allPatchHandleData);
         glUseProgram(pointShaderId);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
@@ -67,10 +67,9 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
 
     if (appState.renderControlPoints)
     {
-        const std::vector<GLfloat> allPatchPointData = getAllPatchData(patches, &Patch::getPointData);
+        const std::vector<GLfloat> allPatchPointData = getAllPatchGLPointData(patches, {0, 3}, white);
         GmsRenderer::setVertexData(allPatchPointData);
         glUseProgram(pointShaderId);
-        // const std::vector<Vertex> allPointData = getAllPatchPointData(patches);
         //  GmsRenderer::highlightSelectedPoint(12);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
 

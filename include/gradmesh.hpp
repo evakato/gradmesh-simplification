@@ -33,13 +33,17 @@ public:
     int addEdge(HalfEdge edge)
     {
         edges.push_back(edge);
-        std::cout << "Adding half-edge: " << edges.size() - 1 << std::endl;
         return edges.size() - 1;
     }
     const Handle &getHandle(int idx)
     {
         assert(idx != -1 && "Handle idx is -1");
         return handles[idx];
+    }
+    const HalfEdge &getEdge(int idx) const
+    {
+        assert(idx != -1 && "Edge idx is -1");
+        return edges[idx];
     }
     const Vertex getParentTangent(const HalfEdge &currEdge, int handleNum)
     {
@@ -64,8 +68,18 @@ public:
     void replaceChildWithParent(int childEdgeIdx);
     void addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t);
 
+    void disablePoint(int pointIdx)
+    {
+        points[pointIdx].halfEdgeIdx = -1;
+    }
+    bool halfEdgeIsParent(int halfEdgeIdx) const
+    {
+        if (halfEdgeIdx == -1)
+            return false;
+        return edges[halfEdgeIdx].childrenIdxs.size() > 0;
+    }
+
     void fixEdges();
-    void candidateMerges();
 
     std::shared_ptr<std::vector<Patch>> generatePatchData();
 
@@ -76,7 +90,6 @@ public:
 private:
     CurveVector getCurve(int halfEdgeIdx);
     std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge);
-    std::vector<Vertex> generatePointData() const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;
