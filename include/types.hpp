@@ -8,12 +8,6 @@
 
 #include <glm/glm.hpp>
 
-struct PointId
-{
-    int primitiveId;
-    int pointId;
-};
-
 struct Point
 {
     glm::vec2 coords;
@@ -42,39 +36,6 @@ struct Face
 {
     int halfEdgeIdx;
 };
-struct HalfEdge
-{
-    struct Twist
-    {
-        glm::vec2 coords;
-        glm::vec3 color;
-    };
-    glm::vec2 interval;
-    Twist twist;
-    glm::vec3 color;
-    std::pair<int, int> handleIdxs;
-    int twinIdx;
-    int prevIdx;
-    int nextIdx;
-    int patchIdx;
-    int originIdx;
-    int parentIdx;
-    int childIdxDegenerate = -1;
-    std::vector<int> childrenIdxs = {};
-    bool isBar() const
-    {
-        return parentIdx != -1 && (interval.x != interval.y);
-    }
-    bool isStem() const
-    {
-        return parentIdx != -1 && (interval.x == interval.y);
-    }
-    bool isNormal() const
-    {
-        return parentIdx == -1 && childrenIdxs.size() == 0;
-    }
-};
-
 struct Vertex
 {
     glm::vec2 coords;
@@ -108,10 +69,89 @@ struct Vertex
     {
         return Vertex{-coords, -color};
     }
+    float length() const
+    {
+        return std::sqrt(coords.x * coords.x + coords.y * coords.y +
+                         color.r * color.r + color.g * color.g + color.b * color.b);
+    }
+};
+struct HalfEdge
+{
+    glm::vec2 interval;
+    Vertex twist;
+    glm::vec3 color;
+    std::pair<int, int> handleIdxs;
+    int twinIdx;
+    int prevIdx;
+    int nextIdx;
+    int patchIdx;
+    int originIdx;
+    int parentIdx;
+    int childIdxDegenerate = -1;
+    std::vector<int> childrenIdxs = {};
+    bool isChild() const
+    {
+        return parentIdx != -1;
+    }
+    bool isBar() const
+    {
+        // return parentIdx != -1 && (interval.x != interval.y);
+        return isChild() && handleIdxs.first == -1;
+    }
+    bool isStem() const
+    {
+        // return parentIdx != -1 && (interval.x == interval.y);
+        return isChild() && handleIdxs.first != -1;
+    }
+    bool isNormal() const
+    {
+        return parentIdx == -1 && childrenIdxs.size() == 0;
+    }
+    bool isParent() const
+    {
+        return parentIdx == -1 && childrenIdxs.size() > 0;
+    }
+    void copyGeometricDataExceptHandles(const HalfEdge &other)
+    {
+        this->originIdx = other.originIdx;
+        this->color = other.color;
+        this->twist = other.twist;
+    }
+    void copyGeometricData(const HalfEdge &other)
+    {
+        this->originIdx = other.originIdx;
+        this->color = other.color;
+        this->twist = other.twist;
+        this->handleIdxs = other.handleIdxs;
+    }
+    void copyAll(const HalfEdge &other)
+    {
+        copyGeometricData(other);
+        this->parentIdx = other.parentIdx;
+        this->interval = other.interval;
+    }
+    void resetToNormal()
+    {
+        parentIdx = -1;
+        interval = {0, 1};
+    }
 };
 
-// bezier conversion multiplier
-inline constexpr float BCM{1.0f / 3.0f};
+struct PointId
+{
+    int primitiveId;
+    int pointId;
+};
+
+struct CurveId
+{
+    int patchId;
+    int curveId;
+};
+
+using CurveVector = std::array<Vertex, 4>;
+
+inline constexpr float BCM{1.0f / 3.0f}; // bezier conversion multiplier
 inline constexpr int VERTS_PER_PATCH{16};
 inline constexpr int VERTS_PER_CURVE{4};
 inline constexpr int SCR_WIDTH{1280};
@@ -121,23 +161,9 @@ inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 
-inline constexpr glm::vec3 blue{0.0f, 0.0f, 1.0f};
+inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};
 inline constexpr glm::vec3 white{1.0f};
-
-using CurveVector = std::array<Vertex, 4>;
-
-inline std::ostream &operator<<(std::ostream &os, const glm::vec2 &coords)
-{
-    os << "Coords: (" << coords.x << ", " << coords.y << "), ";
-    return os;
-}
-inline std::ostream &operator<<(std::ostream &os, const Vertex &vertex)
-{
-    os << "Coords: (" << vertex.coords.x << ", " << vertex.coords.y << "), "
-       << "Color: (" << vertex.color.r << ", " << vertex.color.g << ", " << vertex.color.b << ")";
-    return os;
-}
 
 // glm is column-major
 constexpr glm::mat4 hermiteBasisMat = glm::mat4(

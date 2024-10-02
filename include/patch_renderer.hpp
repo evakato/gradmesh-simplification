@@ -15,11 +15,11 @@ public:
     PatchRenderer(GmsWindow &window, GmsAppState &appState);
     ~PatchRenderer();
 
-    void render(std::vector<Patch> &patches);
+    void render(std::vector<Patch> &patches, std::vector<Vertex> &handles);
     void bindBuffers();
 
 protected:
-    void renderPatches(std::vector<Patch> &patches);
+    void renderPatches(std::vector<Patch> &patches, std::vector<Vertex> &handles);
     void updatePatchData(std::vector<Patch> &patches);
 
     GLuint EBO;

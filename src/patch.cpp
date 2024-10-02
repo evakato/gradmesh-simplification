@@ -20,16 +20,28 @@ void Patch::populateCurveData()
     }
 }
 
-const std::vector<GLfloat> getAllPatchGLPointData(std::vector<Patch> &patches, std::vector<int> idxs, std::optional<glm::vec3> color)
+const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handles, int firstIdx, int step)
+{
+    std::vector<GLfloat> allHandleData;
+    if (handles.size() > 0)
+    {
+        for (int i = firstIdx; i < handles.size(); i += step)
+        {
+            auto &handle = handles[i];
+            vertexToGlData(allHandleData, handle);
+        }
+    }
+    return allHandleData;
+}
+const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Patch> &patches, std::optional<glm::vec3> color)
 {
     std::vector<GLfloat> allPatchData;
     for (auto &patch : patches)
     {
-        const std::vector<Vertex> &curveData = patch.getCurveData();
+        const std::vector<Vertex> &controlMatrix = patch.getControlMatrix();
         for (int i = 0; i < 4; i++)
             if (!patch.curveIsChild(i))
-                for (int idx : idxs)
-                    vertexToGlData(allPatchData, curveData[i * 4 + idx], color);
+                vertexToGlData(allPatchData, controlMatrix[controlPointIdxs[i]], color);
     }
     return allPatchData;
 }
@@ -52,13 +64,13 @@ void vertexToGlData(std::vector<GLfloat> &glData, Vertex v, std::optional<glm::v
     }
 }
 
-void Patch::setCurveSelected(int curveIdx)
+void Patch::setCurveSelected(int curveIdx, glm::vec3 color)
 {
     assert(curveIdx >= 0 && curveIdx < 4);
-    curveData[curveIdx * 4 + 0].color = blue;
-    curveData[curveIdx * 4 + 1].color = blue;
-    curveData[curveIdx * 4 + 2].color = blue;
-    curveData[curveIdx * 4 + 3].color = blue;
+    curveData[curveIdx * 4 + 0].color = color;
+    curveData[curveIdx * 4 + 1].color = color;
+    curveData[curveIdx * 4 + 2].color = color;
+    curveData[curveIdx * 4 + 3].color = color;
 }
 
 void Patch::setAABB()

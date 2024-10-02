@@ -52,7 +52,7 @@ public:
                (pos.y >= aabb.z && pos.y <= aabb.w);
     }
 
-    void setCurveSelected(int curveIdx);
+    void setCurveSelected(int curveIdx, glm::vec3 color);
 
 private:
     void populateCurveData();
@@ -81,7 +81,8 @@ const std::vector<GLfloat> getAllPatchGLData(std::vector<Patch> &patches, Func f
     }
     return allPatchData;
 }
-const std::vector<GLfloat> getAllPatchGLPointData(std::vector<Patch> &patches, std::vector<int> idxs, std::optional<glm::vec3> color = std::nullopt);
+const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handles, int firstIdx = 0, int step = 1);
+const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Patch> &patches, std::optional<glm::vec3> color);
 const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos);
 
 // some helper functions and maps to convert handles between bezier and hermite representation
@@ -98,6 +99,8 @@ inline constexpr Int4x4 patchCurveIndices = {{{0, 1, 2, 3},
                                               {3, 7, 11, 15},
                                               {12, 13, 14, 15},
                                               {0, 4, 8, 12}}};
+
+inline constexpr std::array<int, 4> controlPointIdxs = {0, 3, 15, 12};
 
 constexpr std::array<std::array<int, 2>, 4>
     findMatchingHandles = {{{0, 2}, {1, 3}, {4, 6}, {5, 7}}};

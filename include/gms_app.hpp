@@ -39,6 +39,11 @@ public:
 
     int selectedPatchId = -1;
     std::vector<Vertex> currentPatchData = std::vector<Vertex>(16);
+
+    int numOfCandidateMerges = 0;
+    int selectedEdgeId = -1;
+
+    bool debugMesh = false;
 };
 
 class GmsApp
@@ -49,6 +54,10 @@ public:
     void run();
 
 private:
+    void resetEdgeSelection();
+    void resetCurveColors();
+    void setCurveColor(int edgeIdx, glm::vec3 color);
+
     GmsAppState appState{};
 
     GmsWindow gmsWindow{SCR_WIDTH, SCR_HEIGHT, "gms"};
@@ -57,4 +66,8 @@ private:
 
     GradMesh currMesh;
     std::vector<Patch> patches;
+    std::vector<Vertex> tangentHandles;
+    std::vector<Merging::DoubleHalfEdge> candidateMerges;
+
+    int prevSelectedEdgeId = -1;
 };

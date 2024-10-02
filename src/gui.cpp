@@ -72,36 +72,78 @@ void GmsGui::showRightBar()
             ImGui::Spacing();
             ImGui::Spacing();
 
+            ImGui::Spacing();
+
+            // This is the first level of the collapsing header
             if (ImGui::CollapsingHeader("Merging", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Spacing();
-                ImGui::Spacing();
-                ImGui::Text("Select an edge:");
-                ImGui::SameLine();
-                static int counter = 0;
-                ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
-                if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+
+                // This is a nested collapsing header inside the previous one
+                if (ImGui::TreeNode("Edge select"))
                 {
-                    counter--;
+                    if (appState.selectedEdgeId == -1 && appState.numOfCandidateMerges > 0)
+                        appState.selectedEdgeId = 0;
+                    ImGui::Text("Select an edge:");
+                    ImGui::SameLine();
+                    ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
+
+                    if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+                    {
+                        if (appState.selectedEdgeId > 0)
+                        {
+                            appState.selectedEdgeId--;
+                        }
+                        else
+                        {
+                            appState.selectedEdgeId = appState.numOfCandidateMerges - 1;
+                        }
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::ArrowButton("##right", ImGuiDir_Right))
+                    {
+                        if (appState.selectedEdgeId < appState.numOfCandidateMerges - 1)
+                        {
+                            appState.selectedEdgeId++;
+                        }
+                        else
+                        {
+                            appState.selectedEdgeId = 0;
+                        }
+                    }
+                    ImGui::PopItemFlag();
+                    ImGui::SameLine();
+                    ImGui::Text("%d", appState.selectedEdgeId);
+                    ImGui::TreePop();
                 }
-                ImGui::SameLine();
-                if (ImGui::ArrowButton("##right", ImGuiDir_Right))
-                {
-                    counter++;
-                }
-                ImGui::PopItemFlag();
-                ImGui::SameLine();
-                ImGui::Text("%d", counter);
 
                 ImGui::Spacing();
+                ImGui::Text("Candidate edge merges: %d", appState.numOfCandidateMerges);
                 ImGui::Spacing();
-                if (ImGui::Button("Merge edge"))
+                if (appState.numOfCandidateMerges > 0)
                 {
-                    appState.doMerge = true;
+                    if (ImGui::Button("Merge edge"))
+                    {
+                        appState.doMerge = true;
+                    }
+                }
+                else
+                {
+                    ImGui::Text("No merges possible");
                 }
             }
 
             ImGui::EndTabItem();
+
+            ImGui::Spacing();
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            ImGui::Spacing();
+            if (ImGui::Button("Debug mesh"))
+            {
+                appState.debugMesh = true;
+            }
         }
         if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))
         {

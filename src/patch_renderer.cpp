@@ -20,7 +20,7 @@ PatchRenderer::~PatchRenderer()
     glDeleteBuffers(1, &VBO);
 }
 
-void PatchRenderer::renderPatches(std::vector<Patch> &patches)
+void PatchRenderer::renderPatches(std::vector<Patch> &patches, std::vector<Vertex> &handles)
 {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -50,14 +50,14 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
 
     if (appState.renderHandles)
     {
-        const std::vector<GLfloat> pointHandleData = getAllPatchGLPointData(patches, {0, 1, 3, 2}, black);
+        const std::vector<GLfloat> pointHandleData = getAllHandleGLPoints(handles);
         GmsRenderer::setVertexData(pointHandleData);
         glUseProgram(lineShaderId);
         glLineWidth(appState.handleLineWidth);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         glDrawArrays(GL_LINES, 0, pointHandleData.size() / 2);
 
-        const std::vector<GLfloat> allPatchHandleData = getAllPatchGLPointData(patches, {1, 2}, black);
+        const std::vector<GLfloat> allPatchHandleData = getAllHandleGLPoints(handles, 1, 2);
         GmsRenderer::setVertexData(allPatchHandleData);
         glUseProgram(pointShaderId);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
@@ -67,7 +67,7 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches)
 
     if (appState.renderControlPoints)
     {
-        const std::vector<GLfloat> allPatchPointData = getAllPatchGLPointData(patches, {0, 3}, white);
+        const std::vector<GLfloat> allPatchPointData = getAllPatchGLControlPointData(patches, white);
         GmsRenderer::setVertexData(allPatchPointData);
         glUseProgram(pointShaderId);
         //  GmsRenderer::highlightSelectedPoint(12);
@@ -99,11 +99,11 @@ void PatchRenderer::updatePatchData(std::vector<Patch> &patches)
     */
 }
 
-void PatchRenderer::render(std::vector<Patch> &patches)
+void PatchRenderer::render(std::vector<Patch> &patches, std::vector<Vertex> &handles)
 {
     GmsRenderer::render();
     updatePatchData(patches);
-    renderPatches(patches);
+    renderPatches(patches, handles);
 
     /*
         if (gui.patchColorChange)

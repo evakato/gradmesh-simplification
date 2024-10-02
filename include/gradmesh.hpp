@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "merging.hpp"
+#include "ostream_ops.hpp"
 #include "patch.hpp"
 #include "types.hpp"
 
@@ -35,6 +36,7 @@ public:
         edges.push_back(edge);
         return edges.size() - 1;
     }
+    const std::vector<Face> &getFaces() const { return faces; }
     const Handle &getHandle(int idx)
     {
         assert(idx != -1 && "Handle idx is -1");
@@ -63,10 +65,11 @@ public:
         if (handleIdx != -1)
             return handles[handleIdx];
 
+        std::cout << "have to get a parent and all that ";
         return getParentTangent(currEdge, handleNum);
     }
     void replaceChildWithParent(int childEdgeIdx);
-    void addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t);
+    void addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t, bool extendStem);
 
     void disablePoint(int pointIdx)
     {
@@ -78,18 +81,35 @@ public:
             return false;
         return edges[halfEdgeIdx].childrenIdxs.size() > 0;
     }
+    void rescaleChildren(const HalfEdge &e, float rescalingFactor)
+    {
+        for (int idx : e.childrenIdxs)
+        {
+            auto &childEdge = edges[idx];
+            childEdge.interval *= rescalingFactor;
+        }
+    }
+    void copyEdgeTwin(int e1Idx, int e2Idx)
+    {
+        auto &e1 = edges[e1Idx];
+        auto &e2 = edges[e2Idx];
+        e1.twinIdx = e2.twinIdx;
+        if (e2.twinIdx != -1)
+            edges[e2.twinIdx].twinIdx = e1Idx;
+    }
+    std::vector<Vertex> getHandles() const;
 
     void fixEdges();
 
     std::shared_ptr<std::vector<Patch>> generatePatchData();
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
-    friend void Merging::merge(GradMesh &mesh);
+    friend bool Merging::merge(GradMesh &mesh, std::vector<DoubleHalfEdge> &candidateMerges, int edgeId);
     friend void Merging::mergePatches(GradMesh &mesh, int halfEdgeIdx);
 
 private:
-    CurveVector getCurve(int halfEdgeIdx);
-    std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge);
+    CurveVector getCurve(int halfEdgeIdx) const;
+    std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge) const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;

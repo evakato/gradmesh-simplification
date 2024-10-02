@@ -12,13 +12,22 @@ class GradMesh;
 
 namespace Merging
 {
-    void merge(GradMesh &mesh);
-    std::vector<int> candidateEdges(const GradMesh &mesh, const std::vector<Face> &faces);
-    int chooseEdge(const std::vector<int> &candidateEdgeList);
+    struct DoubleHalfEdge
+    {
+        int halfEdgeIdx1;
+        int halfEdgeIdx2;
+        CurveId curveId1;
+        CurveId curveId2;
+        DoubleHalfEdge(int heIdx1, int heIdx2, CurveId curveId1) : halfEdgeIdx1(heIdx1), halfEdgeIdx2(heIdx2), curveId1(curveId1) {};
+    };
+
+    bool merge(GradMesh &mesh, std::vector<DoubleHalfEdge> &candidateMerges, int edgeId);
+    std::vector<DoubleHalfEdge> candidateEdges(const GradMesh &mesh);
+
+    int chooseEdge(const std::vector<DoubleHalfEdge> &candidateEdgeList);
     const float splittingFactor(GradMesh &mesh, HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign);
     void mergePatches(GradMesh &mesh, int halfEdgeIdx);
 
-    void copyNormalHalfEdge(GradMesh &mesh, HalfEdge &e1, HalfEdge &e2);
     void scaleHandles(Handle &h1, Handle &h2, Handle &f2h, float t);
     void mergeStem(HalfEdge &bar1, HalfEdge &bar2);
 
@@ -27,8 +36,13 @@ namespace Merging
         return {std::abs(coords1.x) + std::abs(coords2.x),
                 std::abs(coords1.y) + std::abs(coords2.y)};
     }
+    inline Vertex absVertexSum(Vertex v0, Vertex v1)
+    {
+        return Vertex{glm::abs(v0.coords) + glm::abs(v1.coords), glm::abs(v0.color) + glm::abs(v1.color)};
+    }
     inline bool twoChildrenSameParent(int p1Idx, int p2Idx)
     {
         return (p1Idx != -1 && p2Idx != -1 && p1Idx == p2Idx);
     }
+
 }
