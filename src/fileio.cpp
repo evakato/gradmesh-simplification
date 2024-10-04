@@ -107,7 +107,7 @@ GradMesh readFile(const std::string &filename)
 
             halfEdge.prevIdx = std::stoi(tokens[13]);
             halfEdge.nextIdx = std::stoi(tokens[14]);
-            halfEdge.patchIdx = std::stoi(tokens[15]);
+            halfEdge.faceIdx = std::stoi(tokens[15]);
             // if (std::stoi(tokens[16]) >= 0)
             // std::cout << "left most child type shi\n";
             if (std::stoi(tokens[17]))

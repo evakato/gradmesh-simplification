@@ -83,37 +83,21 @@ void GmsGui::showRightBar()
                 if (ImGui::TreeNode("Edge select"))
                 {
                     if (appState.selectedEdgeId == -1 && appState.numOfCandidateMerges > 0)
+                    {
                         appState.selectedEdgeId = 0;
+                    }
+                    ImGui::Spacing();
                     ImGui::Text("Select an edge:");
-                    ImGui::SameLine();
                     ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
 
-                    if (ImGui::ArrowButton("##left", ImGuiDir_Left))
+                    ImGui::SetNextItemWidth(100.0f);
+                    if (ImGui::InputInt(" ", &appState.selectedEdgeId))
                     {
-                        if (appState.selectedEdgeId > 0)
-                        {
-                            appState.selectedEdgeId--;
-                        }
-                        else
-                        {
-                            appState.selectedEdgeId = appState.numOfCandidateMerges - 1;
-                        }
+                        appState.selectedEdgeId = std::max(0, std::min(appState.selectedEdgeId, appState.numOfCandidateMerges - 1));
+                        // Code that executes when the integer changes
                     }
-                    ImGui::SameLine();
-                    if (ImGui::ArrowButton("##right", ImGuiDir_Right))
-                    {
-                        if (appState.selectedEdgeId < appState.numOfCandidateMerges - 1)
-                        {
-                            appState.selectedEdgeId++;
-                        }
-                        else
-                        {
-                            appState.selectedEdgeId = 0;
-                        }
-                    }
+
                     ImGui::PopItemFlag();
-                    ImGui::SameLine();
-                    ImGui::Text("%d", appState.selectedEdgeId);
                     ImGui::TreePop();
                 }
 

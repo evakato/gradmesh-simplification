@@ -36,12 +36,8 @@ public:
         edges.push_back(edge);
         return edges.size() - 1;
     }
+    std::vector<Vertex> getHandleBars() const;
     const std::vector<Face> &getFaces() const { return faces; }
-    const Handle &getHandle(int idx)
-    {
-        assert(idx != -1 && "Handle idx is -1");
-        return handles[idx];
-    }
     const HalfEdge &getEdge(int idx) const
     {
         assert(idx != -1 && "Edge idx is -1");
@@ -69,17 +65,17 @@ public:
         return getParentTangent(currEdge, handleNum);
     }
     void replaceChildWithParent(int childEdgeIdx);
-    void addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t, bool extendStem);
+    void addTJunction(int bar1Idx, int bar2Idx, int twinOfParentIdx, float t, bool extendStem);
 
     void disablePoint(int pointIdx)
     {
         points[pointIdx].halfEdgeIdx = -1;
     }
-    bool halfEdgeIsParent(int halfEdgeIdx) const
+    bool twinIsTJunction(const HalfEdge &e) const
     {
-        if (halfEdgeIdx == -1)
+        if (e.twinIdx == -1)
             return false;
-        return edges[halfEdgeIdx].childrenIdxs.size() > 0;
+        return edges[e.twinIdx].isParent();
     }
     void rescaleChildren(const HalfEdge &e, float rescalingFactor)
     {
@@ -89,15 +85,16 @@ public:
             childEdge.interval *= rescalingFactor;
         }
     }
-    void copyEdgeTwin(int e1Idx, int e2Idx)
+    bool twinIsStem(const HalfEdge &e) const
     {
-        auto &e1 = edges[e1Idx];
-        auto &e2 = edges[e2Idx];
-        e1.twinIdx = e2.twinIdx;
-        if (e2.twinIdx != -1)
-            edges[e2.twinIdx].twinIdx = e1Idx;
+        if (e.twinIdx == -1)
+            return false;
+        return edges[e.twinIdx].isStem();
     }
-    std::vector<Vertex> getHandles() const;
+
+    // Methods for merging faces
+    void removeFace(int faceIdx);
+    void copyEdgeTwin(int e1Idx, int e2Idx);
 
     void fixEdges();
 
@@ -110,6 +107,11 @@ public:
 private:
     CurveVector getCurve(int halfEdgeIdx) const;
     std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge) const;
+    Handle &getHandle(int idx)
+    {
+        assert(idx != -1 && "Handle idx is -1");
+        return handles[idx];
+    }
 
     std::vector<Point> points;
     std::vector<Handle> handles;

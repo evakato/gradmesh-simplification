@@ -45,4 +45,13 @@ namespace Merging
         return (p1Idx != -1 && p2Idx != -1 && p1Idx == p2Idx);
     }
 
+    enum CornerFlags
+    {
+        None = 0,
+        LeftL = 1 << 0,  // 0001
+        LeftT = 1 << 1,  // 0010
+        RightL = 1 << 2, // 0100
+        RightT = 1 << 3  // 1000
+    };
+
 }

@@ -11,7 +11,7 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
     for (int i = 0; i < gradMesh.handles.size(); i++)
     {
         auto &handle = gradMesh.handles[i];
-        out << "Handle " << i << " with edge " << handle.halfEdgeIdx << ": (" << handle.coords.x << ", " << handle.coords.y << ")\n";
+        // out << "Handle " << i << " with edge " << handle.halfEdgeIdx << ": (" << handle.coords.x << ", " << handle.coords.y << ")\n";
     }
     for (int i = 0; i < gradMesh.faces.size(); i++)
     {
@@ -33,7 +33,7 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
     for (int i = 0; i < gradMesh.edges.size(); i++)
     {
         auto &edge = gradMesh.edges[i];
-        if (edge.patchIdx == -1)
+        if (edge.faceIdx == -1)
         {
             out << "Edge " << i << " is not in use\n";
         }
@@ -51,7 +51,7 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
             out << " interval: " << edge.interval.x << ", " << edge.interval.y << ". ";
             out << "Handle idxs: " << edge.handleIdxs.first << " and " << edge.handleIdxs.second << ". ";
             out << "next is " << edge.nextIdx << " and prev is " << edge.prevIdx;
-            out << " face idx is " << edge.patchIdx;
+            out << " face idx is " << edge.faceIdx;
             out << " parent is " << edge.parentIdx << " and twin is " << edge.twinIdx << "\n children:";
             for (int i = 0; i < edge.childrenIdxs.size(); ++i)
             {
@@ -74,7 +74,7 @@ std::ostream &operator<<(std::ostream &os, const HalfEdge &edge)
        << "\n  Twin Index: " << edge.twinIdx
        << "\n  Previous Index: " << edge.prevIdx
        << "\n  Next Index: " << edge.nextIdx
-       << "\n  Patch Index: " << edge.patchIdx
+       << "\n  Patch Index: " << edge.faceIdx
        << "\n  Origin Index: " << edge.originIdx
        << "\n  Parent Index: " << edge.parentIdx
        << "\n  Child Index Degenerate: " << edge.childIdxDegenerate

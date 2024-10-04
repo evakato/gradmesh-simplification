@@ -84,11 +84,12 @@ struct HalfEdge
     int twinIdx;
     int prevIdx;
     int nextIdx;
-    int patchIdx;
+    int faceIdx;
     int originIdx;
     int parentIdx;
-    int childIdxDegenerate = -1;
     std::vector<int> childrenIdxs = {};
+    int childIdxDegenerate = -1;
+
     bool isChild() const
     {
         return parentIdx != -1;
@@ -109,7 +110,7 @@ struct HalfEdge
     }
     bool isParent() const
     {
-        return parentIdx == -1 && childrenIdxs.size() > 0;
+        return childrenIdxs.size() > 0;
     }
     void copyGeometricDataExceptHandles(const HalfEdge &other)
     {
@@ -130,10 +131,40 @@ struct HalfEdge
         this->parentIdx = other.parentIdx;
         this->interval = other.interval;
     }
+    void copyChildData(const HalfEdge &other)
+    {
+        this->parentIdx = other.parentIdx;
+        this->interval = other.interval;
+    }
+    void copyParentAndHandles(const HalfEdge &other)
+    {
+        this->parentIdx = other.parentIdx;
+        this->interval = other.interval;
+        this->handleIdxs = other.handleIdxs;
+    }
     void resetToNormal()
     {
         parentIdx = -1;
         interval = {0, 1};
+    }
+    bool hasTwin() const
+    {
+        return twinIdx != -1;
+    }
+    void replaceChild(int oldChildIdx, int newChildIdx)
+    {
+        for (int i = 0; i < childrenIdxs.size(); i++)
+        {
+            if (childrenIdxs[i] == oldChildIdx)
+            {
+                childrenIdxs[i] = newChildIdx;
+                return;
+            }
+        }
+    }
+    void addChildrenIdxs(std::vector<int> newChildren)
+    {
+        childrenIdxs.insert(childrenIdxs.end(), newChildren.begin(), newChildren.end());
     }
 };
 

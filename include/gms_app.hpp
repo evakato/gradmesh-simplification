@@ -24,7 +24,7 @@ class GmsAppState
 public:
     RenderMode currentMode = {RENDER_PATCHES};
 
-    std::string filename = "../meshes/order1.hemesh";
+    std::string filename = "../meshes/global-refinement.hemesh";
     bool isWireframeMode = false;
     bool renderControlPoints = true;
     bool renderHandles = true;

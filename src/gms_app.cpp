@@ -7,7 +7,6 @@ GmsApp::GmsApp() : currMesh{readFile(appState.filename)},
     patchRenderer.bindBuffers();
     candidateMerges = Merging::candidateEdges(currMesh);
     appState.numOfCandidateMerges = candidateMerges.size();
-    // filename = "../meshes/recoloring_meshes/local-refinement.hemesh";
 }
 
 void GmsApp::run()
@@ -49,7 +48,7 @@ void GmsApp::run()
             resetCurveColors();
         }
 
-        tangentHandles = currMesh.getHandles();
+        tangentHandles = currMesh.getHandleBars();
 
         if (appState.currentMode == RENDER_CURVES)
             ; // curveRenderer.render();

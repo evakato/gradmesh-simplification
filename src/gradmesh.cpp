@@ -80,16 +80,15 @@ std::array<Vertex, 4> GradMesh::computeEdgeDerivatives(const HalfEdge &edge) con
     return edgeDerivatives;
 }
 
-std::vector<Vertex> GradMesh::getHandles() const
+std::vector<Vertex> GradMesh::getHandleBars() const
 {
     std::vector<Vertex> pointsAndHandles = {};
     for (auto &edge : edges)
     {
-        if (edge.patchIdx != -1 && !edge.isChild())
+        if (edge.faceIdx != -1 && !edge.isBar())
         {
-            assert(edge.originIdx != -1);
             assert(edge.handleIdxs.first != -1);
-            auto &point = points[edge.originIdx];
+            auto &point = computeEdgeDerivatives(edge)[0];
             auto &tangent = handles[edge.handleIdxs.first];
             pointsAndHandles.push_back(Vertex{point.coords, black});
             pointsAndHandles.push_back(Vertex{hermiteToBezier(point.coords, BCM, tangent.coords), black});
@@ -113,9 +112,9 @@ void GradMesh::fixEdges()
         {
             // likely a bandaid fix for certain .hemesh files.. ideally i want to get rid of all those annoying parent edges completely, but for now this will do
             HalfEdge &parent = edges[edge.parentIdx];
-            std::cout << "the child is " << halfEdgeIdx << "and the parent is " << edge.parentIdx << " who belongs to " << parent.patchIdx << "\n";
+            std::cout << "the child is " << halfEdgeIdx << "and the parent is " << edge.parentIdx << " who belongs to " << parent.faceIdx << "\n";
             parent.childIdxDegenerate = halfEdgeIdx;
-            parent.patchIdx = -1;
+            parent.faceIdx = -1;
             edge.originIdx = parent.originIdx;
             edge.handleIdxs = parent.handleIdxs;
             edge.parentIdx = -1;
@@ -148,61 +147,97 @@ void GradMesh::replaceChildWithParent(int childEdgeIdx)
     copyEdgeTwin(childEdgeIdx, child.parentIdx);
 }
 
-void GradMesh::addTJunction(int bar1Idx, int bar2Idx, int stemIdx, int parentTwinIdx, float t, bool extendStem)
+void GradMesh::addTJunction(int bar1Idx, int bar2Idx, int twinOfParentIdx, float t, bool extendStem)
 {
     auto &bar1 = edges[bar1Idx];
     auto &bar2 = edges[bar2Idx];
+    int stemIdx = bar1.nextIdx;
     auto &stem = edges[stemIdx];
-    HalfEdge parentEdge;
-    if (extendStem)
+
+    if (bar2.isParent() && bar1.isParent())
+        std::cout << "ayo both are parents hahaha rip\n";
+    if (bar1.isParent())
+        std::cout << "bar1 is a parent swag\n";
+
+    if (bar2.isParent())
     {
-        std::cout << "Extending stem!\n";
-        parentEdge.copyAll(bar1);
+        std::cout << "bar2 is aparent!\n";
+        bar1.parentIdx = bar2Idx;
+        stem.parentIdx = bar2Idx;
+        bar1.twinIdx = twinOfParentIdx;
+        bar2.twinIdx = twinOfParentIdx;
+        bar2.addChildrenIdxs({bar1Idx, stemIdx});
+        for (int childIdx : bar2.childrenIdxs)
+        {
+            edges[childIdx].interval = (edges[childIdx].interval * (1 - t)) + t;
+        }
+        bar1.interval = {0, t};
+        stem.interval = {t, t};
+        std::pair<int, int> newHandles = edges[twinOfParentIdx].handleIdxs;
+        bar2.handleIdxs = {newHandles.second, newHandles.first};
+        bar2.originIdx = bar1.originIdx;
+        bar1.originIdx = -1;
+        stem.originIdx = -1;
+        bar1.handleIdxs = {-1, -1};
     }
     else
     {
-        parentEdge.copyGeometricData(bar1);
-        parentEdge.parentIdx = -1;
-        parentEdge.interval = {0, 1};
-    }
-    std::pair<int, int> newHandles = edges[parentTwinIdx].handleIdxs;
-    parentEdge.handleIdxs = {newHandles.second, newHandles.first};
-    parentEdge.twinIdx = parentTwinIdx;
-    parentEdge.nextIdx = bar2.nextIdx;
-    parentEdge.childrenIdxs = {bar1Idx, bar2Idx, stemIdx};
-    int parentIdx = addEdge(parentEdge);
-    // points[bar2.originIdx].halfEdgeIdx = -1;
+        HalfEdge parentEdge;
+        if (extendStem)
+        {
+            std::cout << "Extending stem!\n";
+            parentEdge.copyAll(bar1);
+            parentEdge.nextIdx = bar2.nextIdx;
+        }
+        else
+        {
+            parentEdge.copyGeometricData(bar1);
+            parentEdge.resetToNormal();
+        }
+        std::pair<int, int> newHandles = edges[twinOfParentIdx].handleIdxs;
+        parentEdge.handleIdxs = {newHandles.second, newHandles.first};
+        parentEdge.twinIdx = twinOfParentIdx;
+        parentEdge.nextIdx = bar2.nextIdx;
+        parentEdge.childrenIdxs = {bar1Idx, bar2Idx, stemIdx};
+        int parentIdx = addEdge(parentEdge);
 
-    bar1.parentIdx = parentIdx;
-    bar2.parentIdx = parentIdx;
-    stem.parentIdx = parentIdx;
-    bar1.handleIdxs = {-1, -1};
-    bar2.handleIdxs = {-1, -1};
-    bar1.originIdx = -1;
-    bar2.originIdx = -1;
-    stem.originIdx = -1;
-    bar1.interval = {0, t};
-    bar2.interval = {t, 1};
-    stem.interval = {t, t};
-    bar1.twinIdx = parentTwinIdx;
-    bar2.twinIdx = parentTwinIdx;
-    edges[parentTwinIdx].twinIdx = parentIdx;
-
-    // TODO: this needs to be expanded recursively
-    std::cout << parentEdge.childrenIdxs[0] << std::endl;
-
-    for (int childIdx : bar1.childrenIdxs)
-    {
-        edges[childIdx].parentIdx = parentIdx;
-        edges[childIdx].interval *= t;
-        // std::cout << "child: " << childIdx << " interval: " << edges[childIdx].interval << " parent: " << edges[childIdx].parentIdx << std::endl;
+        bar1.parentIdx = parentIdx;
+        bar2.parentIdx = parentIdx;
+        stem.parentIdx = parentIdx;
+        bar1.handleIdxs = {-1, -1};
+        bar2.handleIdxs = {-1, -1};
+        bar1.originIdx = -1;
+        bar2.originIdx = -1;
+        stem.originIdx = -1;
+        bar1.interval = {0, t};
+        bar2.interval = {t, 1};
+        stem.interval = {t, t};
+        bar1.twinIdx = twinOfParentIdx;
+        bar2.twinIdx = twinOfParentIdx;
+        edges[twinOfParentIdx].twinIdx = parentIdx;
     }
-    for (int childIdx : bar2.childrenIdxs)
-    {
-        std::cout << "inside bar 2 child" << std::endl;
-        edges[childIdx].parentIdx = parentIdx;
-        edges[childIdx].interval *= t;
-    }
+}
+
+void GradMesh::removeFace(int faceIdx)
+{
+    auto &face = faces[faceIdx];
+    auto &e1 = edges[face.halfEdgeIdx];
+    auto &e2 = edges[e1.nextIdx];
+    auto &e3 = edges[e2.nextIdx];
+    auto &e4 = edges[e3.nextIdx];
+
+    std::cout << "Removing face: " << faceIdx << "\n";
+    face.halfEdgeIdx = e1.faceIdx = e2.faceIdx = e3.faceIdx = e4.faceIdx = -1;
+}
+
+void GradMesh::copyEdgeTwin(int e1Idx, int e2Idx)
+{
+    auto &e1 = edges[e1Idx];
+    auto &e2 = edges[e2Idx];
+    e1.twinIdx = e2.twinIdx;
+    // don't set the twin if edge2 is a bar b/c it should point to the parent
+    if (e2.hasTwin() && !e2.isBar())
+        edges[e2.twinIdx].twinIdx = e1Idx;
 }
 
 Vertex interpolateCubic(CurveVector curve, float t)
