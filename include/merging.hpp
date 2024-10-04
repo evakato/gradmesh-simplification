@@ -44,6 +44,14 @@ namespace Merging
     {
         return (p1Idx != -1 && p2Idx != -1 && p1Idx == p2Idx);
     }
+    void scaleRightTHandles(GradMesh &mesh, HalfEdge &edge, HalfEdge &other, float t);
+
+    template <typename T>
+    void adjustInterval(T &interval, float &newCurvePart, float totalCurve)
+    {
+        interval += newCurvePart;
+        interval /= totalCurve;
+    }
 
     enum CornerFlags
     {
