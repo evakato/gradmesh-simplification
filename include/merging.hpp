@@ -47,7 +47,7 @@ namespace Merging
     void scaleRightTHandles(GradMesh &mesh, HalfEdge &edge, HalfEdge &other, float t);
 
     template <typename T>
-    void adjustInterval(T &interval, float &newCurvePart, float totalCurve)
+    void adjustInterval(T &interval, float newCurvePart, float totalCurve)
     {
         interval += newCurvePart;
         interval /= totalCurve;

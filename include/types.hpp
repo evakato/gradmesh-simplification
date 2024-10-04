@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <string_view>
@@ -164,7 +165,14 @@ struct HalfEdge
     }
     void addChildrenIdxs(std::vector<int> newChildren)
     {
-        childrenIdxs.insert(childrenIdxs.end(), newChildren.begin(), newChildren.end());
+        for (const int &child : newChildren)
+            // Check if the child is not already in childrenIdxs
+            if (std::find(childrenIdxs.begin(), childrenIdxs.end(), child) == childrenIdxs.end())
+                childrenIdxs.push_back(child); // Add only if not found
+    }
+    void disable()
+    {
+        faceIdx = -1;
     }
 };
 
