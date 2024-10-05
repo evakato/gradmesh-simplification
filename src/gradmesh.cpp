@@ -147,8 +147,15 @@ void GradMesh::replaceChildWithParent(int childEdgeIdx)
     copyEdgeTwin(childEdgeIdx, child.parentIdx);
 }
 
-void GradMesh::addTJunction(int bar1Idx, int bar2Idx, int twinOfParentIdx, float t, bool extendStem)
+void GradMesh::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t)
 {
+    std::cout << "The twins are: " << edge1.twinIdx << "< " << edge2.twinIdx << std::endl;
+    if (!edge1.hasTwin() || !edge2.hasTwin())
+        return;
+
+    std::cout << "Adding a t-junction\n";
+    int bar1Idx = edge1.twinIdx;
+    int bar2Idx = edge2.twinIdx;
     auto &bar1 = edges[bar1Idx];
     auto &bar2 = edges[bar2Idx];
     int stemIdx = bar1.nextIdx;
@@ -183,7 +190,7 @@ void GradMesh::addTJunction(int bar1Idx, int bar2Idx, int twinOfParentIdx, float
     else
     {
         HalfEdge parentEdge;
-        if (extendStem)
+        if (twinIsStem(edge1))
         {
             std::cout << "Extending stem!\n";
             parentEdge.copyAll(bar1);

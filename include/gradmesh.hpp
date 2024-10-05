@@ -65,7 +65,7 @@ public:
         return getParentTangent(currEdge, handleNum);
     }
     void replaceChildWithParent(int childEdgeIdx);
-    void addTJunction(int bar1Idx, int bar2Idx, int twinOfParentIdx, float t, bool extendStem);
+    void addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
 
     void disablePoint(int pointIdx)
     {

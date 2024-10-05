@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -43,6 +44,14 @@ namespace Merging
     inline bool twoChildrenSameParent(int p1Idx, int p2Idx)
     {
         return (p1Idx != -1 && p2Idx != -1 && p1Idx == p2Idx);
+    }
+    // used for finding the top right or bottom left T junction parameterization relative to the merge pair
+    inline auto parameterizeTPair(float tRatio, const HalfEdge &relativeEdge, const HalfEdge &paramEdge)
+    {
+        float bar1Param = tRatio * (1.0f - relativeEdge.interval.x);
+        float bar2Param = (1.0f - paramEdge.interval.y) / paramEdge.interval.y * bar1Param;
+        float totalParam = 1.0f + bar1Param + bar2Param;
+        return std::make_tuple(bar1Param, bar2Param, totalParam);
     }
     void scaleRightTHandles(GradMesh &mesh, HalfEdge &edge, HalfEdge &other, float t);
 
