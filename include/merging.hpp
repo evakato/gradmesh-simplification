@@ -29,7 +29,6 @@ namespace Merging
     const float splittingFactor(GradMesh &mesh, HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign);
     void mergePatches(GradMesh &mesh, int halfEdgeIdx);
 
-    void scaleHandles(Handle &h1, Handle &h2, Handle &f2h, float t);
     void mergeStem(HalfEdge &bar1, HalfEdge &bar2);
 
     inline glm::vec2 absSum(glm::vec2 coords1, glm::vec2 coords2)
@@ -45,21 +44,31 @@ namespace Merging
     {
         return (p1Idx != -1 && p2Idx != -1 && p1Idx == p2Idx);
     }
-    // used for finding the top right or bottom left T junction parameterization relative to the merge pair
-    inline auto parameterizeTPair(float tRatio, const HalfEdge &relativeEdge, const HalfEdge &paramEdge)
-    {
-        float bar1Param = tRatio * (1.0f - relativeEdge.interval.x);
-        float bar2Param = (1.0f - paramEdge.interval.y) / paramEdge.interval.y * bar1Param;
-        float totalParam = 1.0f + bar1Param + bar2Param;
-        return std::make_tuple(bar1Param, bar2Param, totalParam);
-    }
-    void scaleRightTHandles(GradMesh &mesh, HalfEdge &edge, HalfEdge &other, float t);
 
-    template <typename T>
-    void adjustInterval(T &interval, float newCurvePart, float totalCurve)
+    // reparameterization functions
+    inline auto parameterizeTBar2(float tRatio, const HalfEdge &relativeEdge)
     {
-        interval += newCurvePart;
-        interval /= totalCurve;
+        float otherBarParam = tRatio * relativeEdge.interval.y;
+        float totalParam = 1.0f + otherBarParam;
+        return std::make_tuple(otherBarParam, totalParam);
+    }
+    inline float totalCurveRelativeRight(float tRatio, const HalfEdge &relativeEdge, const HalfEdge &paramEdge)
+    {
+        auto [bar1Param, unused] = parameterizeTBar2(tRatio, relativeEdge);
+        float bar2Param = (paramEdge.interval.x / (1.0f - paramEdge.interval.x)) * bar1Param;
+        return bar1Param + bar2Param + 1.0f;
+    }
+    inline auto parameterizeTBar1(float tRatio, const HalfEdge &relativeEdge)
+    {
+        float otherBarParam = tRatio * (1.0f - relativeEdge.interval.x);
+        float totalParam = 1.0f + otherBarParam;
+        return std::make_tuple(otherBarParam, totalParam);
+    }
+    inline float totalCurveRelativeLeft(float tRatio, const HalfEdge &relativeEdge, const HalfEdge &paramEdge)
+    {
+        auto [bar1Param, unused] = parameterizeTBar1(tRatio, relativeEdge);
+        float bar2Param = (1.0f - paramEdge.interval.y) / paramEdge.interval.y * bar1Param;
+        return bar1Param + bar2Param + 1.0f;
     }
 
     enum CornerFlags
@@ -70,5 +79,19 @@ namespace Merging
         RightL = 1 << 2, // 0100
         RightT = 1 << 3  // 1000
     };
+
+    inline int getCornerFlags(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT)
+    {
+        int flags = None;
+        if (topLeftL)
+            flags |= LeftL;
+        if (topLeftT)
+            flags |= LeftT;
+        if (topRightL)
+            flags |= RightL;
+        if (topRightT)
+            flags |= RightT;
+        return flags;
+    }
 
 }

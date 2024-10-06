@@ -174,6 +174,11 @@ struct HalfEdge
     {
         faceIdx = -1;
     }
+    void reparamInterval(float delta, float total)
+    {
+        interval += delta;
+        interval /= total;
+    }
 };
 
 struct PointId

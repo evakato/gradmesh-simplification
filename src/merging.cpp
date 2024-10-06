@@ -14,14 +14,6 @@ namespace Merging
         return false;
     }
 
-    void scaleRightTHandles(GradMesh &mesh, HalfEdge &edge, HalfEdge &other, float t)
-    {
-        auto &topLeftHandle = mesh.getHandle(edge.handleIdxs.first);
-        auto &topRightHandle = mesh.getHandle(edge.handleIdxs.second);
-        topLeftHandle = mesh.getHandle(other.handleIdxs.first) * (1.0f / t);
-        topRightHandle *= (1.0f / (1.0f - t));
-    }
-
     int chooseEdge(const std::vector<DoubleHalfEdge> &candidateEdgeList)
     {
         if (candidateEdgeList.size() > 0)
@@ -69,34 +61,12 @@ namespace Merging
         return edgeList;
     }
 
-    void scaleHandles(Handle &h1, Handle &h2, Handle &f2h, float t)
-    {
-        float leftMul = 1.0f / t;
-        float rightMul = 1.0f / (1.0f - t);
-        h1 *= leftMul;
-        h2 = f2h * rightMul;
-    }
-
     bool removeWholeTJunction(HalfEdge &bar1, HalfEdge &bar2)
     {
         bar1.interval.x = std::min(bar1.interval.x, bar2.interval.x);
         bar1.interval.y = std::max(bar1.interval.y, bar2.interval.y);
         // TODO : replace with approximations
         return (bar1.interval.x == 0 && bar1.interval.y == 1);
-    }
-
-    int getCornerFlags(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT)
-    {
-        int flags = None;
-        if (topLeftL)
-            flags |= LeftL;
-        if (topLeftT)
-            flags |= LeftT;
-        if (topRightL)
-            flags |= RightL;
-        if (topRightT)
-            flags |= RightT;
-        return flags;
     }
 
     void mergePatches(GradMesh &mesh, int mergeEdgeIdx)
@@ -141,11 +111,6 @@ namespace Merging
         float topEdgeT = t;
         float bottomEdgeT = t;
 
-        float modifiedScaleHandleRight = 1.0f / (1.0f - t);
-        float modifiedScaleHandleLeft = 1.0f / t;
-
-        float bottomTJunctionParameter = t;
-
         bool topLeftL = face1e3.isBar() && face1e4.isStem();
         bool topLeftT = face1e4.isBar() && mesh.twinIsStem(face1e3);
         bool topRightL = face2e3.isBar() && mesh.twinIsStem(face2e2);
@@ -155,14 +120,6 @@ namespace Merging
 
         switch (topEdge)
         {
-        case LeftL | RightL:
-        {
-            // 2 --> 49 --> 7 or 18 --> 35 --> 16
-            // weird case lmao: basically just delete the stem from the RightL
-            std::cout << "Case: LeftL && RightL" << std::endl;
-            face1e1.copyChildData(face2e3);
-            break;
-        }
         case LeftT | RightT:
         {
             // 9 --> 18 --> 8
@@ -172,21 +129,21 @@ namespace Merging
             int rightTParentIdx = face2e2.parentIdx;
             topRightEdge = &mesh.edges[rightTParentIdx];
 
-            auto [rightCurveBar1, rightCurveBar2, totalCurve] = parameterizeTPair((1.0f - t) / t, face1e4, face2e2);
-            topEdgeT = 1.0f / totalCurve;
+            float totalRelativeLeft = totalCurveRelativeLeft((1.0f - t) / t, face1e4, face2e2);
+            float totalRelativeRight = totalCurveRelativeRight(t / (1.0f - t), face2e2, face1e4);
+            topEdgeT = 1.0f / totalRelativeLeft;
 
             // reparameterize the intervals for the right T children
             for (int childIdx : topRightEdge->childrenIdxs)
             {
                 mesh.edges[childIdx].parentIdx = topLeftEdgeIdx;
-                mesh.edges[childIdx].interval *= (rightCurveBar1 + rightCurveBar2);
-                adjustInterval(mesh.edges[childIdx].interval, 1.0f, totalCurve);
+                mesh.edges[childIdx].reparamInterval(totalRelativeRight - 1.0f, totalRelativeRight);
             }
 
             // reparameterize the intervals for the left T children
             for (int childIdx : topLeftEdge->childrenIdxs)
             {
-                mesh.edges[childIdx].interval /= totalCurve;
+                mesh.edges[childIdx].interval /= totalRelativeLeft;
             }
             // left T inherits the children from right T
             mesh.edges[rightTParentIdx].replaceChild(face2e2Idx, face1e4Idx);
@@ -198,38 +155,6 @@ namespace Merging
             face1e1.copyChildData(face2e3);
             face1e4.interval.y = face2e2.interval.y;
             topRightEdge->disable();
-            break;
-        }
-        case LeftT | RightL:
-            // 9 --> 47 --> 8 or 16 -> 38 --> 26
-            mesh.edges[face1e4.parentIdx].copyChildData(face2e2);
-            face1e1.copyChildData(face2e3);
-            [[fallthrough]];
-        case LeftT:
-        {
-            std::cout << "Case: LeftT (w/ or w/o) RightL" << std::endl;
-            topLeftEdgeIdx = face1e4.parentIdx;
-            topLeftEdge = &mesh.edges[topLeftEdgeIdx];
-
-            float newCurvePart = ((1.0f - t) / t) * (1.0f - face1e4.interval.x);
-            topEdgeT = 1.0f / (1.0f + newCurvePart);
-
-            for (int childIdx : topLeftEdge->childrenIdxs)
-                mesh.edges[childIdx].interval /= (1.0f + newCurvePart);
-
-            break;
-        }
-        case LeftL:
-        {
-            std::cout << "Case: LeftL && no RightL or RightT" << std::endl;
-            // needs nothing
-            break;
-        }
-        case RightL:
-        {
-            std::cout << "Case: RightL && no LeftL or LeftT" << std::endl;
-            face1e1.copyChildData(face2e3);
-            mesh.edges[face2e3.parentIdx].replaceChild(face2e3Idx, face1e1Idx);
             break;
         }
         case LeftL | RightT:
@@ -245,11 +170,11 @@ namespace Merging
             int rightTParentIdx = face2e2.parentIdx;
             auto &rightTParent = mesh.edges[rightTParentIdx];
 
-            float newCurvePart = (t / (1.0f - t)) * face2e2.interval.y;
-            float totalCurve = 1.0f + newCurvePart;
+            auto [newCurvePart, totalCurve] = parameterizeTBar2(t / (1.0f - t), face2e2);
             float newT = newCurvePart / totalCurve;
 
-            scaleRightTHandles(mesh, rightTParent, face1e4, newT);
+            mesh.getHandle(rightTParent.handleIdxs.first) = mesh.getHandle(face1e4.handleIdxs.first) * (1.0f / newT);
+            mesh.getHandle(rightTParent.handleIdxs.second) *= (1.0f / (1.0f - newT));
 
             rightTParent.copyGeometricDataExceptHandles(face1e4);
             face1e1.copyAll(face2e3);
@@ -261,7 +186,7 @@ namespace Merging
 
             for (int childIdx : rightTParent.childrenIdxs)
             {
-                adjustInterval(mesh.edges[childIdx].interval, newCurvePart, totalCurve);
+                mesh.edges[childIdx].reparamInterval(newCurvePart, totalCurve);
             }
             face1e4.interval.x = 0;
 
@@ -269,6 +194,38 @@ namespace Merging
 
             test = false;
             break;
+        }
+        case LeftT | RightL:
+            // 9 --> 47 --> 8 or 16 -> 38 --> 26
+            mesh.edges[face1e4.parentIdx].copyChildData(face2e2);
+            face1e1.copyChildData(face2e3);
+            [[fallthrough]];
+        case LeftT:
+        {
+            std::cout << "Case: LeftT (w/ or w/o) RightL" << std::endl;
+            topLeftEdgeIdx = face1e4.parentIdx;
+            topLeftEdge = &mesh.edges[topLeftEdgeIdx];
+            auto [newCurvePart, totalCurve] = parameterizeTBar1((1.0f - t) / t, face1e4);
+            topEdgeT = 1.0f / totalCurve;
+
+            for (int childIdx : topLeftEdge->childrenIdxs)
+                mesh.edges[childIdx].interval /= totalCurve;
+
+            break;
+        }
+        case LeftL | RightL:
+        case RightL:
+        {
+            // for leftL, weird case: basically just delete the stem from the RightL
+            // 2 --> 49 --> 7 or 18 --> 35 --> 16
+            std::cout << "Case: RightL && w/ or w/o LeftL\n";
+            face1e1.copyChildData(face2e3);
+            mesh.edges[face2e3.parentIdx].replaceChild(face2e3Idx, face1e1Idx);
+            break;
+        }
+        case LeftL:
+        {
+            std::cout << "Case: LeftL && no RightL or RightT" << std::endl;
         }
         case None:
         {
@@ -289,26 +246,50 @@ namespace Merging
         int bottomEdge = getCornerFlags(bottomLeftL, bottomLeftT, bottomRightL, bottomRightT);
         switch (bottomEdge)
         {
-        case LeftL | RightL:
+        case LeftT | RightT:
         {
-            std::cout << "Case: LeftL && RightL bottom" << std::endl;
-            // 2 --> 49 --> 16
-            face1e1.copyChildData(face2e3);
-            face1e2.copyChildData(face2e4);
+            // 0 -> 20 -> 14
+            std::cout << "Case: LeftT && RightT" << std::endl;
+            bottomLeftEdgeIdx = face1e2.parentIdx;
+            bottomLeftEdge = &mesh.edges[bottomLeftEdgeIdx];
+            int rightTParentIdx = face2e4.parentIdx;
+            bottomRightEdge = &mesh.edges[rightTParentIdx];
+
+            float totalRelativeRight = totalCurveRelativeRight((1.0f - t) / t, face1e2, face2e4);
+            float totalRelativeLeft = totalCurveRelativeLeft(t / (1.0f - t), face2e4, face1e2);
+            bottomEdgeT = 1.0f / totalRelativeRight;
+
+            // reparameterize the intervals for the right T children
+            for (int childIdx : bottomRightEdge->childrenIdxs)
+            {
+                mesh.edges[childIdx].parentIdx = bottomLeftEdgeIdx;
+                mesh.edges[childIdx].interval /= totalRelativeLeft;
+            }
+            // reparameterize the intervals for the left T children
+            for (int childIdx : bottomLeftEdge->childrenIdxs)
+            {
+                mesh.edges[childIdx].reparamInterval(totalRelativeRight - 1.0f, totalRelativeRight);
+            }
+            mesh.edges[rightTParentIdx].replaceChild(face2e4Idx, face1e2Idx);
+            bottomLeftEdge->addChildrenIdxs(bottomRightEdge->childrenIdxs);
+
+            // update new children and disable right T parent
+            face1e2.interval.x = face2e4.interval.x;
+            face1e2.color = face2e4.color;
+            bottomRightEdge->disable();
             break;
         }
         case LeftL | RightT:
+        case RightT:
         {
-            // 3 -> 22 -> 51
-            // 1 -> 31 -> 9 (now i don't have to twist my head)
-            std::cout << "Case: LeftL && RightT bottom" << std::endl;
+            // 3 -> 22 -> 21 or 1 -> 31 -> 9 (now i don't have to twist my head)
+            std::cout << "Case: RightT bottom (w/ or w/o LeftL)" << std::endl;
             // the bottom left edge is not a stem.. its twin is a stem
             // the bottom left edge inherits the bar data from the bottom right edge
             int rightTParentIdx = face2e4.parentIdx;
             auto &rightTParent = mesh.edges[rightTParentIdx];
 
-            float newCurvePart = (1.0f - face2e4.interval.x) * (t / (1.0f - t));
-            float totalCurve = 1.0f + newCurvePart;
+            auto [newCurvePart, totalCurve] = parameterizeTBar1(t / (1.0f - t), face2e4);
             bottomEdgeT = newCurvePart / totalCurve;
 
             mesh.getHandle(rightTParent.handleIdxs.first) *= (1.0f / (1.0f - bottomEdgeT));
@@ -320,11 +301,10 @@ namespace Merging
             mesh.edges[rightTParentIdx].replaceChild(face2e4Idx, face1e2Idx);
             for (int childIdx : rightTParent.childrenIdxs)
             {
-                mesh.edges[childIdx].interval = mesh.edges[childIdx].interval / totalCurve;
+                mesh.edges[childIdx].interval /= totalCurve;
             }
             face1e2.interval.y = 1.0f;
             mesh.addTJunction(face1e2, rightTParent, rightTParentIdx, bottomEdgeT);
-            // bottomRightEdgeIdx = face2e4.parentIdx;
             test2 = false;
             break;
         }
@@ -348,66 +328,26 @@ namespace Merging
 
             for (int childIdx : bottomLeftEdge->childrenIdxs)
             {
-                adjustInterval(mesh.edges[childIdx].interval, newCurvePart, totalCurve);
+                mesh.edges[childIdx].reparamInterval(newCurvePart, totalCurve);
             }
             face1e2.interval.x = 0;
             bottomEdgeT = 1.0f / totalCurve;
             break;
         }
-        case LeftT | RightT:
-        {
-            // 0 -> 20 -> 14
-            std::cout << "Case: LeftT && RightT" << std::endl;
-            bottomLeftEdgeIdx = face1e2.parentIdx;
-            bottomLeftEdge = &mesh.edges[bottomLeftEdgeIdx];
-            int rightTParentIdx = face2e4.parentIdx;
-            bottomRightEdge = &mesh.edges[rightTParentIdx];
-
-            float rightCurveBar2 = (1.0f - t) / t * face1e2.interval.y;
-            float s = face2e4.interval.x;
-            float rightCurveBar1 = s / (1.0f - s) * rightCurveBar2;
-            float totalCurve = 1.0f + rightCurveBar1 + rightCurveBar2;
-            bottomEdgeT = 1.0f / totalCurve;
-
-            auto [leftCurveBar1, leftCurveBar2, leftCurveTotal] = parameterizeTPair(t / (1.0f - t), face2e4, face1e2);
-
-            // reparameterize the intervals for the right T children
-            for (int childIdx : bottomRightEdge->childrenIdxs)
-            {
-                mesh.edges[childIdx].parentIdx = bottomLeftEdgeIdx;
-                mesh.edges[childIdx].interval /= leftCurveTotal;
-            }
-            // reparameterize the intervals for the left T children
-            for (int childIdx : bottomLeftEdge->childrenIdxs)
-            {
-                adjustInterval(mesh.edges[childIdx].interval, (rightCurveBar1 + rightCurveBar2), totalCurve);
-            }
-            mesh.edges[rightTParentIdx].replaceChild(face2e4Idx, face1e2Idx);
-            bottomLeftEdge->addChildrenIdxs(bottomRightEdge->childrenIdxs);
-
-            // update new children and disable right T parent
-            face1e2.interval.x = face2e4.interval.x;
-            face1e2.color = face2e4.color;
-            bottomRightEdge->disable();
-            break;
-        }
-        case LeftL:
-        {
-            std::cout << "Case: LeftL && no RightL or RightT" << std::endl;
-            break;
-        }
+        case LeftL | RightL:
         case RightL:
         {
-            std::cout << "Case: RightL && no LeftL or LeftT" << std::endl;
+            // with LeftL: 2 --> 49 --> 16
+            std::cout << "Case: RightL && w/ or w/o LeftL" << std::endl;
             face1e1.copyChildData(face2e3);
             face1e2.copyChildData(face2e4);
             mesh.edges[face2e3.parentIdx].replaceChild(face2e3Idx, face1e1Idx);
             mesh.edges[face2e4.parentIdx].replaceChild(face2e4Idx, face1e2Idx);
             break;
         }
-        case RightT:
+        case LeftL:
         {
-            std::cout << "Case: bottom right T" << std::endl;
+            std::cout << "Case: LeftL && no RightL or RightT" << std::endl;
         }
         case None:
         {
