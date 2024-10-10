@@ -57,5 +57,3 @@ constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S_v(1,1)",
     "S(1,1)",
 };
-
-static std::string extractFileName(const std::string &filepath);

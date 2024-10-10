@@ -6,13 +6,11 @@
 #include <memory>
 #include <vector>
 
+#include "gms_math.hpp"
 #include "merging.hpp"
 #include "ostream_ops.hpp"
 #include "patch.hpp"
 #include "types.hpp"
-
-Vertex interpolateCubic(CurveVector curve, float t);
-Vertex interpolateCubicDerivative(CurveVector curve, float t);
 
 class GradMesh
 {
@@ -61,10 +59,8 @@ public:
         if (handleIdx != -1)
             return handles[handleIdx];
 
-        std::cout << "have to get a parent and all that ";
         return getParentTangent(currEdge, handleNum);
     }
-    void replaceChildWithParent(int childEdgeIdx);
     void addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
 
     void disablePoint(int pointIdx)
@@ -100,18 +96,50 @@ public:
         assert(idx != -1 && "Handle idx is -1");
         return handles[idx];
     }
+    void copyChild(int newChildIdx, int oldChildIdx)
+    {
+        auto &oldChild = edges[oldChildIdx];
+        edges[newChildIdx].copyChildData(oldChild);
+        if (oldChild.parentIdx != -1)
+        {
+            edges[oldChild.parentIdx].addChildrenIdxs({newChildIdx});
+        }
+    }
+    void copyAndReplaceChild(int newChildIdx, int oldChildIdx)
+    {
+        auto &oldChild = edges[oldChildIdx];
+        edges[newChildIdx].copyChildData(oldChild);
+        edges[newChildIdx].copyGeometricData(oldChild);
+        if (oldChild.parentIdx != -1)
+        {
+            edges[oldChild.parentIdx].replaceChild(oldChildIdx, newChildIdx);
+        }
+    }
+    void copyEdge(int newChildIdx, int oldChildIdx)
+    {
+        edges[newChildIdx].copyGeometricData(edges[oldChildIdx]);
+        copyChild(newChildIdx, oldChildIdx);
+    }
 
     void fixEdges();
+
+    void fixAndSetTwin(int barIdx);
+
+    bool twinFaceIsCycle(const HalfEdge &e) const;
 
     std::shared_ptr<std::vector<Patch>> generatePatchData();
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
-    friend bool Merging::merge(GradMesh &mesh, std::vector<DoubleHalfEdge> &candidateMerges, int edgeId);
-    friend void Merging::mergePatches(GradMesh &mesh, int halfEdgeIdx);
+    friend void Merging::mergePatches(GradMesh &mesh, int halfEdgeIdx, GmsAppState &appState);
 
 private:
     CurveVector getCurve(int halfEdgeIdx) const;
     std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge) const;
+    void leftTUpdateInterval(int parentIdx, float totalCurve);
+    void scaleDownChildrenByT(HalfEdge &parentEdge, float t);
+    void scaleUpChildrenByT(HalfEdge &parentEdge, float t);
+    void setBarChildrensTwin(HalfEdge &parentEdge, int twinIdx);
+    void setChildrenNewParent(HalfEdge &parentEdge, int newParentIdx);
 
     std::vector<Point> points;
     std::vector<Handle> handles;

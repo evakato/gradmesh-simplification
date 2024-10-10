@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <stdlib.h>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -36,6 +37,7 @@ struct Handle
 struct Face
 {
     int halfEdgeIdx;
+    bool isValid() const { return halfEdgeIdx != -1; }
 };
 struct Vertex
 {
@@ -78,7 +80,7 @@ struct Vertex
 };
 struct HalfEdge
 {
-    glm::vec2 interval;
+    glm::vec2 interval = {0, 1};
     Vertex twist;
     glm::vec3 color;
     std::pair<int, int> handleIdxs;
@@ -87,10 +89,14 @@ struct HalfEdge
     int nextIdx;
     int faceIdx;
     int originIdx;
-    int parentIdx;
+    int parentIdx = -1;
     std::vector<int> childrenIdxs = {};
     int childIdxDegenerate = -1;
 
+    bool isValid() const
+    {
+        return faceIdx != -1;
+    }
     bool isChild() const
     {
         return parentIdx != -1;
@@ -105,13 +111,21 @@ struct HalfEdge
         // return parentIdx != -1 && (interval.x == interval.y);
         return isChild() && handleIdxs.first != -1;
     }
-    bool isNormal() const
-    {
-        return parentIdx == -1 && childrenIdxs.size() == 0;
-    }
     bool isParent() const
     {
         return childrenIdxs.size() > 0;
+    }
+    bool hasTwin() const
+    {
+        return twinIdx != -1;
+    }
+    bool isRightMostChild() const
+    {
+        return isBar() && interval.y == 1.0f;
+    }
+    void disable()
+    {
+        faceIdx = -1;
     }
     void copyGeometricDataExceptHandles(const HalfEdge &other)
     {
@@ -126,42 +140,16 @@ struct HalfEdge
         this->twist = other.twist;
         this->handleIdxs = other.handleIdxs;
     }
-    void copyAll(const HalfEdge &other)
-    {
-        copyGeometricData(other);
-        this->parentIdx = other.parentIdx;
-        this->interval = other.interval;
-    }
     void copyChildData(const HalfEdge &other)
     {
         this->parentIdx = other.parentIdx;
         this->interval = other.interval;
     }
-    void copyParentAndHandles(const HalfEdge &other)
-    {
-        this->parentIdx = other.parentIdx;
-        this->interval = other.interval;
-        this->handleIdxs = other.handleIdxs;
-    }
-    void resetToNormal()
-    {
-        parentIdx = -1;
-        interval = {0, 1};
-    }
-    bool hasTwin() const
-    {
-        return twinIdx != -1;
-    }
     void replaceChild(int oldChildIdx, int newChildIdx)
     {
-        for (int i = 0; i < childrenIdxs.size(); i++)
-        {
-            if (childrenIdxs[i] == oldChildIdx)
-            {
-                childrenIdxs[i] = newChildIdx;
-                return;
-            }
-        }
+        std::replace(childrenIdxs.begin(), childrenIdxs.end(), oldChildIdx, newChildIdx);
+        // auto endIt = std::unique(childrenIdxs.begin(), childrenIdxs.end());
+        // childrenIdxs.erase(endIt, childrenIdxs.end());
     }
     void addChildrenIdxs(std::vector<int> newChildren)
     {
@@ -170,14 +158,23 @@ struct HalfEdge
             if (std::find(childrenIdxs.begin(), childrenIdxs.end(), child) == childrenIdxs.end())
                 childrenIdxs.push_back(child); // Add only if not found
     }
-    void disable()
-    {
-        faceIdx = -1;
-    }
     void reparamInterval(float delta, float total)
     {
         interval += delta;
         interval /= total;
+    }
+    void createStem(int newParentIdx, float t)
+    {
+        originIdx = -1;
+        parentIdx = newParentIdx;
+        interval = {t, t};
+    }
+    void createBar(int newParentIdx, glm::vec2 newInterval)
+    {
+        originIdx = -1;
+        handleIdxs = {-1, -1};
+        parentIdx = newParentIdx;
+        interval = newInterval;
     }
 };
 
@@ -204,20 +201,13 @@ inline constexpr int GL_LENGTH{920};
 inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
+inline constexpr std::string_view LOGS_DIR{"logs"};
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};
 inline constexpr glm::vec3 white{1.0f};
 
-// glm is column-major
-constexpr glm::mat4 hermiteBasisMat = glm::mat4(
-    1.0f, 0.0f, -3.0f, 2.0f, // First column
-    0.0f, 1.0f, -2.0f, 1.0f, // Second column
-    0.0f, 0.0f, -1.0f, 1.0f, // Third column
-    0.0f, 0.0f, 3.0f, -2.0f  // Fourth column
-);
-
-inline bool approximateFloating(float value, float eps = 1e-5)
+inline int getRandomInt(int max)
 {
-    return std::abs(value) <= eps;
+    return rand() % max;
 }

@@ -1,5 +1,17 @@
 #include "fileio.hpp"
 
+std::string extractFileName(const std::string &filepath)
+{
+    size_t lastSlash = filepath.find_last_of("/\\");
+    size_t start = (lastSlash == std::string::npos) ? 0 : lastSlash + 1;
+    size_t lastDot = filepath.find_last_of('.');
+    if (lastDot == std::string::npos || lastDot < start)
+    {
+        return filepath.substr(start);
+    }
+    return filepath.substr(start, lastDot - start);
+}
+
 std::vector<std::string> splitString(const std::string &str)
 {
     std::vector<std::string> tokens;
@@ -140,4 +152,30 @@ GradMesh readFile(const std::string &filename)
     gradMesh.fixEdges();
     //  td::cout << gradMesh;
     return std::move(gradMesh);
+}
+
+void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::string &filename)
+{
+    std::ofstream debugLogFile(std::string{LOGS_DIR} + "/" + filename);
+
+    if (debugLogFile.is_open())
+    {
+        for (auto merge : state.merges)
+        {
+            debugLogFile << merge << "\n";
+        }
+        debugLogFile << "t: " << state.t << "\n";
+        debugLogFile << "removed face id: " << state.removedFaceId << "\n";
+        debugLogFile << "top edge: " << state.topEdgeCase << "\n";
+        debugLogFile << state.topEdgeTJunction << "\n";
+        debugLogFile << "bottom edge: " << state.bottomEdgeCase << "\n";
+        debugLogFile << state.bottomEdgeTJunction << "\n";
+
+        debugLogFile << mesh << std::endl;
+        debugLogFile.close();
+    }
+    else
+    {
+        std::cerr << "Error opening file for writing!" << std::endl;
+    }
 }

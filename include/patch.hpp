@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "types.hpp"
+#include "gms_math.hpp"
 
 using AABB = glm::vec4;
 
@@ -85,15 +86,6 @@ const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handl
 const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Patch> &patches, std::optional<glm::vec3> color);
 const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos);
 
-// some helper functions and maps to convert handles between bezier and hermite representation
-inline const glm::vec2 hermiteToBezier(glm::vec2 parentCoords, float multiplier, glm::vec2 tangentValues)
-{
-    return parentCoords + multiplier * tangentValues;
-}
-inline const glm::vec2 bezierToHermite(glm::vec2 tangentCoords, glm::vec2 parentCoords, float multiplier)
-{
-    return (tangentCoords - parentCoords) / multiplier;
-}
 using Int4x4 = std::array<std::array<int, 4>, 4>;
 inline constexpr Int4x4 patchCurveIndices = {{{0, 1, 2, 3},
                                               {3, 7, 11, 15},

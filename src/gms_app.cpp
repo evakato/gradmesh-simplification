@@ -7,6 +7,8 @@ GmsApp::GmsApp() : currMesh{readFile(appState.filename)},
     patchRenderer.bindBuffers();
     candidateMerges = Merging::candidateEdges(currMesh);
     appState.numOfCandidateMerges = candidateMerges.size();
+    createDir(LOGS_DIR);
+    createDir(IMAGE_DIR);
 }
 
 void GmsApp::run()
@@ -30,19 +32,50 @@ void GmsApp::run()
             appState.numOfCandidateMerges = candidateMerges.size();
             resetEdgeSelection();
             // resetCurveColors();
-            std::cout << currMesh;
         }
-        if (appState.doMerge)
+
+        switch (appState.mergeMode)
         {
-            if (Merging::merge(currMesh, candidateMerges, appState.selectedEdgeId))
+        case MANUAL:
+            if (Merging::mergeAtSelectedEdge(currMesh, candidateMerges, appState))
             {
                 patches = *(currMesh.generatePatchData());
                 appState.numOfCandidateMerges = candidateMerges.size();
                 resetEdgeSelection();
                 resetCurveColors();
             }
-            appState.doMerge = false;
+            appState.mergeMode = NONE;
+            break;
+        case RANDOM:
+            static auto lastTime = std::chrono::steady_clock::now();
+            auto currentTime = std::chrono::steady_clock::now();
+
+            std::chrono::duration<double> elapsedSeconds = currentTime - lastTime;
+            if (candidateMerges.size() <= 0)
+                break;
+            if (appState.selectedEdgeId == -1)
+                appState.selectedEdgeId = getRandomInt(appState.numOfCandidateMerges - 1);
+
+            if (elapsedSeconds.count() >= 1.0)
+            {
+                appState.merges.push_back(appState.selectedEdgeId);
+                if (Merging::mergeAtSelectedEdge(currMesh, candidateMerges, appState))
+                {
+                    patches = *(currMesh.generatePatchData());
+                    appState.numOfCandidateMerges = candidateMerges.size();
+                    appState.selectedEdgeId = -1;
+                    // prevSelectedEdgeId = -1;
+                    resetCurveColors();
+                }
+                else
+                {
+                    appState.mergeMode = NONE;
+                }
+                lastTime = currentTime;
+            }
+            break;
         }
+
         if (appState.selectedEdgeId != prevSelectedEdgeId)
         {
             resetCurveColors();
@@ -50,10 +83,15 @@ void GmsApp::run()
 
         tangentHandles = currMesh.getHandleBars();
 
-        if (appState.currentMode == RENDER_CURVES)
-            ; // curveRenderer.render();
-        else if (appState.currentMode == RENDER_PATCHES)
+        switch (appState.currentMode)
+        {
+        case RENDER_CURVES:
+            // curveRenderer.render();
+            break;
+        case RENDER_PATCHES:
             patchRenderer.render(patches, tangentHandles);
+            break;
+        }
 
         gui.render();
         gmsWindow.swapBuffers();

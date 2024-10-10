@@ -35,7 +35,7 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
         auto &edge = gradMesh.edges[i];
         if (edge.faceIdx == -1)
         {
-            out << "Edge " << i << " is not in use\n";
+            // out << "Edge " << i << " is not in use\n";
         }
         else
         {
@@ -47,17 +47,7 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
                 out << " is bar, ";
             if (edge.isParent())
                 out << " is parent";
-            out << ". origin: " << edge.originIdx << " and col: (" << edge.color.x << ", " << edge.color.y << ", " << edge.color.z << ").";
-            out << " interval: " << edge.interval.x << ", " << edge.interval.y << ". ";
-            out << "Handle idxs: " << edge.handleIdxs.first << " and " << edge.handleIdxs.second << ". ";
-            out << "next is " << edge.nextIdx << " and prev is " << edge.prevIdx;
-            out << " face idx is " << edge.faceIdx;
-            out << " parent is " << edge.parentIdx << " and twin is " << edge.twinIdx << "\n children:";
-            for (int i = 0; i < edge.childrenIdxs.size(); ++i)
-            {
-                out << edge.childrenIdxs[i] << " ";
-            }
-            out << "\n";
+            out << edge;
         }
     }
     out << "There are " << validEdges << " valid edges in the mesh\n";
@@ -66,19 +56,19 @@ std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh)
 
 std::ostream &operator<<(std::ostream &os, const HalfEdge &edge)
 {
-    os << "HalfEdge {"
-       << "\n  Interval: (" << edge.interval.x << ", " << edge.interval.y << ")"
-       << "\n  Twist: (Coords: (" << edge.twist.coords.x << ", " << edge.twist.coords.y << "), Color: (" << edge.twist.color.x << ", " << edge.twist.color.y << ", " << edge.twist.color.z << "))"
-       << "\n  Color: (" << edge.color.x << ", " << edge.color.y << ", " << edge.color.z << ")"
-       << "\n  Handle Indices: (" << edge.handleIdxs.first << ", " << edge.handleIdxs.second << ")"
-       << "\n  Twin Index: " << edge.twinIdx
-       << "\n  Previous Index: " << edge.prevIdx
-       << "\n  Next Index: " << edge.nextIdx
-       << "\n  Patch Index: " << edge.faceIdx
-       << "\n  Origin Index: " << edge.originIdx
-       << "\n  Parent Index: " << edge.parentIdx
-       << "\n  Child Index Degenerate: " << edge.childIdxDegenerate
-       << "\n  Children Indices: [";
+    os
+        << "\n  Interval: (" << edge.interval.x << ", " << edge.interval.y << ")"
+        << "\n  Twist: (Coords: (" << edge.twist.coords.x << ", " << edge.twist.coords.y << "), Color: (" << edge.twist.color.x << ", " << edge.twist.color.y << ", " << edge.twist.color.z << "))"
+        << "\n  Color: (" << edge.color.x << ", " << edge.color.y << ", " << edge.color.z << ")"
+        << "\n  Handle Indices: (" << edge.handleIdxs.first << ", " << edge.handleIdxs.second << ")"
+        << "\n  Twin Index: " << edge.twinIdx
+        << "\n  Previous Index: " << edge.prevIdx
+        << "\n  Next Index: " << edge.nextIdx
+        << "\n  Patch Index: " << edge.faceIdx
+        << "\n  Origin Index: " << edge.originIdx
+        << "\n  Parent Index: " << edge.parentIdx
+        << "\n  Child Index Degenerate: " << edge.childIdxDegenerate
+        << "\n  Children Indices: [";
 
     // Print children indices
     for (size_t i = 0; i < edge.childrenIdxs.size(); ++i)
@@ -89,7 +79,7 @@ std::ostream &operator<<(std::ostream &os, const HalfEdge &edge)
             os << ", ";
         }
     }
-    os << "]\n}";
+    os << "]\n";
 
     return os;
 }

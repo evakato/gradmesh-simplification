@@ -5,9 +5,12 @@
 #include <utility>
 #include <vector>
 
+#include "fileio.hpp"
+#include "gms_appstate.hpp"
 #include "gradmesh.hpp"
 #include "patch.hpp"
 #include "types.hpp"
+#include "window.hpp"
 
 class GradMesh;
 
@@ -20,14 +23,19 @@ namespace Merging
         CurveId curveId1;
         CurveId curveId2;
         DoubleHalfEdge(int heIdx1, int heIdx2, CurveId curveId1) : halfEdgeIdx1(heIdx1), halfEdgeIdx2(heIdx2), curveId1(curveId1) {};
+
+        int getHalfEdgeIdx() const
+        {
+            return halfEdgeIdx1;
+        }
     };
 
-    bool merge(GradMesh &mesh, std::vector<DoubleHalfEdge> &candidateMerges, int edgeId);
+    bool mergeAtSelectedEdge(GradMesh &mesh, std::vector<DoubleHalfEdge> &candidateMerges, GmsAppState &appState);
+
     std::vector<DoubleHalfEdge> candidateEdges(const GradMesh &mesh);
 
-    int chooseEdge(const std::vector<DoubleHalfEdge> &candidateEdgeList);
     const float splittingFactor(GradMesh &mesh, HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign);
-    void mergePatches(GradMesh &mesh, int halfEdgeIdx);
+    void mergePatches(GradMesh &mesh, int halfEdgeIdx, GmsAppState &appState);
 
     void mergeStem(HalfEdge &bar1, HalfEdge &bar2);
 
@@ -77,7 +85,7 @@ namespace Merging
         LeftL = 1 << 0,  // 0001
         LeftT = 1 << 1,  // 0010
         RightL = 1 << 2, // 0100
-        RightT = 1 << 3  // 1000
+        RightT = 1 << 3, // 1000
     };
 
     inline int getCornerFlags(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT)

@@ -51,8 +51,6 @@ void GmsWindow::processInput()
         GmsWindow::zoom -= 0.15f;
     if (glfwGetKey(window, GLFW_KEY_MINUS) == GLFW_PRESS)
         GmsWindow::zoom += 0.15f;
-    // if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-    //  saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
 
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
     glfwSetCursorPosCallback(window, cursorPositionCallback);
@@ -169,7 +167,6 @@ glm::vec2 GmsWindow::getNDCCoordinates(float screenX, float screenY)
 
 void saveImage(const char *filename, int width, int height)
 {
-    createDir(IMAGE_DIR);
     unsigned char *pixels = new unsigned char[width * height * 4];
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 

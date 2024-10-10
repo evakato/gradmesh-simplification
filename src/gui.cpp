@@ -80,7 +80,7 @@ void GmsGui::showRightBar()
                 ImGui::Spacing();
 
                 // This is a nested collapsing header inside the previous one
-                if (ImGui::TreeNode("Edge select"))
+                if (ImGui::TreeNode("Manual edge select"))
                 {
                     if (appState.selectedEdgeId == -1 && appState.numOfCandidateMerges > 0)
                     {
@@ -97,6 +97,43 @@ void GmsGui::showRightBar()
                         // Code that executes when the integer changes
                     }
 
+                    ImGui::SameLine();
+                    if (appState.numOfCandidateMerges > 0)
+                    {
+                        if (ImGui::Button("Merge edge"))
+                        {
+                            appState.mergeMode = MANUAL;
+                        }
+                    }
+                    else
+                    {
+                        ImGui::Text("No merges possible");
+                    }
+
+                    ImGui::PopItemFlag();
+                    ImGui::TreePop();
+                }
+
+                ImGui::Spacing();
+                if (ImGui::TreeNode("Random edge select"))
+                {
+                    ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
+                    ImGui::Spacing();
+                    if (appState.mergeMode == RANDOM)
+                    {
+                        if (ImGui::Button("Stop random selection"))
+                            appState.mergeMode = NONE;
+                    }
+                    else if (appState.numOfCandidateMerges > 0)
+                    {
+                        if (ImGui::Button("Start random selection"))
+                            appState.mergeMode = RANDOM;
+                    }
+                    else
+                    {
+                        ImGui::Text("No merges possible");
+                    }
+
                     ImGui::PopItemFlag();
                     ImGui::TreePop();
                 }
@@ -104,17 +141,6 @@ void GmsGui::showRightBar()
                 ImGui::Spacing();
                 ImGui::Text("Candidate edge merges: %d", appState.numOfCandidateMerges);
                 ImGui::Spacing();
-                if (appState.numOfCandidateMerges > 0)
-                {
-                    if (ImGui::Button("Merge edge"))
-                    {
-                        appState.doMerge = true;
-                    }
-                }
-                else
-                {
-                    ImGui::Text("No merges possible");
-                }
             }
 
             ImGui::EndTabItem();
@@ -124,9 +150,46 @@ void GmsGui::showRightBar()
             ImGui::Separator();
             ImGui::Spacing();
             ImGui::Spacing();
-            if (ImGui::Button("Debug mesh"))
+            if (ImGui::CollapsingHeader("Debugging", ImGuiTreeNodeFlags_DefaultOpen))
             {
-                appState.debugMesh = true;
+                ImGui::Spacing();
+                ImGui::Text("Previous merge: ");
+                ImGui::Indent();
+                ImGui::Spacing();
+                if (appState.t == -1)
+                    ImGui::Text("t: N/A");
+                else
+                    ImGui::Text("t: %f", appState.t);
+                ImGui::Text("Removed face id: %d", appState.removedFaceId);
+
+                ImGui::Text("Top edge:");
+                ImGui::Indent();
+                ImGui::Text("Case: %s", appState.topEdgeCase.c_str());
+                if (appState.topEdgeTJunction)
+                    ImGui::Text("T-junction: added at %f", appState.topEdgeTJunction);
+                else
+                    ImGui::Text("No T-junction added");
+                ImGui::Unindent();
+
+                ImGui::Spacing();
+
+                ImGui::Text("Bottom edge:");
+                ImGui::Indent();
+                ImGui::Text("Case: %s", appState.bottomEdgeCase.c_str());
+                if (appState.bottomEdgeTJunction)
+                    ImGui::Text("T-junction: added at %f", appState.bottomEdgeTJunction);
+                else
+                    ImGui::Text("No T-junction added");
+                ImGui::Unindent();
+
+                ImGui::Unindent();
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                if (ImGui::Button("Debug mesh"))
+                {
+                    appState.debugMesh = true;
+                }
             }
         }
         if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))
@@ -267,18 +330,6 @@ void GmsGui::showWindowMenuBar()
         appState.filenameChanged = true;
         fileDialog.ClearSelected();
     }
-}
-
-static std::string extractFileName(const std::string &filepath)
-{
-    size_t lastSlash = filepath.find_last_of("/\\");
-    size_t start = (lastSlash == std::string::npos) ? 0 : lastSlash + 1;
-    size_t lastDot = filepath.find_last_of('.');
-    if (lastDot == std::string::npos || lastDot < start)
-    {
-        return filepath.substr(start);
-    }
-    return filepath.substr(start, lastDot - start);
 }
 
 void createImguiContext(GLFWwindow *window)
