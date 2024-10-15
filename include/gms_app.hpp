@@ -36,9 +36,9 @@ private:
     PatchRenderer patchRenderer{gmsWindow, appState};
 
     GradMesh currMesh;
+    GradMeshMerger merger{currMesh, appState};
     std::vector<Patch> patches;
     std::vector<Vertex> tangentHandles;
-    std::vector<Merging::DoubleHalfEdge> candidateMerges;
 
     int prevSelectedEdgeId = -1;
 };

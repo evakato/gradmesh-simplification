@@ -50,97 +50,39 @@ public:
     {
         return points;
     }
-    std::vector<Vertex> getHandleBars() const;
-    const HalfEdge &getEdge(int idx) const
-    {
-        assert(idx != -1 && "Edge idx is -1");
-        return edges[idx];
-    }
-    const Vertex getParentTangent(const HalfEdge &currEdge, int handleNum)
-    {
-        CurveVector parentCurve = getCurve(currEdge.parentIdx);
-        float scale = currEdge.interval[1] - currEdge.interval[0];
-        return interpolateCubicDerivative(parentCurve, currEdge.interval[handleNum]) * scale;
-    }
-    const Vertex getTangent(const HalfEdge &currEdge, int handleNum)
-    {
-        assert(handleNum == 0 || handleNum == 1);
-        int handleIdx;
-        if (handleNum == 0)
-            handleIdx = currEdge.handleIdxs.first;
-        else if (handleNum == 1)
-            handleIdx = currEdge.handleIdxs.second;
-
-        if (handleIdx != -1)
-            return handles[handleIdx];
-
-        return getParentTangent(currEdge, handleNum);
-    }
-    float addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
-    bool twinIsTJunction(const HalfEdge &e) const
-    {
-        if (e.twinIdx == -1)
-            return false;
-        return edges[e.twinIdx].isParent();
-    }
-    void rescaleChildren(const HalfEdge &e, float rescalingFactor)
-    {
-        for (int idx : e.childrenIdxs)
-        {
-            auto &childEdge = edges[idx];
-            childEdge.interval *= rescalingFactor;
-        }
-    }
-    bool twinIsStem(const HalfEdge &e) const
-    {
-        if (e.twinIdx == -1)
-            return false;
-        return edges[e.twinIdx].isStem();
-    }
-
-    // Methods for merging faces
-    void removeFace(int faceIdx);
-    void copyEdgeTwin(int e1Idx, int e2Idx);
-    Handle &getHandle(int idx)
-    {
-        assert(idx != -1 && "Handle idx is -1");
-        return handles[idx];
-    }
 
     void fixEdges();
-
-    void fixAndSetTwin(int barIdx);
-
-    bool twinFaceIsCycle(const HalfEdge &e) const;
-
     std::shared_ptr<std::vector<Patch>> generatePatchData();
+    std::vector<Vertex> getHandleBars() const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
-    friend void Merging::mergePatches(GradMesh &mesh, int halfEdgeIdx, GmsAppState &appState);
+    friend class GradMeshMerger;
 
 private:
     CurveVector getCurve(int halfEdgeIdx) const;
     std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge) const;
-    void leftTUpdateInterval(int parentIdx, float totalCurve);
-    void rightTUpdateInterval(int parentIdx, float reparam1, float reparam2);
-    void scaleDownChildrenByT(HalfEdge &parentEdge, float t);
-    void scaleUpChildrenByT(HalfEdge &parentEdge, float t);
-    void setBarChildrensTwin(HalfEdge &parentEdge, int twinIdx);
-    void setChildrenNewParent(HalfEdge &parentEdge, int newParentIdx);
-    void childBecomesItsParent(int childIdx);
-    void setNextRightL(const HalfEdge &bar, int nextIdx);
-    void transferChildTo(int oldChildIdx, int newChildIdx);
-    void transferChildToWithoutGeometry(int oldChildIdx, int newChildIdx);
     void disablePoint(int pointIdx)
     {
         if (pointIdx >= 0)
             points[pointIdx].halfEdgeIdx = -1;
     }
-    bool parentIsStem(const HalfEdge &child) const
+    bool edgeIs(int edgeIdx, const auto &edgeFn) const
     {
-        if (child.parentIdx == -1)
+        if (edgeIdx == -1)
             return false;
-        return edges[child.parentIdx].isStem();
+        return (edges[edgeIdx].*edgeFn)();
+    }
+    bool parentIsStem(const HalfEdge &e) const
+    {
+        return edgeIs(e.parentIdx, &HalfEdge::isStem);
+    }
+    bool twinIsParent(const HalfEdge &e) const
+    {
+        return edgeIs(e.twinIdx, &HalfEdge::isParent);
+    }
+    bool twinIsStem(const HalfEdge &e) const
+    {
+        return edgeIs(e.twinIdx, &HalfEdge::isStem);
     }
 
     std::vector<Point> points;

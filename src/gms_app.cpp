@@ -5,8 +5,6 @@ GmsApp::GmsApp() : currMesh{readFile(appState.filename)},
 {
     initializeOpenGL();
     patchRenderer.bindBuffers();
-    candidateMerges = Merging::candidateEdges(currMesh);
-    appState.numOfCandidateMerges = candidateMerges.size();
     createDir(LOGS_DIR);
     createDir(IMAGE_DIR);
     appState.mesh = &currMesh; // free this pointer later
@@ -29,8 +27,6 @@ void GmsApp::run()
             currMesh = readFile(appState.filename);
             patches = *(currMesh.generatePatchData());
             appState.filenameChanged = false;
-            candidateMerges = Merging::candidateEdges(currMesh);
-            appState.numOfCandidateMerges = candidateMerges.size();
             resetEdgeSelection();
             // resetCurveColors();
         }
@@ -38,10 +34,9 @@ void GmsApp::run()
         switch (appState.mergeMode)
         {
         case MANUAL:
-            if (Merging::mergeAtSelectedEdge(currMesh, candidateMerges, appState))
+            if (merger.mergeAtSelectedEdge())
             {
                 patches = *(currMesh.generatePatchData());
-                appState.numOfCandidateMerges = candidateMerges.size();
                 resetEdgeSelection();
                 resetCurveColors();
             }
@@ -52,7 +47,7 @@ void GmsApp::run()
             auto currentTime = std::chrono::steady_clock::now();
 
             std::chrono::duration<double> elapsedSeconds = currentTime - lastTime;
-            if (candidateMerges.size() <= 0)
+            if (appState.numOfCandidateMerges <= 0)
                 break;
             if (appState.selectedEdgeId == -1)
                 appState.selectedEdgeId = getRandomInt(appState.numOfCandidateMerges - 1);
@@ -60,10 +55,9 @@ void GmsApp::run()
             if (elapsedSeconds.count() >= 0.5f)
             {
                 appState.merges.push_back(appState.selectedEdgeId);
-                if (Merging::mergeAtSelectedEdge(currMesh, candidateMerges, appState))
+                if (merger.mergeAtSelectedEdge())
                 {
                     patches = *(currMesh.generatePatchData());
-                    appState.numOfCandidateMerges = candidateMerges.size();
                     appState.selectedEdgeId = -1;
                     prevSelectedEdgeId = -1;
                     resetCurveColors();
@@ -101,7 +95,7 @@ void GmsApp::run()
 
 void GmsApp::resetEdgeSelection()
 {
-    if (candidateMerges.size() > 0)
+    if (appState.numOfCandidateMerges > 0)
     {
         appState.selectedEdgeId = 0;
         prevSelectedEdgeId = 0;
@@ -124,7 +118,7 @@ void GmsApp::resetCurveColors()
 
 void GmsApp::setCurveColor(int edgeIdx, glm::vec3 color)
 {
-    Merging::DoubleHalfEdge dhe = candidateMerges[edgeIdx];
+    DoubleHalfEdge dhe = merger.getDoubleHalfEdge(edgeIdx);
     patches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, color);
     patches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, color);
 }
