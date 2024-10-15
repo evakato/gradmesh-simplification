@@ -164,9 +164,10 @@ void GradMesh::fixAndSetTwin(int barIdx)
 }
 
 // I always forget how I wrote this function, bar1 and bar2 are the literal bar1 and bar2 of the new T-junction. That is the order.
-void GradMesh::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t)
+float GradMesh::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t)
 {
-    assert(edge1.hasTwin() && edge2.hasTwin());
+    if (!edge1.hasTwin() || !edge2.hasTwin())
+        return 0;
 
     int bar1Idx = edge1.twinIdx;
     int bar2Idx = edge2.twinIdx;
@@ -175,11 +176,8 @@ void GradMesh::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentId
     auto twinHandles = edges[twinOfParentIdx].handleIdxs;
     int parentIdx;
     int stemIdx = bar1.nextIdx;
-    if (edges[bar1.nextIdx].isBar())
-    {
+    if (edges[stemIdx].isBar())
         stemIdx = edges[bar1.nextIdx].parentIdx;
-        std::cout << "stem is bar: " << stemIdx << "\n";
-    }
 
     if (bar2.isParent() && bar1.isParent())
     {
@@ -221,13 +219,15 @@ void GradMesh::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentId
         {
             // 11 --> 40 -- > 23
             std::cout << "Extending stem!\n";
-            copyAndReplaceChild(parentIdx, bar1Idx);
+            // copyAndReplaceChild(parentIdx, bar1Idx);
+            transferChildTo(bar1Idx, parentIdx);
+            edges[parentIdx].handleIdxs = bar1.handleIdxs;
         }
-        edges[parentIdx].copyGeometricDataExceptHandles(bar1);
+        edges[parentIdx].copyGeometricData(bar1);
         bar1.createBar(parentIdx, {0, t});
     }
 
-    edges[stemIdx].createStem(parentIdx, t);
+    edges[stemIdx].createStem(parentIdx, {t, t});
     auto &parent = edges[parentIdx];
     parent.handleIdxs = {twinHandles.second, twinHandles.first};
     parent.twinIdx = twinOfParentIdx;
@@ -235,6 +235,8 @@ void GradMesh::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentId
     parent.addChildrenIdxs({stemIdx});
     setBarChildrensTwin(parent, twinOfParentIdx);
     edges[twinOfParentIdx].twinIdx = parentIdx;
+
+    return t;
 }
 
 void GradMesh::removeFace(int faceIdx)
@@ -244,6 +246,12 @@ void GradMesh::removeFace(int faceIdx)
     auto &e2 = edges[e1.nextIdx];
     auto &e3 = edges[e2.nextIdx];
     auto &e4 = edges[e3.nextIdx];
+    if (e1.handleIdxs.first != -1)
+        handles[e1.handleIdxs.first].halfEdgeIdx = handles[e1.handleIdxs.second].halfEdgeIdx = -1;
+    if (e3.handleIdxs.first != -1)
+        handles[e3.handleIdxs.first].halfEdgeIdx = handles[e3.handleIdxs.second].halfEdgeIdx = -1;
+    if (e4.handleIdxs.first != -1)
+        handles[e4.handleIdxs.first].halfEdgeIdx = handles[e4.handleIdxs.second].halfEdgeIdx = -1;
     face.halfEdgeIdx = e1.faceIdx = e2.faceIdx = e3.faceIdx = e4.faceIdx = -1;
 }
 
@@ -307,6 +315,27 @@ void GradMesh::leftTUpdateInterval(int parentIdx, float totalCurve)
     }
 }
 
+void GradMesh::rightTUpdateInterval(int parentIdx, float reparam1, float reparam2)
+{
+    for (int childIdx : edges[parentIdx].childrenIdxs)
+    {
+        auto &child = edges[childIdx];
+        if (child.parentIdx != parentIdx)
+            continue; // strong check b/c i wrote some bad code
+
+        if (child.isLeftMostChild())
+        {
+            child.interval.y += reparam1;
+            child.interval.y /= reparam2;
+        }
+        else
+        {
+            child.interval += reparam1;
+            child.interval /= reparam2;
+        }
+    }
+}
+
 void GradMesh::scaleDownChildrenByT(HalfEdge &parentEdge, float t)
 {
     for (int childIdx : parentEdge.childrenIdxs)
@@ -332,4 +361,41 @@ void GradMesh::setChildrenNewParent(HalfEdge &parentEdge, int newParentIdx)
 {
     for (int childIdx : parentEdge.childrenIdxs)
         edges[childIdx].parentIdx = newParentIdx;
+}
+
+void GradMesh::childBecomesItsParent(int childIdx)
+{
+    auto &child = edges[childIdx];
+    int parentIdx = child.parentIdx;
+    fixAndSetTwin(childIdx);
+    // copyEdge(childIdx, parentIdx);
+    transferChildTo(parentIdx, childIdx);
+    child.handleIdxs = edges[parentIdx].handleIdxs;
+    edges[parentIdx].disable();
+    std::cout << parentIdx << "\n";
+}
+
+void GradMesh::setNextRightL(const HalfEdge &bar, int nextIdx)
+{
+    if (bar.isRightMostChild())
+        edges[bar.parentIdx].nextIdx = nextIdx;
+}
+
+void GradMesh::transferChildTo(int oldChildIdx, int newChildIdx)
+{
+    auto &oldChild = edges[oldChildIdx];
+    auto &newChild = edges[newChildIdx];
+    newChild.copyChildData(oldChild);
+    newChild.copyGeometricData(oldChild);
+    if (oldChild.parentIdx != -1)
+        edges[oldChild.parentIdx].replaceChild(oldChildIdx, newChildIdx);
+}
+
+void GradMesh::transferChildToWithoutGeometry(int oldChildIdx, int newChildIdx)
+{
+    auto &oldChild = edges[oldChildIdx];
+    auto &newChild = edges[newChildIdx];
+    newChild.copyChildData(oldChild);
+    if (oldChild.parentIdx != -1)
+        edges[oldChild.parentIdx].replaceChild(oldChildIdx, newChildIdx);
 }

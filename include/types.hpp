@@ -14,6 +14,7 @@ struct Point
 {
     glm::vec2 coords;
     int halfEdgeIdx;
+    bool isValid() const { return halfEdgeIdx != -1; }
 };
 struct Handle
 {
@@ -33,6 +34,7 @@ struct Handle
             color * scalar,
             halfEdgeIdx};
     }
+    bool isValid() const { return halfEdgeIdx != -1; }
 };
 struct Face
 {
@@ -119,6 +121,10 @@ struct HalfEdge
     {
         return twinIdx != -1;
     }
+    bool isLeftMostChild() const
+    {
+        return isBar() && interval.x == 0.0f;
+    }
     bool isRightMostChild() const
     {
         return isBar() && interval.y == 1.0f;
@@ -127,18 +133,11 @@ struct HalfEdge
     {
         faceIdx = -1;
     }
-    void copyGeometricDataExceptHandles(const HalfEdge &other)
-    {
-        this->originIdx = other.originIdx;
-        this->color = other.color;
-        this->twist = other.twist;
-    }
     void copyGeometricData(const HalfEdge &other)
     {
         this->originIdx = other.originIdx;
         this->color = other.color;
         this->twist = other.twist;
-        this->handleIdxs = other.handleIdxs;
     }
     void copyChildData(const HalfEdge &other)
     {
@@ -158,25 +157,32 @@ struct HalfEdge
             if (std::find(childrenIdxs.begin(), childrenIdxs.end(), child) == childrenIdxs.end())
                 childrenIdxs.push_back(child); // Add only if not found
     }
-    void reparamInterval(float delta, float total)
-    {
-        interval += delta;
-        interval /= total;
-    }
-    void createStem(int newParentIdx, float t)
+    void createStem(int newParentIdx, glm::vec2 newInterval)
     {
         originIdx = -1;
-        parentIdx = newParentIdx;
-        interval = {t, t};
-    }
-    void createBar(int newParentIdx, glm::vec2 newInterval)
-    {
-        originIdx = -1;
-        handleIdxs = {-1, -1};
         parentIdx = newParentIdx;
         interval = newInterval;
     }
+    void createBar(int newParentIdx, glm::vec2 newInterval)
+    {
+        createStem(newParentIdx, newInterval);
+        handleIdxs = {-1, -1};
+    }
+    void removeChildIdx(int childIdx)
+    {
+        auto it = std::remove(childrenIdxs.begin(), childrenIdxs.end(), childIdx);
+        childrenIdxs.erase(it, childrenIdxs.end());
+    }
 };
+
+inline std::vector<int> getValidCompIndices(const auto &comps)
+{
+    std::vector<int> indices;
+    for (int i = 0; i < comps.size(); ++i)
+        if (comps[i].isValid())
+            indices.push_back(i);
+    return indices;
+}
 
 struct PointId
 {
@@ -206,8 +212,3 @@ inline constexpr std::string_view LOGS_DIR{"logs"};
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};
 inline constexpr glm::vec3 white{1.0f};
-
-inline int getRandomInt(int max)
-{
-    return rand() % max;
-}

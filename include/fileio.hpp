@@ -14,6 +14,7 @@
 #include "gradmesh.hpp"
 
 class GradMesh;
+class GmsAppState;
 
 std::string extractFileName(const std::string &filepath);
 std::vector<std::string> splitString(const std::string &str);

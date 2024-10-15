@@ -7,6 +7,9 @@
 #include "types.hpp"
 
 std::ostream &operator<<(std::ostream &os, const HalfEdge &edge);
+std::ostream &operator<<(std::ostream &os, const Face &face);
+std::ostream &operator<<(std::ostream &os, const Point &point);
+std::ostream &operator<<(std::ostream &os, const Handle &handle);
 inline std::ostream &operator<<(std::ostream &os, const CurveId &id)
 {
     os << "patch id: " << id.patchId << ", curve id: " << id.curveId;

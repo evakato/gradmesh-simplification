@@ -1,6 +1,8 @@
 #pragma once
 
 #include <filesystem>
+#include <sstream>
+#include <string>
 
 #include "types.hpp"
 #include "window.hpp"

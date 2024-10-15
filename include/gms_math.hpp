@@ -1,5 +1,7 @@
 #pragma once
 
+#include <tuple>
+
 #include <glm/glm.hpp>
 
 #include "types.hpp"
@@ -33,7 +35,44 @@ inline const glm::vec2 bezierToHermite(glm::vec2 tangentCoords, glm::vec2 parent
     return (tangentCoords - parentCoords) / multiplier;
 }
 
+inline glm::vec2 absSum(glm::vec2 coords1, glm::vec2 coords2)
+{
+    return {std::abs(coords1.x) + std::abs(coords2.x),
+            std::abs(coords1.y) + std::abs(coords2.y)};
+}
+
+// reparameterization functions
+inline auto parameterizeTBar2(float tRatio, const HalfEdge &relativeEdge)
+{
+    float otherBarParam = tRatio * relativeEdge.interval.y;
+    float totalParam = 1.0f + otherBarParam;
+    return std::make_tuple(otherBarParam, totalParam);
+}
+inline float totalCurveRelativeRight(float tRatio, const HalfEdge &relativeEdge, const HalfEdge &paramEdge)
+{
+    auto [bar1Param, unused] = parameterizeTBar2(tRatio, relativeEdge);
+    float bar2Param = (paramEdge.interval.x / (1.0f - paramEdge.interval.x)) * bar1Param;
+    return bar1Param + bar2Param + 1.0f;
+}
+inline auto parameterizeTBar1(float tRatio, const HalfEdge &relativeEdge)
+{
+    float otherBarParam = tRatio * (1.0f - relativeEdge.interval.x);
+    float totalParam = 1.0f + otherBarParam;
+    return std::make_tuple(otherBarParam, totalParam);
+}
+inline float totalCurveRelativeLeft(float tRatio, const HalfEdge &relativeEdge, const HalfEdge &paramEdge)
+{
+    auto [bar1Param, unused] = parameterizeTBar1(tRatio, relativeEdge);
+    float bar2Param = (1.0f - paramEdge.interval.y) / paramEdge.interval.y * bar1Param;
+    return bar1Param + bar2Param + 1.0f;
+}
+
 inline bool approximateFloating(float value, float eps = 1e-5)
 {
     return std::abs(value) <= eps;
+}
+
+inline int getRandomInt(int max)
+{
+    return rand() % max;
 }

@@ -167,9 +167,9 @@ void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::str
         debugLogFile << "t: " << state.t << "\n";
         debugLogFile << "removed face id: " << state.removedFaceId << "\n";
         debugLogFile << "top edge: " << state.topEdgeCase << "\n";
-        debugLogFile << state.topEdgeTJunction << "\n";
+        debugLogFile << state.topEdgeT << "\n";
         debugLogFile << "bottom edge: " << state.bottomEdgeCase << "\n";
-        debugLogFile << state.bottomEdgeTJunction << "\n";
+        debugLogFile << state.bottomEdgeT << "\n";
 
         debugLogFile << mesh << std::endl;
         debugLogFile.close();

@@ -151,8 +151,17 @@ void GmsWindow::cursorPositionCallback(GLFWwindow *window, double xpos, double y
 
 void GmsWindow::scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
 {
-    // std::cout << "Scroll X offset: " << xoffset << " Scroll Y offset: " << yoffset << std::endl;
-    GmsWindow::zoom += -1.0f * yoffset * 0.15f;
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse)
+    {
+        // If ImGui wants to capture mouse input, let it handle the scroll
+        ImGui::GetIO().MouseWheel += (float)yoffset;
+    }
+    else
+    {
+        // std::cout << "Scroll X offset: " << xoffset << " Scroll Y offset: " << yoffset << std::endl;
+        GmsWindow::zoom += -1.0f * yoffset * 0.15f;
+    }
 }
 
 glm::vec2 GmsWindow::getNDCCoordinates(float screenX, float screenY)

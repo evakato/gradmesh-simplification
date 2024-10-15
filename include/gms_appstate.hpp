@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "gradmesh.hpp"
 #include "types.hpp"
 
 enum RenderMode
@@ -17,6 +18,8 @@ enum MergeMode
     MANUAL,
     RANDOM
 };
+
+class GradMesh;
 
 class GmsAppState
 {
@@ -43,12 +46,13 @@ public:
     int selectedEdgeId = -1;
 
     bool debugMesh = false;
+    GradMesh *mesh = nullptr;
 
     float t = -1;
     int removedFaceId = -1;
     std::string topEdgeCase = "";
     std::string bottomEdgeCase = "";
-    float topEdgeTJunction = 0;
-    float bottomEdgeTJunction = 0;
+    float topEdgeT = 0;
+    float bottomEdgeT = 0;
     std::vector<int> merges{};
 };

@@ -26,6 +26,196 @@ void GmsGui::render()
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+void createListItems(std::vector<int> &idxs, std::vector<std::string> &dynamicItems, std::vector<const char *> &items, std::string ctype)
+{
+    for (int idx : idxs)
+    {
+        dynamicItems.push_back(ctype + std::to_string(idx));
+    }
+    for (const auto &str : dynamicItems)
+    {
+        items.push_back(str.c_str());
+    }
+}
+
+void createListBox(std::vector<const char *> &items, int &item_selected_idx, int &item_highlighted_idx)
+{
+    if (ImGui::BeginListBox("##listbox 2", ImVec2(80.0f, 12 * ImGui::GetTextLineHeightWithSpacing())))
+    {
+        for (int n = 0; n < items.size(); n++)
+        {
+            const bool is_selected = (item_selected_idx == n);
+            if (ImGui::Selectable(items[n], is_selected))
+                item_selected_idx = n;
+
+            if (ImGui::IsItemHovered())
+                item_highlighted_idx = n;
+
+            if (is_selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndListBox();
+    }
+}
+
+void setComponentText(const auto &components, int &item_selected_idx, const auto &idxs)
+{
+    if (item_selected_idx >= idxs.size())
+        item_selected_idx = idxs.size() - 1;
+    std::stringstream ss;
+    ss << components[idxs[item_selected_idx]];
+    std::string output = ss.str(); // Convert to string
+    ImGui::Text("%s", output.c_str());
+}
+
+void setCompButton(int &item_selected_idx, const auto &idxs, const int findIdx)
+{
+    ImGui::SameLine();
+    if (ImGui::Button(std::to_string(findIdx).c_str()))
+    {
+        auto it = std::find(idxs.begin(), idxs.end(), findIdx);
+        item_selected_idx = std::distance(idxs.begin(), it);
+    }
+}
+
+void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs)
+{
+    if (item_selected_idx >= idxs.size())
+        item_selected_idx = idxs.size() - 1;
+    auto &selectedEdge = components[idxs[item_selected_idx]];
+
+    std::stringstream ss;
+    ss << selectedEdge;
+    std::string output = ss.str(); // Convert to string
+    ImGui::Text("%s", output.c_str());
+
+    glm::vec3 color = selectedEdge.color;
+    ImVec4 imColor = ImVec4(color.x, color.y, color.z, 1.00f);
+    ImGui::Text(" ");
+    ImGui::SameLine();
+    ImGui::ColorEdit3("Color", (float *)&imColor);
+    ImGui::Spacing();
+
+    ImGui::Text("  Prev Index:");
+    setCompButton(item_selected_idx, idxs, selectedEdge.prevIdx);
+    ImGui::Text("  Next Index:");
+    setCompButton(item_selected_idx, idxs, selectedEdge.nextIdx);
+    if (selectedEdge.hasTwin())
+    {
+        ImGui::Text("  Twin Index:");
+        setCompButton(item_selected_idx, idxs, selectedEdge.twinIdx);
+    }
+    if (selectedEdge.isChild())
+    {
+        ImGui::Text("  Parent Index:");
+        setCompButton(item_selected_idx, idxs, selectedEdge.parentIdx);
+    }
+    if (selectedEdge.isParent())
+    {
+        ImGui::Text("  Children Indices:");
+        ImGui::Text(" ");
+        ImGui::SameLine();
+        for (size_t i = 0; i < selectedEdge.childrenIdxs.size(); ++i)
+        {
+            setCompButton(item_selected_idx, idxs, selectedEdge.childrenIdxs[i]);
+            ImGui::SameLine();
+            if (i % 5 == 0 && i != 0)
+            {
+                ImGui::Text(" ");
+                ImGui::Text(" ");
+                ImGui::SameLine();
+            }
+        }
+    }
+}
+
+void list(const GradMesh &mesh)
+{
+    if (ImGui::BeginTabBar("DCEL Components"))
+    {
+        static bool setDefaultTab = true;
+        if (ImGui::BeginTabItem("Points"))
+        {
+            std::vector<int> pointIdxs = getValidCompIndices(mesh.getPoints());
+            std::vector<std::string> dynamicItems;
+            std::vector<const char *> items;
+            createListItems(pointIdxs, dynamicItems, items, "p");
+
+            static int item_selected_idx = 0; // Here we store our selected data as an index.
+            int item_highlighted_idx = -1;    // Here we store our highlighted data as an index.
+            ImGui::Spacing();
+            createListBox(items, item_selected_idx, item_highlighted_idx);
+            ImGui::SameLine();
+            setComponentText(mesh.getPoints(), item_selected_idx, pointIdxs);
+
+            ImGui::Spacing();
+            ImGui::Text("%d points", pointIdxs.size());
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Handles"))
+        {
+            std::vector<int> handleIdxs = getValidCompIndices(mesh.getHandles());
+            std::vector<std::string> dynamicItems;
+            std::vector<const char *> items;
+            createListItems(handleIdxs, dynamicItems, items, "h");
+
+            static int item_selected_idx = 0; // Here we store our selected data as an index.
+            int item_highlighted_idx = -1;    // Here we store our highlighted data as an index.
+            ImGui::Spacing();
+            createListBox(items, item_selected_idx, item_highlighted_idx);
+            ImGui::SameLine();
+            setComponentText(mesh.getHandles(), item_selected_idx, handleIdxs);
+
+            ImGui::Spacing();
+            ImGui::Text("%d handles", handleIdxs.size());
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Faces"))
+        {
+            std::vector<int> faceIdxs = getValidCompIndices(mesh.getFaces());
+            std::vector<std::string> dynamicItems;
+            std::vector<const char *> items;
+            createListItems(faceIdxs, dynamicItems, items, "f");
+
+            static int item_selected_idx = 0; // Here we store our selected data as an index.
+            int item_highlighted_idx = -1;    // Here we store our highlighted data as an index.
+            ImGui::Spacing();
+            createListBox(items, item_selected_idx, item_highlighted_idx);
+            ImGui::SameLine();
+            setComponentText(mesh.getFaces(), item_selected_idx, faceIdxs);
+
+            ImGui::Spacing();
+            ImGui::Text("%d faces", faceIdxs.size());
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Half-edges", nullptr, setDefaultTab ? ImGuiTabItemFlags_SetSelected : 0))
+        {
+            const std::vector<HalfEdge> &halfedges = mesh.getEdges();
+            std::vector<int> edgeIdxs = getValidCompIndices(halfedges);
+            std::vector<std::string> dynamicItems;
+            std::vector<const char *> items;
+            createListItems(edgeIdxs, dynamicItems, items, "e");
+
+            static int item_selected_idx = 0; // Here we store our selected data as an index.
+            int item_highlighted_idx = -1;    // Here we store our highlighted data as an index.
+            ImGui::Spacing();
+            ImGui::Columns(2, nullptr, true);
+            ImGui::SetColumnWidth(0, 100);
+            createListBox(items, item_selected_idx, item_highlighted_idx);
+            ImGui::NextColumn();
+            setHalfEdgeInfo(halfedges, item_selected_idx, edgeIdxs);
+            ImGui::Columns(1);
+
+            ImGui::Spacing();
+            ImGui::Text("%d edges", edgeIdxs.size());
+            ImGui::EndTabItem();
+        }
+        setDefaultTab = false;
+
+        ImGui::EndTabBar();
+    }
+}
+
 void GmsGui::showRightBar()
 {
     ImGui::SetNextWindowPos(ImVec2(GUI_POS, 0));
@@ -154,42 +344,65 @@ void GmsGui::showRightBar()
             {
                 ImGui::Spacing();
                 ImGui::Text("Previous merge: ");
-                ImGui::Indent();
-                ImGui::Spacing();
-                if (appState.t == -1)
-                    ImGui::Text("t: N/A");
-                else
-                    ImGui::Text("t: %f", appState.t);
-                ImGui::Text("Removed face id: %d", appState.removedFaceId);
-
-                ImGui::Text("Top edge:");
-                ImGui::Indent();
-                ImGui::Text("Case: %s", appState.topEdgeCase.c_str());
-                if (appState.topEdgeTJunction)
-                    ImGui::Text("T-junction: added at %f", appState.topEdgeTJunction);
-                else
-                    ImGui::Text("No T-junction added");
-                ImGui::Unindent();
-
                 ImGui::Spacing();
 
-                ImGui::Text("Bottom edge:");
-                ImGui::Indent();
-                ImGui::Text("Case: %s", appState.bottomEdgeCase.c_str());
-                if (appState.bottomEdgeTJunction)
-                    ImGui::Text("T-junction: added at %f", appState.bottomEdgeTJunction);
-                else
-                    ImGui::Text("No T-junction added");
-                ImGui::Unindent();
-
-                ImGui::Unindent();
-
-                ImGui::Spacing();
-                ImGui::Spacing();
-                if (ImGui::Button("Debug mesh"))
+                if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
                 {
-                    appState.debugMesh = true;
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                    ImGui::Text("t");
+                    ImGui::TableSetColumnIndex(1);
+                    if (appState.t == -1)
+                        ImGui::Text("None");
+                    else
+                        ImGui::Text("%f", appState.t);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                    ImGui::Text("Removed face id");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%d", appState.removedFaceId);
+                    ImGui::EndTable();
                 }
+                ImGui::Spacing();
+
+                if (ImGui::BeginTable("split1", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+                {
+                    ImGui::TableSetupColumn("Edge");
+                    ImGui::TableSetupColumn("Case");
+                    ImGui::TableSetupColumn("t-junction t");
+                    ImGui::TableHeadersRow();
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Top edge");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%s", appState.topEdgeCase.c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    if (appState.topEdgeT)
+                        ImGui::Text("%f", appState.topEdgeT);
+                    else
+                        ImGui::Text("None");
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Text("Bottom edge");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%s", appState.bottomEdgeCase.c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    if (appState.bottomEdgeT)
+                        ImGui::Text("%f", appState.bottomEdgeT);
+                    else
+                        ImGui::Text("None");
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                list(*appState.mesh);
             }
         }
         if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))

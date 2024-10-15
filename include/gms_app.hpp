@@ -5,6 +5,7 @@
 #include "curve_renderer.hpp"
 #include "fileio.hpp"
 #include "gms_appstate.hpp"
+#include "gms_math.hpp"
 #include "gradmesh.hpp"
 #include "gui.hpp"
 #include "merging.hpp"

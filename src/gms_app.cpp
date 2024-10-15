@@ -9,6 +9,7 @@ GmsApp::GmsApp() : currMesh{readFile(appState.filename)},
     appState.numOfCandidateMerges = candidateMerges.size();
     createDir(LOGS_DIR);
     createDir(IMAGE_DIR);
+    appState.mesh = &currMesh; // free this pointer later
 }
 
 void GmsApp::run()
@@ -56,7 +57,7 @@ void GmsApp::run()
             if (appState.selectedEdgeId == -1)
                 appState.selectedEdgeId = getRandomInt(appState.numOfCandidateMerges - 1);
 
-            if (elapsedSeconds.count() >= 1.0)
+            if (elapsedSeconds.count() >= 0.5f)
             {
                 appState.merges.push_back(appState.selectedEdgeId);
                 if (Merging::mergeAtSelectedEdge(currMesh, candidateMerges, appState))
@@ -64,7 +65,7 @@ void GmsApp::run()
                     patches = *(currMesh.generatePatchData());
                     appState.numOfCandidateMerges = candidateMerges.size();
                     appState.selectedEdgeId = -1;
-                    // prevSelectedEdgeId = -1;
+                    prevSelectedEdgeId = -1;
                     resetCurveColors();
                 }
                 else
