@@ -6,6 +6,8 @@
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
+#include "rmgr/ssim.h"
+#include "merge_metrics.hpp"
 
 #include <vector>
 
@@ -17,6 +19,8 @@ public:
 
     void render(std::vector<Patch> &patches, std::vector<Vertex> &handles);
     void bindBuffers();
+    int getPatchShaderId() const { return patchShaderId; }
+    std::vector<GLfloat> &getGlPatches() { return glPatches; }
 
 protected:
     void renderPatches(std::vector<Patch> &patches, std::vector<Vertex> &handles);
@@ -24,4 +28,7 @@ protected:
 
     GLuint EBO;
     GLuint patchShaderId;
+
+private:
+    std::vector<GLfloat> glPatches;
 };

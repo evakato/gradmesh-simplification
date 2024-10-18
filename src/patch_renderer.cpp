@@ -1,9 +1,8 @@
 #include "patch_renderer.hpp"
 #include "gms_app.hpp"
+#include "stb_image_write.h"
 
-PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState)
-{
-}
+PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState) {}
 
 void PatchRenderer::bindBuffers()
 {
@@ -24,12 +23,13 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches, std::vector<Verte
 {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // glPolygonMode(GL_FRONT_AND_BACK, gui.isWireframeMode ? GL_LINE : GL_FILL);
+    glPolygonMode(GL_FRONT_AND_BACK, appState.isWireframeMode ? GL_LINE : GL_FILL);
 
     if (appState.renderPatches)
     {
         // same with this call
-        GmsRenderer::setVertexData(getAllPatchGLData(patches, &Patch::getControlMatrix));
+        glPatches = getAllPatchGLData(patches, &Patch::getControlMatrix);
+        GmsRenderer::setVertexData(glPatches);
         glUseProgram(patchShaderId);
         setUniformProjectionMatrix(patchShaderId, projectionMatrix);
         glLineWidth(1.0f);

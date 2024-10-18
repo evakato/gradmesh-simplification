@@ -4,12 +4,15 @@
 #include <sstream>
 #include <string>
 
+#include "gms_appstate.hpp"
+#include "gradmesh.hpp"
 #include "types.hpp"
 #include "window.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+#include "../assets/fonts/IconsFontAwesome6.h"
 #include <GLFW/glfw3.h>
 
 #include "imfilebrowser.h"
@@ -25,7 +28,7 @@ public:
 
 private:
     void showRightBar();
-    void showHermiteMatrixTable();
+    void showHermiteMatrixTable(int patchId);
     void showRenderSettings();
     void showWindowMenuBar();
 
@@ -36,11 +39,35 @@ private:
     ImGui::FileBrowser fileDialog{0, meshDir};
 };
 
+enum class ButtonColor
+{
+    OriginPoint,
+    Face,
+    Handles,
+    PrevNext,
+    Twin,
+    Parent,
+    Children
+};
+
 void createImguiContext(GLFWwindow *window);
 void prepareImguiFrame(GLFWwindow *window);
 void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::FileBrowser &fileDialog);
+void showMergingMenu(GmsAppState &appState);
+void showDebuggingMenu(GmsAppState &appState);
 
-constexpr char *modeNames[2] = {(char *)"Patch", (char *)"Curve"};
+void showPreviousMergeInfo(GmsAppState &appState);
+void showGradMeshInfo(const GradMesh &mesh);
+void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs);
+void pushColor(ButtonColor color);
+
+void createListItems(std::vector<int> &idxs, std::vector<std::string> &dynamicItems, std::vector<const char *> &items, std::string ctype);
+void createListBox(std::vector<const char *> &items, int &item_selected_idx, int &item_highlighted_idx);
+void setComponentText(const auto &components, int &item_selected_idx, const auto &idxs);
+void compButton(int &item_selected_idx, const auto &idxs, const int findIdx, std::string text);
+
+constexpr char *modeNames[2] = {(char *)"Patch",
+                                (char *)"Curve"};
 constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S(0,0)",
     "S_v(0,0)",

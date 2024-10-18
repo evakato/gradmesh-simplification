@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "gradmesh.hpp"
+#include "patch.hpp"
 #include "types.hpp"
 
 enum RenderMode
@@ -16,7 +17,8 @@ enum MergeMode
 {
     NONE,
     MANUAL,
-    RANDOM
+    RANDOM,
+    EDGELIST
 };
 
 class GradMesh;
@@ -47,12 +49,26 @@ public:
 
     bool debugMesh = false;
     GradMesh *mesh = nullptr;
+    AABB meshAABB;
 
+    int mergedHalfEdgeIdx = -1;
     float t = -1;
     int removedFaceId = -1;
+
     std::string topEdgeCase = "";
     std::string bottomEdgeCase = "";
     float topEdgeT = 0;
     float bottomEdgeT = 0;
+
+    bool saveMerges = false;
     std::vector<int> merges{};
+
+    void updateMergeInfo(int mergedHalfEdgeIdx, float t, int removedFaceId, float topEdgeT, float bottomEdgeT)
+    {
+        this->mergedHalfEdgeIdx = mergedHalfEdgeIdx;
+        this->t = t;
+        this->removedFaceId = removedFaceId;
+        this->topEdgeT = topEdgeT;
+        this->bottomEdgeT = bottomEdgeT;
+    }
 };

@@ -39,7 +39,7 @@ std::vector<std::string> splitString(const std::string &str)
     return tokens;
 }
 
-GradMesh readFile(const std::string &filename)
+GradMesh readHemeshFile(const std::string &filename)
 {
     std::ifstream inf{filename};
     if (!inf)
@@ -154,16 +154,68 @@ GradMesh readFile(const std::string &filename)
     return std::move(gradMesh);
 }
 
+void writeHemeshFile(const std::string &filename, const GradMesh &mesh)
+{
+    std::ofstream out{filename};
+    if (!out)
+    {
+        throw std::runtime_error("File could not be opened for writing\n");
+    }
+
+    const auto &points = mesh.getPoints();
+    const auto &handles = mesh.getHandles();
+    const auto &faces = mesh.getFaces();
+    const auto &edges = mesh.getEdges();
+
+    int numPoints = points.size();
+    int numHandles = handles.size();
+    int numPatches = faces.size();
+    int numEdges = edges.size();
+
+    out << "HEMESH\n";
+    out << numPoints << " " << numHandles << " " << numPatches << " " << numEdges << "\n";
+
+    for (const auto &point : points)
+    {
+        out << point.coords.x << " " << point.coords.y << " " << point.halfEdgeIdx << "\n";
+    }
+
+    for (const auto &handle : handles)
+    {
+        out << handle.halfEdgeIdx << " " << handle.coords.x << " " << handle.coords.y << " "
+            << handle.color.x << " " << handle.color.y << " " << handle.color.z << "\n";
+    }
+
+    for (const auto &face : faces)
+    {
+        out << face.halfEdgeIdx << "\n";
+    }
+
+    for (auto &halfEdge : edges)
+    {
+        out << halfEdge.interval.x << " " << halfEdge.interval.y << " "                                        // interval (0,1)
+            << halfEdge.twist.coords.x << " " << halfEdge.twist.coords.y << " "                                // twist coords (2,3)
+            << halfEdge.twist.color.x << " " << halfEdge.twist.color.y << " " << halfEdge.twist.color.z << " " // twist color (4-6)
+            << halfEdge.color.r << " " << halfEdge.color.g << " " << halfEdge.color.b << " "                   // color (7-9)
+            << halfEdge.handleIdxs.first << " " << halfEdge.handleIdxs.second << " "                           // handle indices (10,11)
+            << halfEdge.twinIdx << " "                                                                         // twin index (12)
+            << halfEdge.prevIdx << " " << halfEdge.nextIdx << " " << halfEdge.faceIdx << " "                   // edge relations (13-15)
+            << 0 << " "                                                                                        // placeholder (16)
+            << (halfEdge.isChild() ? 1 : 0) << " "                                                             // child flag (17)
+            << halfEdge.parentIdx << " "                                                                       // parent index (18)
+            << 1 << " "                                                                                        // unused (19)
+            << halfEdge.originIdx << "\n";                                                                     // origin index (20)
+    }
+
+    out.close();
+}
+
 void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::string &filename)
 {
     std::ofstream debugLogFile(std::string{LOGS_DIR} + "/" + filename);
 
     if (debugLogFile.is_open())
     {
-        for (auto merge : state.merges)
-        {
-            debugLogFile << merge << "\n";
-        }
         debugLogFile << "t: " << state.t << "\n";
         debugLogFile << "removed face id: " << state.removedFaceId << "\n";
         debugLogFile << "top edge: " << state.topEdgeCase << "\n";
@@ -178,4 +230,43 @@ void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::str
     {
         std::cerr << "Error opening file for writing!" << std::endl;
     }
+}
+
+void writeMergeList(const GmsAppState &state, const std::string &filename)
+{
+    if (state.merges.empty())
+        return;
+
+    std::ofstream debugLogFile(std::string{LOGS_DIR} + "/" + filename);
+    if (debugLogFile.is_open())
+    {
+        for (auto merge : state.merges)
+        {
+            debugLogFile << merge << "\n";
+        }
+        debugLogFile.close();
+    }
+    else
+    {
+        std::cerr << "Error opening file for writing!" << std::endl;
+    }
+}
+
+std::vector<int> readEdgeIdsFromFile(const std::string &filename)
+{
+    std::vector<int> edgeIds;
+    std::ifstream file(filename);
+    int value;
+    if (!file.is_open())
+    {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return edgeIds;
+    }
+
+    while (file >> value)
+    {
+        edgeIds.push_back(value);
+    }
+    file.close();
+    return edgeIds;
 }

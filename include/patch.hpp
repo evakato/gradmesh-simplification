@@ -12,7 +12,17 @@
 #include "types.hpp"
 #include "gms_math.hpp"
 
-using AABB = glm::vec4;
+struct AABB
+{
+    glm::vec2 min;
+    glm::vec2 max;
+
+    void expand(const AABB &other)
+    {
+        min = glm::min(min, other.min);
+        max = glm::max(max, other.max);
+    }
+};
 
 // The Patch class describes a single bicubic patch as a 4x4 control matrix
 class Patch
@@ -49,9 +59,10 @@ public:
     void setAABB();
     bool insideAABB(glm::vec2 pos) const
     {
-        return (pos.x >= aabb.x && pos.x <= aabb.y) &&
-               (pos.y >= aabb.z && pos.y <= aabb.w);
+        return (pos.x >= aabb.min.x && pos.x <= aabb.max.x) &&
+               (pos.y >= aabb.min.y && pos.y <= aabb.max.y);
     }
+    AABB getAABB() const { return aabb; }
 
     void setCurveSelected(int curveIdx, glm::vec3 color);
 
@@ -84,7 +95,8 @@ const std::vector<GLfloat> getAllPatchGLData(std::vector<Patch> &patches, Func f
 }
 const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handles, int firstIdx = 0, int step = 1);
 const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Patch> &patches, std::optional<glm::vec3> color);
-const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos);
+int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos);
+AABB getMeshAABB(const std::vector<Patch> &patches);
 
 using Int4x4 = std::array<std::array<int, 4>, 4>;
 inline constexpr Int4x4 patchCurveIndices = {{{0, 1, 2, 3},

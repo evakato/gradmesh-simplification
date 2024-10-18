@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdlib.h>
 #include <tuple>
 
 #include <glm/glm.hpp>
@@ -72,7 +73,11 @@ inline bool approximateFloating(float value, float eps = 1e-5)
     return std::abs(value) <= eps;
 }
 
-inline int getRandomInt(int max)
+inline int getRandomInt(auto seed, int max)
 {
-    return rand() % max;
+    if (max == 0)
+        return 0;
+
+    std::srand(static_cast<unsigned int>(seed));
+    return std::rand() % max;
 }

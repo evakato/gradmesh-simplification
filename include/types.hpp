@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <stdlib.h>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -15,6 +14,7 @@ struct Point
     glm::vec2 coords;
     int halfEdgeIdx;
     bool isValid() const { return halfEdgeIdx != -1; }
+    void disable() { halfEdgeIdx = -1; }
 };
 struct Handle
 {
@@ -105,17 +105,19 @@ struct HalfEdge
     }
     bool isBar() const
     {
-        // return parentIdx != -1 && (interval.x != interval.y);
         return isChild() && handleIdxs.first == -1;
     }
     bool isStem() const
     {
-        // return parentIdx != -1 && (interval.x == interval.y);
         return isChild() && handleIdxs.first != -1;
     }
     bool isParent() const
     {
         return childrenIdxs.size() > 0;
+    }
+    bool isStemParent() const
+    {
+        return isStem() && isParent();
     }
     bool hasTwin() const
     {
@@ -208,6 +210,7 @@ inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 inline constexpr std::string_view LOGS_DIR{"logs"};
+inline constexpr std::string_view SAVES_DIR{"mesh_saves"};
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};

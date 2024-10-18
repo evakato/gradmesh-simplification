@@ -9,6 +9,7 @@
 #include "gradmesh.hpp"
 #include "gui.hpp"
 #include "merging.hpp"
+#include "merge_metrics.hpp"
 #include "patch.hpp"
 #include "patch_renderer.hpp"
 #include "renderer.hpp"
@@ -25,6 +26,7 @@ public:
     void run();
 
 private:
+    void setupNewMesh();
     void resetEdgeSelection();
     void resetCurveColors();
     void setCurveColor(int edgeIdx, glm::vec3 color);
@@ -37,8 +39,11 @@ private:
 
     GradMesh currMesh;
     GradMeshMerger merger{currMesh, appState};
+
     std::vector<Patch> patches;
     std::vector<Vertex> tangentHandles;
+
+    std::vector<int> edgeIds = readEdgeIdsFromFile("../build/logs/mergelist.txt");
 
     int prevSelectedEdgeId = -1;
 };

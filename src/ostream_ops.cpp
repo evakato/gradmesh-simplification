@@ -89,35 +89,32 @@ std::ostream &operator<<(std::ostream &os, const HalfEdge &edge)
     os << ": [" << edge.interval.x << ", " << edge.interval.y << "]";
 
     os
-        //<< "\n  Color: (" << std::fixed << std::setprecision(2) << edge.color.x << ", " << edge.color.y << ", " << edge.color.z << ")"
+        << "\n  Color: (" << std::fixed << std::setprecision(2) << edge.color.x << ", " << edge.color.y << ", " << edge.color.z << ")"
         << "\n  Twist:"
         << "\n\t Coords: (" << edge.twist.coords.x << ", " << edge.twist.coords.y << ")"
         << "\n\t Color: (" << edge.twist.color.x << ", " << edge.twist.color.y << ", " << edge.twist.color.z << "))"
         << "\n  Handle Indices: (" << edge.handleIdxs.first << ", " << edge.handleIdxs.second << ")"
         << "\n  Origin Index: " << edge.originIdx
         << "\n  Patch Index: " << edge.faceIdx
-        << "\n";
-    /*
         << "\n  Prev Index: " << edge.prevIdx
-        << "\n  Next Index: " << edge.nextIdx;
+        << "\n  Next Index: " << edge.nextIdx
         << "\n  Twin Index: " << edge.twinIdx
         << "\n  Parent Index: " << edge.parentIdx
-    //<< "\n  Child Index Degenerate: " << edge.childIdxDegenerate
-    << "\n  Children Indices: \n  [";
+        << "\n  Child Index Degenerate: " << edge.childIdxDegenerate
+        << "\n  Children Indices: \n  [";
 
-// Print children indices
-for (size_t i = 0; i < edge.childrenIdxs.size(); ++i)
-{
-    os << edge.childrenIdxs[i];
-    if (i != edge.childrenIdxs.size() - 1)
+    // Print children indices
+    for (size_t i = 0; i < edge.childrenIdxs.size(); ++i)
     {
-        os << ", ";
+        os << edge.childrenIdxs[i];
+        if (i != edge.childrenIdxs.size() - 1)
+        {
+            os << ", ";
+        }
+        if (i != 0 && i % 6 == 0 && i != edge.childrenIdxs.size() - 1)
+            os << "\n  ";
     }
-    if (i != 0 && i % 6 == 0 && i != edge.childrenIdxs.size() - 1)
-        os << "\n  ";
-}
-os << "]\n";
-*/
+    os << "]\n";
 
     return os;
 }

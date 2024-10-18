@@ -83,10 +83,10 @@ void Patch::setAABB()
     float maxX = std::max(std::max(std::max(p0.x, p1.x), p2.x), p3.x);
     float minY = std::min(std::min(std::min(p0.y, p1.y), p2.y), p3.y);
     float maxY = std::max(std::max(std::max(p0.y, p1.y), p2.y), p3.y);
-    aabb = AABB{minX, maxX, minY, maxY};
+    aabb = AABB{glm::vec2{minX, minY}, glm::vec2{maxX, maxY}};
 }
 
-const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos)
+int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos)
 {
     for (std::size_t i = 0; i < patches.size(); ++i)
     {
@@ -95,4 +95,20 @@ const int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos)
             return i;
     }
     return -1;
+}
+
+AABB getMeshAABB(const std::vector<Patch> &patches)
+{
+    if (patches.empty())
+    {
+        return AABB{glm::vec2{0}, glm::vec2{0}};
+    }
+    AABB meshAABB = patches[0].getAABB();
+
+    for (auto &patch : patches)
+    {
+        AABB aabb = patch.getAABB();
+        meshAABB.expand(aabb);
+    }
+    return meshAABB;
 }

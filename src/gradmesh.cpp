@@ -41,9 +41,14 @@ CurveVector GradMesh::getCurve(int halfEdgeIdx) const
 
     const auto &edge = edges[halfEdgeIdx];
 
-    assert(edges[halfEdgeIdx].isValid());
+    if (!edges[halfEdgeIdx].isValid())
+    {
+        std::cerr << "half edge idx not valid: " << halfEdgeIdx << std::endl;
+        assert(false);
+    }
     assert(edge.nextIdx != -1 && edges[edge.nextIdx].isValid());
 
+    // std::cout << "recursion: " << halfEdgeIdx << "\n";
     auto [m0, m0v, m1v, m0uv] = computeEdgeDerivatives(edge);
     auto m1 = computeEdgeDerivatives(edges[edge.nextIdx])[0];
     return CurveVector{m0, m0v, m1v, m1};
@@ -145,4 +150,56 @@ void GradMesh::fixEdges()
         }
     }
     std::cout << "There are " << count << " weird edges.\n";
+}
+
+std::vector<int> GradMesh::getBarChildren(const HalfEdge &parent) const
+{
+    std::vector<int> barChildrenIdxs;
+    std::ranges::copy_if(
+        parent.childrenIdxs,
+        std::back_inserter(barChildrenIdxs),
+        [this](int childIdx)
+        { return edges[childIdx].isBar(); });
+    return barChildrenIdxs;
+}
+
+std::vector<int> GradMesh::getStemParentChildren(const HalfEdge &parent) const
+{
+    std::vector<int> stemParentChildren;
+    std::ranges::copy_if(
+        parent.childrenIdxs,
+        std::back_inserter(stemParentChildren),
+        [this](int childIdx)
+        { return edges[childIdx].isStemParent(); });
+    return stemParentChildren;
+}
+
+bool GradMesh::incidentFaceCycle(int edgeIdx) const
+{
+    if (edgeIdx == -1)
+        return false;
+
+    int currIdx = edgeIdx;
+    int childCount = 0;
+    for (int i = 0; i < 4; i++)
+    {
+        auto &currEdge = edges[currIdx];
+        if (currEdge.isRightMostChild())
+            childCount++;
+        currIdx = currEdge.nextIdx;
+    }
+    return childCount >= 3;
+}
+
+std::array<int, 4> GradMesh::getFaceEdgeIdxs(int edgeIdx) const
+{
+    std::array<int, 4> edgeIdxs;
+    int currIdx = edgeIdx;
+    for (int i = 0; i < 4; i++)
+    {
+        auto &currEdge = edges[currIdx];
+        edgeIdxs[i] = currIdx;
+        currIdx = currEdge.nextIdx;
+    }
+    return edgeIdxs;
 }

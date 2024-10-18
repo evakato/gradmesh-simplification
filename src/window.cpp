@@ -184,9 +184,7 @@ void saveImage(const char *filename, int width, int height)
             std::swap(pixels[y * width * 4 + x], pixels[(height - 1 - y) * width * 4 + x]);
 
     int stride_in_bytes = width * 4;
-    if (stbi_write_png(filename, width, height, 4, pixels, stride_in_bytes))
-        std::cout << "Image saved to " << filename << std::endl;
-    else
+    if (!stbi_write_png(filename, width, height, 4, pixels, stride_in_bytes))
         std::cout << "Failed to save image!" << std::endl;
 
     delete[] pixels;
