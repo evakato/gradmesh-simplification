@@ -211,6 +211,9 @@ inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 inline constexpr std::string_view LOGS_DIR{"logs"};
 inline constexpr std::string_view SAVES_DIR{"mesh_saves"};
+inline const char *MERGE_METRIC_IMG{"img/mergedMesh.png"};
+inline const char *ORIG_METRIC_IMG{"img/origMesh.png"};
+inline const float ERROR_THRESHOLD{0.0003f};
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};

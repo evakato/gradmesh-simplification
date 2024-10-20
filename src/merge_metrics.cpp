@@ -2,15 +2,23 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-void evaluateSSIM(const char *img1Path, const char *img2Path)
+MergeMetrics::MergeMetrics(int patchShaderId) : patchShaderId{patchShaderId} {}
+
+bool MergeMetrics::doMerge(std::vector<GLfloat> &glPatches, AABB aabb, float eps)
 {
-    int img1Width,
-        img1Height, img1ChannelCount;
+    renderFBO(MERGE_METRIC_IMG, glPatches, patchShaderId, aabb);
+    float error = evaluateSSIM(ORIG_METRIC_IMG, MERGE_METRIC_IMG);
+    return (1.0f - error) < eps;
+}
+
+float evaluateSSIM(const char *img1Path, const char *img2Path)
+{
+    int img1Width, img1Height, img1ChannelCount;
     stbi_uc *img1 = stbi_load(img1Path, &img1Width, &img1Height, &img1ChannelCount, 0);
     if (img1 == NULL)
     {
         fprintf(stderr, "Failed to load image \"%s\": %s\n", img1Path, stbi_failure_reason());
-        return;
+        return -1;
     }
 
     int img2Width, img2Height, img2ChannelCount;
@@ -18,13 +26,13 @@ void evaluateSSIM(const char *img1Path, const char *img2Path)
     if (img2 == NULL)
     {
         fprintf(stderr, "Failed to load image \"%s\": %s\n", img2Path, stbi_failure_reason());
-        return;
+        return -1;
     }
 
     if (img1Width != img2Width || img1Height != img2Height || img1ChannelCount != img2ChannelCount)
     {
         fprintf(stderr, "Images must have the same dimensions and number of channels\n");
-        return;
+        return -1;
     }
 
     // Compute SSIM of each channel
@@ -32,6 +40,7 @@ void evaluateSSIM(const char *img1Path, const char *img2Path)
     memset(&params, 0, sizeof(params));
     params.width = img1Width;
     params.height = img1Height;
+    float totalSSIM = 0;
     for (int channelNum = 0; channelNum < img1ChannelCount; ++channelNum)
     {
         params.imgA.init_interleaved(img1, img1Width * img1ChannelCount, img1ChannelCount, channelNum);
@@ -39,16 +48,24 @@ void evaluateSSIM(const char *img1Path, const char *img2Path)
         const float ssim = rmgr::ssim::compute_ssim(params);
         if (rmgr::ssim::get_errno(ssim) != 0)
             fprintf(stderr, "Failed to compute SSIM of channel %d\n", channelNum + 1);
-        else
-            printf("SSIM of channel %d:% 7.4f\n", channelNum + 1, ssim);
+        totalSSIM += ssim;
     }
 
     // Clean up
     stbi_image_free(img2);
     stbi_image_free(img1);
+    return totalSSIM * (1.0f / img1ChannelCount);
 }
 
-void renderFBO(std::string filename, std::vector<GLfloat> &glPatches, int patchShaderId, AABB aabb)
+void setAABBProjMat(int shaderId, AABB aabb)
+{
+    glm::mat4 projMat = glm::mat4(1.0f);
+    projMat = glm::ortho(aabb.min.x, aabb.max.x, aabb.min.y, aabb.max.y, -1.0f, 1.0f);
+    GLint projectionLoc = glGetUniformLocation(shaderId, "projection");
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projMat[0][0]);
+}
+
+void renderFBO(const char *imgPath, std::vector<GLfloat> &glPatches, int patchShaderId, AABB aabb)
 {
     GLuint fbo, texture;
     glGenFramebuffers(1, &fbo);
@@ -86,19 +103,7 @@ void renderFBO(std::string filename, std::vector<GLfloat> &glPatches, int patchS
 
     std::vector<uint8_t> pixelsA(GL_LENGTH * GL_LENGTH * 3); // 3 channels for RGB
     glReadPixels(0, 0, GL_LENGTH, GL_LENGTH, GL_RGB, GL_UNSIGNED_BYTE, pixelsA.data());
-    stbi_write_png(filename.c_str(), GL_LENGTH, GL_LENGTH, 3, pixelsA.data(), GL_LENGTH * 3);
-
-    // evaluateSSIM();
+    stbi_write_png(imgPath, GL_LENGTH, GL_LENGTH, 3, pixelsA.data(), GL_LENGTH * 3);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glBindVertexArray(0);
-    glUseProgram(0);
-}
-
-void setAABBProjMat(int shaderId, AABB aabb)
-{
-    glm::mat4 projMat = glm::mat4(1.0f);
-    projMat = glm::ortho(aabb.min.x, aabb.max.x, aabb.min.y, aabb.max.y, -1.0f, 1.0f);
-    GLint projectionLoc = glGetUniformLocation(shaderId, "projection");
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projMat[0][0]);
 }

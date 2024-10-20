@@ -2,15 +2,12 @@
 #include "gms_app.hpp"
 #include "stb_image_write.h"
 
-PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState) {}
-
-void PatchRenderer::bindBuffers()
+PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState)
 {
     GmsRenderer::bindBuffers();
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     patchShaderId = linkShaders(patchShaders);
-    // GmsRenderer::setVertexData(getAllPatchData(patches, &Patch::getControlMatrix));
 }
 
 PatchRenderer::~PatchRenderer()
@@ -19,7 +16,7 @@ PatchRenderer::~PatchRenderer()
     glDeleteBuffers(1, &VBO);
 }
 
-void PatchRenderer::renderPatches(std::vector<Patch> &patches, std::vector<Vertex> &handles)
+void PatchRenderer::renderPatches(std::vector<GLfloat> &glPatches, std::vector<Patch> &patches, std::vector<Vertex> &handles)
 {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
@@ -28,7 +25,6 @@ void PatchRenderer::renderPatches(std::vector<Patch> &patches, std::vector<Verte
     if (appState.renderPatches)
     {
         // same with this call
-        glPatches = getAllPatchGLData(patches, &Patch::getControlMatrix);
         GmsRenderer::setVertexData(glPatches);
         glUseProgram(patchShaderId);
         setUniformProjectionMatrix(patchShaderId, projectionMatrix);
@@ -99,11 +95,11 @@ void PatchRenderer::updatePatchData(std::vector<Patch> &patches)
     */
 }
 
-void PatchRenderer::render(std::vector<Patch> &patches, std::vector<Vertex> &handles)
+void PatchRenderer::render(std::vector<GLfloat> &glPatches, std::vector<Patch> &patches, std::vector<Vertex> &handles)
 {
     GmsRenderer::render();
     updatePatchData(patches);
-    renderPatches(patches, handles);
+    renderPatches(glPatches, patches, handles);
 
     /*
         if (gui.patchColorChange)

@@ -1,11 +1,13 @@
 #pragma once
 
 #include <iostream>
+#include <iomanip>
 
 #include <glm/glm.hpp>
 
 #include "types.hpp"
 
+std::ostream &operator<<(std::ostream &os, const std::vector<int> &vec);
 std::ostream &operator<<(std::ostream &os, const HalfEdge &edge);
 std::ostream &operator<<(std::ostream &os, const Face &face);
 std::ostream &operator<<(std::ostream &os, const Point &point);

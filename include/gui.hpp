@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 
+#include "fileio.hpp"
 #include "gms_appstate.hpp"
 #include "gradmesh.hpp"
 #include "types.hpp"
@@ -56,7 +57,7 @@ void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::Fil
 void showMergingMenu(GmsAppState &appState);
 void showDebuggingMenu(GmsAppState &appState);
 
-void showPreviousMergeInfo(GmsAppState &appState);
+void showPreviousMergeInfo(GmsAppState::MergeStats &stats);
 void showGradMeshInfo(const GradMesh &mesh);
 void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs);
 void pushColor(ButtonColor color);

@@ -1,30 +1,31 @@
 #include "gms_app.hpp"
 
+static bool firstRandomIteration = true;
+
 GmsApp::GmsApp()
 {
-    initializeOpenGL();
-    patchRenderer.bindBuffers();
+    appState.edgeIds = readEdgeIdsFromFile("../build/logs/mergelist.txt");
     createDir(LOGS_DIR);
     createDir(IMAGE_DIR);
     createDir(SAVES_DIR);
-    appState.mesh = &currMesh; // free this pointer later
     setupNewMesh();
 }
 
 void GmsApp::setupNewMesh()
 {
-    currMesh = readHemeshFile(appState.filename);
-    patches = *(currMesh.generatePatchData());
-    appState.merges.clear();
-    appState.filenameChanged = false;
-    merger.findCandidateMerges();
-    resetEdgeSelection();
-    tangentHandles = currMesh.getHandleBars();
-    patchRenderer.render(patches, tangentHandles);
+    appState.mesh = readHemeshFile(appState.filename);
 
-    writeHemeshFile("mesh_saves/save_0.hemesh", currMesh);
-    renderFBO("img/currMesh.png", patchRenderer.getGlPatches(), patchRenderer.getPatchShaderId(), getMeshAABB(patches));
-    appState.meshAABB = getMeshAABB(patches);
+    appState.updateMeshRender();
+    appState.resetMerges();
+
+    merger.findCandidateMerges();
+    patchRenderer.render(appState.glPatches, appState.patches, appState.tangentHandles);
+    appState.selectedEdgeId = -1;
+    prevSelectedEdgeId = -1;
+
+    writeHemeshFile("mesh_saves/save_0.hemesh", appState.mesh);
+    renderFBO(ORIG_METRIC_IMG, appState.glPatches, patchRenderer.getPatchShaderId(), appState.meshAABB);
+    firstRandomIteration = true;
 }
 
 void GmsApp::run()
@@ -35,12 +36,6 @@ void GmsApp::run()
         auto currentTime = std::chrono::steady_clock::now();
         glfwPollEvents();
 
-        if (appState.debugMesh)
-        {
-            std::cout << currMesh;
-            appState.debugMesh = false;
-        }
-
         if (appState.filenameChanged)
         {
             setupNewMesh();
@@ -48,7 +43,7 @@ void GmsApp::run()
 
         if (appState.selectedEdgeId != prevSelectedEdgeId)
         {
-            resetCurveColors();
+            // resetCurveColors();
         }
 
         switch (appState.mergeMode)
@@ -57,9 +52,6 @@ void GmsApp::run()
         {
             if (merger.mergeAtSelectedEdge())
             {
-                patches = *(currMesh.generatePatchData());
-                renderFBO("img/mergedMesh.png", patchRenderer.getGlPatches(), patchRenderer.getPatchShaderId(), getMeshAABB(patches));
-
                 resetEdgeSelection();
                 resetCurveColors();
             }
@@ -68,38 +60,66 @@ void GmsApp::run()
         }
         case RANDOM:
         {
-            std::chrono::duration<double> elapsedSeconds = currentTime - lastTime;
             if (appState.numOfCandidateMerges <= 0)
             {
                 appState.mergeMode = NONE;
                 break;
             }
 
-            if (appState.selectedEdgeId == -1)
-                appState.selectedEdgeId = getRandomInt(currentTime.time_since_epoch().count(), appState.numOfCandidateMerges - 1);
-
-            if (elapsedSeconds.count() >= 0.1f)
+            if (appState.selectedEdges.empty() && firstRandomIteration)
             {
-                if (merger.mergeAtSelectedEdge())
+                appState.selectedEdges = generateRandomNums(appState.numOfCandidateMerges - 1);
+                firstRandomIteration = false;
+            }
+
+            if (appState.selectedEdgeId == -1)
+            {
+                appState.selectedEdgeId = pop(appState.selectedEdges);
+            }
+
+            switch (merger.mergeAtSelectedEdge())
+            {
+            case SUCCESS:
+            {
+                firstRandomIteration = true;
+                appState.selectedEdges.clear();
+                appState.selectedEdgeId = -1;
+                prevSelectedEdgeId = -1;
+                break;
+            }
+            case METRIC_ERROR:
+            {
+                if (appState.selectedEdges.empty())
                 {
-                    patches = *(currMesh.generatePatchData());
+                    appState.mergeMode = NONE;
                     appState.selectedEdgeId = -1;
                     prevSelectedEdgeId = -1;
-                    resetCurveColors();
                 }
                 else
                 {
-                    appState.mergeMode = NONE;
+                    appState.selectedEdgeId = pop(appState.selectedEdges);
                 }
-                lastTime = currentTime;
+                break;
             }
+            case FAILURE:
+            {
+                appState.selectedEdgeId = -1;
+                prevSelectedEdgeId = -1;
+                appState.mergeMode = NONE;
+                appState.selectedEdges.clear();
+                break;
+            }
+            }
+            resetCurveColors();
+            lastTime = currentTime;
+
             break;
         }
         case EDGELIST:
         {
             static int edgeListIdx = 0;
 
-            if (appState.numOfCandidateMerges <= 0 || edgeIds.empty() || edgeListIdx == edgeIds.size() - 1)
+            if (appState.numOfCandidateMerges <= 0 || appState.noMoreEdgeIds(edgeListIdx))
             {
                 appState.mergeMode = NONE;
                 break;
@@ -107,13 +127,12 @@ void GmsApp::run()
 
             if (appState.selectedEdgeId == -1)
             {
-                appState.selectedEdgeId = edgeIds[edgeListIdx];
+                appState.selectedEdgeId = appState.edgeIds[edgeListIdx];
                 resetCurveColors();
             }
 
             if (merger.mergeAtSelectedEdge())
             {
-                patches = *(currMesh.generatePatchData());
                 appState.selectedEdgeId = -1;
                 ++edgeListIdx;
             }
@@ -125,15 +144,13 @@ void GmsApp::run()
         }
         }
 
-        tangentHandles = currMesh.getHandleBars();
-
         switch (appState.currentMode)
         {
         case RENDER_CURVES:
             // curveRenderer.render();
             break;
         case RENDER_PATCHES:
-            patchRenderer.render(patches, tangentHandles);
+            patchRenderer.render(appState.glPatches, appState.patches, appState.tangentHandles);
             break;
         }
 
@@ -168,6 +185,6 @@ void GmsApp::resetCurveColors()
 void GmsApp::setCurveColor(int edgeIdx, glm::vec3 color)
 {
     DoubleHalfEdge dhe = merger.getDoubleHalfEdge(edgeIdx);
-    patches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, color);
-    patches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, color);
+    appState.patches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, color);
+    appState.patches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, color);
 }

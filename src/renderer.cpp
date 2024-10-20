@@ -1,7 +1,10 @@
 #include "renderer.hpp"
 #include "gms_app.hpp"
 
-GmsRenderer::GmsRenderer(GmsWindow &window, GmsAppState &appState) : window{window}, appState{appState} {}
+GmsRenderer::GmsRenderer(GmsWindow &window, GmsAppState &appState) : window{window}, appState{appState}
+{
+    initializeOpenGL();
+}
 
 void GmsRenderer::bindBuffers()
 {

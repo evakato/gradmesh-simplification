@@ -8,10 +8,11 @@
 #include <vector>
 
 #include "gms_math.hpp"
-#include "merging.hpp"
 #include "ostream_ops.hpp"
 #include "patch.hpp"
 #include "types.hpp"
+
+class GradMeshMerger;
 
 class GradMesh
 {
@@ -51,9 +52,16 @@ public:
     {
         return points;
     }
+    int getLeftMostChild(const HalfEdge &parent) const
+    {
+        for (int childIdx : parent.childrenIdxs)
+            if (edges[childIdx].isLeftMostChild())
+                return childIdx;
+        return -1;
+    }
 
     void fixEdges();
-    std::shared_ptr<std::vector<Patch>> generatePatchData();
+    std::vector<Patch> generatePatchData() const;
     std::vector<Vertex> getHandleBars() const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
@@ -110,6 +118,4 @@ private:
     std::vector<Handle> handles;
     std::vector<Face> faces;
     std::vector<HalfEdge> edges;
-
-    std::shared_ptr<std::vector<Patch>> patches;
 };

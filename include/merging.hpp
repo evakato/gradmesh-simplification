@@ -7,7 +7,7 @@
 #include "fileio.hpp"
 #include "gms_appstate.hpp"
 #include "gms_math.hpp"
-#include "gradmesh.hpp"
+#include "merge_metrics.hpp"
 #include "patch.hpp"
 #include "types.hpp"
 #include "window.hpp"
@@ -28,16 +28,23 @@ struct DoubleHalfEdge
     }
 };
 
+enum MergeState
+{
+    FAILURE,
+    SUCCESS,
+    METRIC_ERROR
+};
+
 class GradMeshMerger
 {
 public:
-    GradMeshMerger(GradMesh &mesh, GmsAppState &appState);
-    bool mergeAtSelectedEdge();
+    GradMeshMerger(GmsAppState &appState, int patchShaderId);
+    MergeState mergeAtSelectedEdge();
     void findCandidateMerges();
     const DoubleHalfEdge &getDoubleHalfEdge(int idx) { return candidateMerges[idx]; }
 
 private:
-    void mergePatches(int halfEdgeIdx);
+    GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
     float splittingFactor(HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign) const;
     float addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
 
@@ -66,6 +73,7 @@ private:
     GradMesh &mesh;
     GmsAppState &appState;
     std::vector<DoubleHalfEdge> candidateMerges;
+    MergeMetrics metrics;
 };
 
 enum CornerTJunctions

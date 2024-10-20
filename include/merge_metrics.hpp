@@ -14,6 +14,16 @@
 #include "patch.hpp"
 #include "types.hpp"
 
-void evaluateSSIM(const char *img1Path, const char *img2Path);
-void renderFBO(std::string filename, std::vector<GLfloat> &glPatches, int patchShaderId, AABB aabb);
+class MergeMetrics
+{
+public:
+    MergeMetrics(int patchShaderId);
+    bool doMerge(std::vector<GLfloat> &glPatches, AABB aabb, float eps);
+
+private:
+    int patchShaderId;
+};
+
+float evaluateSSIM(const char *img1Path, const char *img2Path);
+void renderFBO(const char *imgPath, std::vector<GLfloat> &glPatches, int patchShaderId, AABB aabb);
 void setAABBProjMat(int shaderId, AABB aabb);

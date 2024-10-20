@@ -1,14 +1,12 @@
 #include "merging.hpp"
+#include "gradmesh.hpp"
 
-GradMeshMerger::GradMeshMerger(GradMesh &mesh, GmsAppState &appState) : mesh(mesh), appState(appState)
-{
-    findCandidateMerges();
-}
+GradMeshMerger::GradMeshMerger(GmsAppState &appState, int patchShaderId) : mesh(appState.mesh), appState(appState), metrics{patchShaderId} {}
 
-bool GradMeshMerger::mergeAtSelectedEdge()
+MergeState GradMeshMerger::mergeAtSelectedEdge()
 {
     if (candidateMerges.empty() || appState.selectedEdgeId < 0 || appState.selectedEdgeId >= candidateMerges.size())
-        return false;
+        return FAILURE;
 
     appState.merges.push_back(appState.selectedEdgeId);
     writeLogFile(mesh, appState, "debug1.txt");
@@ -17,14 +15,28 @@ bool GradMeshMerger::mergeAtSelectedEdge()
         writeMergeList(appState, "mergelist.txt");
 
     int halfEdgeIdx = candidateMerges[appState.selectedEdgeId].getHalfEdgeIdx();
-    mergePatches(halfEdgeIdx);
-    findCandidateMerges();
+    GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
 
     saveImage((std::string{LOGS_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
     writeLogFile(mesh, appState, "debug2.txt");
-    writeHemeshFile("mesh_saves/save_" + std::to_string(appState.merges.size()) + ".hemesh", mesh);
 
-    return true;
+    std::vector<Patch> mergedPatches = mesh.generatePatchData();
+    auto glPatches = getAllPatchGLData(mergedPatches, &Patch::getControlMatrix);
+    if (!appState.useError || metrics.doMerge(glPatches, appState.meshAABB, appState.errorThreshold))
+    {
+        appState.updateMeshRender(mergedPatches, glPatches);
+        appState.mergeStats = stats;
+        writeHemeshFile("mesh_saves/save_" + std::to_string(appState.merges.size()) + ".hemesh", mesh);
+        std::rename(MERGE_METRIC_IMG, ORIG_METRIC_IMG);
+        findCandidateMerges();
+        return SUCCESS;
+    }
+    appState.merges.pop_back();
+    std::cout << "Not gonna do merge" << std::endl;
+    appState.mesh = readHemeshFile("mesh_saves/save_" + std::to_string(appState.merges.size()) + ".hemesh");
+    appState.updateMeshRender();
+    findCandidateMerges();
+    return METRIC_ERROR;
 }
 
 void GradMeshMerger::findCandidateMerges()
@@ -121,8 +133,9 @@ void GradMeshMerger::findCandidateMerges()
     appState.numOfCandidateMerges = candidateMerges.size();
 }
 
-void GradMeshMerger::mergePatches(int mergeEdgeIdx)
+GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
 {
+    GmsAppState::MergeStats stats;
     auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = mesh.getFaceEdgeIdxs(mergeEdgeIdx);
     auto &face1R = mesh.edges[face1RIdx];
     auto &face1B = mesh.edges[face1BIdx];
@@ -168,8 +181,8 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     mesh.disablePoint(face1R);
     mesh.disablePoint(face1B);
 
-    appState.bottomEdgeCase = "None";
-    appState.topEdgeCase = "None";
+    stats.bottomEdgeCase = "None";
+    stats.topEdgeCase = "None";
 
     bool alreadyCopied = false;
 
@@ -177,12 +190,12 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     {
         if (face1T.isLeftMostChild() && face2T.isRightMostChild())
         {
-            appState.topEdgeCase = "Stem becomes parent";
+            stats.topEdgeCase = "Stem becomes parent";
             childBecomesItsParent(face1TIdx);
         }
         else
         {
-            appState.topEdgeCase = "Stem becomes bar";
+            stats.topEdgeCase = "Stem becomes bar";
             face1T.interval.y = face2T.interval.y;
             setNextRightL(face2T, face1RIdx);
             auto &parent = mesh.edges[face1T.parentIdx];
@@ -198,7 +211,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     case LeftT | RightT:
     {
         // 9 --> 18 --> 8
-        appState.topEdgeCase = "LeftT and RightT";
+        stats.topEdgeCase = "LeftT and RightT";
         newTopEdgeIdx = face1T.parentIdx;
         topLeftEdge = &mesh.edges[newTopEdgeIdx];
         topRightEdge = &mesh.edges[face2T.parentIdx];
@@ -231,7 +244,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     {
         // 41 --> 23
         // keep the parent, make the top left edge the bar1
-        appState.topEdgeCase = "RightT (w/ or w/o LeftL)";
+        stats.topEdgeCase = "RightT (w/ or w/o LeftL)";
         newTopEdgeIdx = face2T.parentIdx;
         topRightEdge = &mesh.edges[newTopEdgeIdx];
 
@@ -260,7 +273,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
         [[fallthrough]];
     case LeftT:
     {
-        appState.topEdgeCase = "LeftT (w/ or w/o RightL)";
+        stats.topEdgeCase = "LeftT (w/ or w/o RightL)";
         newTopEdgeIdx = face1T.parentIdx;
         topLeftEdge = &mesh.edges[newTopEdgeIdx];
 
@@ -273,7 +286,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     case LeftL | RightL:
     case RightL:
     {
-        appState.topEdgeCase = "RightL (w/ or w/o LeftL)";
+        stats.topEdgeCase = "RightL (w/ or w/o LeftL)";
         // for leftL, weird case: basically just delete the stem from the RightL
         // 2 --> 49 --> 7 or 18 --> 35 --> 16
         // mesh.edges[face2R.parentIdx].nextIdx = face1BIdx;
@@ -282,7 +295,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     }
     case LeftL:
     {
-        appState.topEdgeCase = "LeftL only";
+        stats.topEdgeCase = "LeftL only";
     }
     default:
     {
@@ -294,12 +307,12 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     {
         if (face2B.isLeftMostChild() && face1B.isRightMostChild())
         {
-            appState.bottomEdgeCase = "Stem becomes parent";
+            stats.bottomEdgeCase = "Stem becomes parent";
             childBecomesItsParent(face1BIdx);
         }
         else
         {
-            appState.bottomEdgeCase = "Stem becomes child";
+            stats.bottomEdgeCase = "Stem becomes child";
             face1B.interval.x = face2B.interval.x;
             face1B.color = face2B.color;
             auto &parent = mesh.edges[face1B.parentIdx];
@@ -317,7 +330,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     case LeftT | RightT:
     {
         // 0 -> 20 -> 14
-        appState.bottomEdgeCase = "LeftT and RightT";
+        stats.bottomEdgeCase = "LeftT and RightT";
         newBottomEdgeIdx = face1B.parentIdx;
         bottomLeftEdge = &mesh.edges[newBottomEdgeIdx];
         int rightTParentIdx = face2B.parentIdx;
@@ -345,7 +358,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
         // 1 -> 31 -> 9 (now i don't have to twist my head)
         // the bottom left edge is not a stem.. its twin is a stem
         // the bottom left edge inherits the bar data from the bottom right edge
-        appState.bottomEdgeCase = "RightT (w/ or w/o LeftL)";
+        stats.bottomEdgeCase = "RightT (w/ or w/o LeftL)";
         newBottomEdgeIdx = face2B.parentIdx;
         bottomRightEdge = &mesh.edges[newBottomEdgeIdx];
 
@@ -372,8 +385,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     }
     case LeftT:
     {
-        std::cout << "entering the galazy" << std::endl;
-        appState.bottomEdgeCase = "LeftT (w/ or w/o RightL)";
+        stats.bottomEdgeCase = "LeftT (w/ or w/o RightL)";
         newBottomEdgeIdx = face1B.parentIdx;
         bottomLeftEdge = &mesh.edges[newBottomEdgeIdx];
 
@@ -389,7 +401,7 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     case RightL:
     {
         // with LeftL: 2 --> 49 --> 16
-        appState.bottomEdgeCase = "RightL (w/ or w/o LeftL)";
+        stats.bottomEdgeCase = "RightL (w/ or w/o LeftL)";
         transferChildToWithoutGeometry(face2RIdx, face1RIdx);
         transferChildTo(face2BIdx, face1BIdx);
         break;
@@ -431,12 +443,19 @@ void GradMeshMerger::mergePatches(int mergeEdgeIdx)
     face1R.handleIdxs = face2R.handleIdxs;
     setNextRightL(face2R, face1BIdx);
 
-    appState.updateMergeInfo(mergeEdgeIdx, t, face2L.faceIdx, 1.0f - topEdgeT, bottomEdgeT);
+    // appState.updateMergeInfo(mergeEdgeIdx, t, face2L.faceIdx, 1.0f - topEdgeT, bottomEdgeT);
     int topTwinIdx = addTopT ? addTJunction(*topRightEdge, *topLeftEdge, newTopEdgeIdx, 1.0f - topEdgeT) : -1;
     int bottomTwinIdx = addBottomT ? addTJunction(*bottomLeftEdge, *bottomRightEdge, newBottomEdgeIdx, bottomEdgeT) : -1;
 
     copyEdgeTwin(face1RIdx, face2RIdx);
     removeFace(face2L.faceIdx);
+
+    stats.mergedHalfEdgeIdx = mergeEdgeIdx;
+    stats.t = t;
+    stats.removedFaceId = face2L.faceIdx;
+    stats.topEdgeT = 1.0f - topEdgeT;
+    stats.bottomEdgeT = bottomEdgeT;
+    return stats;
 }
 
 float GradMeshMerger::splittingFactor(HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign) const
@@ -536,7 +555,6 @@ float GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfP
     if (bar2.isParent() && bar1.isParent())
     {
         // strategy: remove the parent of bar2 and update bar1
-        std::cout << "Both bars are parents\n";
         parentIdx = bar1Idx;
         scaleDownChildrenByT(bar1, t);
         scaleUpChildrenByT(bar2, t);
@@ -546,7 +564,6 @@ float GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfP
     }
     else if (bar1.isParent())
     {
-        std::cout << "bar1 is a parent\n";
         parentIdx = bar1Idx;
         scaleDownChildrenByT(bar1, t);
         bar1.addChildrenIdxs({bar2Idx});
@@ -554,14 +571,12 @@ float GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfP
     }
     else if (bar2.isParent())
     {
-        std::cout << "bar2 is a parent\n";
         parentIdx = bar2Idx;
         scaleUpChildrenByT(bar2, t);
         bar2.addChildrenIdxs({bar1Idx});
     }
     else
     {
-        std::cout << "neither is a parent\n";
         parentIdx = mesh.addEdge(HalfEdge{});
         mesh.edges[parentIdx].childrenIdxs = {bar1Idx, bar2Idx};
         bar2.createBar(parentIdx, {t, 1});
@@ -572,8 +587,6 @@ float GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfP
         if (bar1.isStem())
         {
             // 11 --> 40 -- > 23
-            std::cout << "Extending stem!\n";
-            // copyAndReplaceChild(parentIdx, bar1Idx);
             transferChildTo(bar1Idx, parentIdx);
             mesh.edges[parentIdx].handleIdxs = bar1.handleIdxs;
         }

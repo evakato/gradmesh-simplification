@@ -36,14 +36,7 @@ private:
     GmsWindow gmsWindow{SCR_WIDTH, SCR_HEIGHT, "gms"};
     GmsGui gui{gmsWindow, appState};
     PatchRenderer patchRenderer{gmsWindow, appState};
-
-    GradMesh currMesh;
-    GradMeshMerger merger{currMesh, appState};
-
-    std::vector<Patch> patches;
-    std::vector<Vertex> tangentHandles;
-
-    std::vector<int> edgeIds = readEdgeIdsFromFile("../build/logs/mergelist.txt");
+    GradMeshMerger merger{appState, patchRenderer.getPatchShaderId()};
 
     int prevSelectedEdgeId = -1;
 };

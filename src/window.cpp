@@ -192,13 +192,14 @@ void saveImage(const char *filename, int width, int height)
 
 void createDir(std::string_view dir)
 {
-    if (!std::filesystem::exists(dir))
+    if (std::filesystem::exists(dir))
     {
-        if (std::filesystem::create_directory(dir))
-            std::cout << "Directory created successfully!" << std::endl;
-        else
-            std::cout << "Failed to create directory!" << std::endl;
+        std::filesystem::remove_all(dir); // Remove all contents in the directory
+        std::cout << "Directory already existed, contents removed." << std::endl;
     }
+
+    if (std::filesystem::create_directory(dir))
+        std::cout << "Directory created successfully!" << std::endl;
     else
-        std::cout << "Directory already exists." << std::endl;
+        std::cout << "Failed to create directory!" << std::endl;
 }

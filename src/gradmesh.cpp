@@ -1,10 +1,10 @@
 #include "gradmesh.hpp"
 
-std::shared_ptr<std::vector<Patch>> GradMesh::generatePatchData()
+std::vector<Patch> GradMesh::generatePatchData() const
 {
-    patches = std::make_shared<std::vector<Patch>>();
+    std::vector<Patch> patches{};
 
-    for (Face &face : faces)
+    for (const auto &face : faces)
     {
         if (!face.isValid())
             continue;
@@ -29,7 +29,7 @@ std::shared_ptr<std::vector<Patch>> GradMesh::generatePatchData()
                                   (bottomEdge.isChild()) << 2 |
                                   (leftEdge.isChild()) << 3);
 
-        patches->push_back(Patch{controlMatrix, isChild});
+        patches.push_back(Patch{controlMatrix, isChild});
     }
 
     return patches;
@@ -46,7 +46,7 @@ CurveVector GradMesh::getCurve(int halfEdgeIdx) const
         std::cerr << "half edge idx not valid: " << halfEdgeIdx << std::endl;
         assert(false);
     }
-    assert(edge.nextIdx != -1 && edges[edge.nextIdx].isValid());
+    // assert(edges[edge.nextIdx].isValid());
 
     // std::cout << "recursion: " << halfEdgeIdx << "\n";
     auto [m0, m0v, m1v, m0uv] = computeEdgeDerivatives(edge);
@@ -116,7 +116,6 @@ std::vector<Vertex> GradMesh::getHandleBars() const
 
 void GradMesh::fixEdges()
 {
-    std::cout << "CLEANING EDGES\n";
     int count = 0;
     int halfEdgeIdx = 0;
     for (HalfEdge &edge : edges)
@@ -125,7 +124,7 @@ void GradMesh::fixEdges()
         {
             // likely a bandaid fix for certain .hemesh files.. ideally i want to get rid of all those annoying parent edges completely, but for now this will do
             HalfEdge &parent = edges[edge.parentIdx];
-            std::cout << "the child is " << halfEdgeIdx << "and the parent is " << edge.parentIdx << " who belongs to " << parent.faceIdx << "\n";
+            // std::cout << "the child is " << halfEdgeIdx << "and the parent is " << edge.parentIdx << " who belongs to " << parent.faceIdx << "\n";
             parent.childIdxDegenerate = halfEdgeIdx;
             parent.faceIdx = -1;
             edge.originIdx = parent.originIdx;

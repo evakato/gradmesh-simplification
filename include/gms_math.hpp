@@ -1,5 +1,10 @@
 #pragma once
 
+#include <chrono>
+#include <ranges>
+#include <random>
+#include <algorithm>
+#include <optional>
 #include <stdlib.h>
 #include <tuple>
 
@@ -80,4 +85,23 @@ inline int getRandomInt(auto seed, int max)
 
     std::srand(static_cast<unsigned int>(seed));
     return std::rand() % max;
+}
+
+inline std::vector<int> generateRandomNums(int N)
+{
+    std::vector<int> numbers(N + 1);
+    std::iota(numbers.begin(), numbers.end(), 0);
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::mt19937 gen(seed);
+    std::shuffle(numbers.begin(), numbers.end(), gen);
+    return numbers;
+}
+
+template <typename T>
+T pop(std::vector<T> &vec)
+{
+    assert(!vec.empty());
+    T value = std::move(vec.back());
+    vec.pop_back();
+    return value;
 }

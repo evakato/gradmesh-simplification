@@ -80,7 +80,7 @@ void vertexToGlData(std::vector<GLfloat> &glData, Vertex v, std::optional<glm::v
 
 // functions that operate on an array of patches
 template <typename Func>
-const std::vector<GLfloat> getAllPatchGLData(std::vector<Patch> &patches, Func func)
+const std::vector<GLfloat> getAllPatchGLData(const std::vector<Patch> &patches, Func func)
 {
     std::vector<GLfloat> allPatchData;
     for (auto &patch : patches)

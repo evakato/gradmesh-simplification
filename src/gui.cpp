@@ -338,6 +338,23 @@ void showMergingMenu(GmsAppState &appState)
         }
 
         ImGui::Spacing();
+        ImGui::Spacing();
+
+        ImGui::Checkbox("Use pixel-based error metrics", &appState.useError);
+        if (appState.useError)
+        {
+            ImGui::Spacing();
+            const char *items[] = {"SSIM", "FLIP"};
+            static int item_current = 0;
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::Combo("Metric", &item_current, items, IM_ARRAYSIZE(items));
+            ImGui::SetNextItemWidth(140.0f);
+            ImGui::SameLine();
+            ImGui::SliderFloat("Epsilon", &appState.errorThreshold, 0.0f, 0.1f);
+        }
+
+        ImGui::Spacing();
+        ImGui::Spacing();
         if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
             ImGui::TableNextRow();
@@ -377,12 +394,12 @@ void showDebuggingMenu(GmsAppState &appState)
         ImGui::Text("Previous merge: ");
         ImGui::Spacing();
 
-        showPreviousMergeInfo(appState);
-        showGradMeshInfo(*appState.mesh);
+        showPreviousMergeInfo(appState.mergeStats);
+        showGradMeshInfo(appState.mesh);
     }
 }
 
-void showPreviousMergeInfo(GmsAppState &appState)
+void showPreviousMergeInfo(GmsAppState::MergeStats &stats)
 {
     if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
     {
@@ -391,24 +408,24 @@ void showPreviousMergeInfo(GmsAppState &appState)
         ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
         ImGui::Text("Half-edge id");
         ImGui::TableSetColumnIndex(1);
-        ImGui::Text("%d", appState.mergedHalfEdgeIdx);
+        ImGui::Text("%d", stats.mergedHalfEdgeIdx);
 
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
         ImGui::Text("t");
         ImGui::TableSetColumnIndex(1);
-        if (appState.t == -1)
+        if (stats.t == -1)
             ImGui::Text("None");
         else
-            ImGui::Text("%f", appState.t);
+            ImGui::Text("%f", stats.t);
 
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
         ImGui::Text("Removed face id");
         ImGui::TableSetColumnIndex(1);
-        ImGui::Text("%d", appState.removedFaceId);
+        ImGui::Text("%d", stats.removedFaceId);
         ImGui::EndTable();
     }
     ImGui::Spacing();
@@ -437,23 +454,23 @@ void showPreviousMergeInfo(GmsAppState &appState)
         ImGui::TableSetColumnIndex(0);
         ImGui::Text("Top edge");
         ImGui::TableSetColumnIndex(1);
-        if (appState.topEdgeT)
-            ImGui::Text("%.3f", appState.topEdgeT);
+        if (stats.topEdgeT)
+            ImGui::Text("%.3f", stats.topEdgeT);
         else
             ImGui::Text("None");
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%s", appState.topEdgeCase.c_str());
+        ImGui::Text("%s", stats.topEdgeCase.c_str());
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
         ImGui::Text("Bottom edge");
         ImGui::TableSetColumnIndex(1);
-        if (appState.bottomEdgeT)
-            ImGui::Text("%.3f", appState.bottomEdgeT);
+        if (stats.bottomEdgeT)
+            ImGui::Text("%.3f", stats.bottomEdgeT);
         else
             ImGui::Text("None");
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%s", appState.bottomEdgeCase.c_str());
+        ImGui::Text("%s", stats.bottomEdgeCase.c_str());
         ImGui::EndTable();
     }
 

@@ -16,7 +16,6 @@ class GmsRenderer
 public:
     GmsRenderer(GmsWindow &window, GmsAppState &appState);
     ~GmsRenderer();
-
     void render();
 
 protected:

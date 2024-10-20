@@ -17,18 +17,13 @@ public:
     PatchRenderer(GmsWindow &window, GmsAppState &appState);
     ~PatchRenderer();
 
-    void render(std::vector<Patch> &patches, std::vector<Vertex> &handles);
-    void bindBuffers();
+    void render(std::vector<GLfloat> &glPatches, std::vector<Patch> &patches, std::vector<Vertex> &handles);
     int getPatchShaderId() const { return patchShaderId; }
-    std::vector<GLfloat> &getGlPatches() { return glPatches; }
 
 protected:
-    void renderPatches(std::vector<Patch> &patches, std::vector<Vertex> &handles);
+    void renderPatches(std::vector<GLfloat> &glPatches, std::vector<Patch> &patches, std::vector<Vertex> &handles);
     void updatePatchData(std::vector<Patch> &patches);
 
     GLuint EBO;
     GLuint patchShaderId;
-
-private:
-    std::vector<GLfloat> glPatches;
 };

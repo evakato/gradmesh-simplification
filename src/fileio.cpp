@@ -41,6 +41,7 @@ std::vector<std::string> splitString(const std::string &str)
 
 GradMesh readHemeshFile(const std::string &filename)
 {
+    std::cout << "Reading " << filename << std::endl;
     std::ifstream inf{filename};
     if (!inf)
     {
@@ -94,10 +95,9 @@ GradMesh readHemeshFile(const std::string &filename)
         if (std::getline(inf, currLine))
         {
             tokens = splitString(currLine);
-            if (tokens.size() < 20)
-            {
-                throw std::runtime_error("Expected 20 tokens\n");
-            }
+
+            assert(tokens.size() >= 20);
+
             HalfEdge halfEdge;
             halfEdge.interval.x = std::stof(tokens[0]);
             halfEdge.interval.y = std::stof(tokens[1]);
@@ -125,32 +125,23 @@ GradMesh readHemeshFile(const std::string &filename)
             if (std::stoi(tokens[17]))
             {
                 halfEdge.parentIdx = std::stoi(tokens[18]);
-                /*
-                if (std::stoi(tokens[19]) >= 0)
-                {
-                    std::cout << "handles: \n";
-                    std::cout << tokens[10] << ", " << tokens[11] << "\n";
-                    std::cout << tokens[19] << ", " << tokens[20] << "\n";
-                    std::cout << "interval: \n";
-                    std::cout << tokens[0] << ", " << tokens[1] << "\n";
-                    std::cout << tokens[21] << ", " << tokens[22] << "\n";
-                }
-                */
-                // std::cout << i << " is child type shi whose parent is " << halfEdge.parentIdx << "\n";
-                //   halfEdge.originIdx = gradMesh.getEdge(parentIdx).originIdx;
                 halfEdge.originIdx = -1;
             }
             else
             {
-                halfEdge.originIdx = std::stoi(tokens[20]);
                 halfEdge.parentIdx = -1;
+                halfEdge.originIdx = std::stoi(tokens[20]);
+            }
+
+            for (size_t i = 24; i < tokens.size(); ++i)
+            {
+                halfEdge.childrenIdxs.push_back(std::stoi(tokens[i]));
             }
             gradMesh.addEdge(halfEdge);
         }
     }
-
     gradMesh.fixEdges();
-    //  td::cout << gradMesh;
+
     return std::move(gradMesh);
 }
 
@@ -200,11 +191,28 @@ void writeHemeshFile(const std::string &filename, const GradMesh &mesh)
             << halfEdge.handleIdxs.first << " " << halfEdge.handleIdxs.second << " "                           // handle indices (10,11)
             << halfEdge.twinIdx << " "                                                                         // twin index (12)
             << halfEdge.prevIdx << " " << halfEdge.nextIdx << " " << halfEdge.faceIdx << " "                   // edge relations (13-15)
-            << 0 << " "                                                                                        // placeholder (16)
-            << (halfEdge.isChild() ? 1 : 0) << " "                                                             // child flag (17)
-            << halfEdge.parentIdx << " "                                                                       // parent index (18)
-            << 1 << " "                                                                                        // unused (19)
-            << halfEdge.originIdx << "\n";                                                                     // origin index (20)
+            << mesh.getLeftMostChild(halfEdge) << " ";                                                         // placeholder (16)
+
+        if (halfEdge.isChild())
+        {
+            out << 1 << " ";                                                              // 17
+            out << halfEdge.parentIdx << " ";                                             // 18
+            out << halfEdge.handleIdxs.first << " " << halfEdge.handleIdxs.second << " "; // 19, 20
+            out << halfEdge.interval.x << " " << halfEdge.interval.y << " ";              // 21, 22
+        }
+        else
+        {
+            out << 0 << " ";                                                              // 17
+            out << halfEdge.handleIdxs.first << " " << halfEdge.handleIdxs.second << " "; // 18, 19
+            out << halfEdge.originIdx << " ";                                             // 20
+            out << 0 << " " << 0 << " ";                                                  // 21, 22
+        }
+        out << 0 << " ";
+        for (int childIdx : halfEdge.childrenIdxs)
+        {
+            out << childIdx << " "; // 24 +
+        }
+        out << "\n";
     }
 
     out.close();
@@ -216,12 +224,14 @@ void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::str
 
     if (debugLogFile.is_open())
     {
+        /*
         debugLogFile << "t: " << state.t << "\n";
         debugLogFile << "removed face id: " << state.removedFaceId << "\n";
         debugLogFile << "top edge: " << state.topEdgeCase << "\n";
         debugLogFile << state.topEdgeT << "\n";
         debugLogFile << "bottom edge: " << state.bottomEdgeCase << "\n";
         debugLogFile << state.bottomEdgeT << "\n";
+        */
 
         debugLogFile << mesh << std::endl;
         debugLogFile.close();

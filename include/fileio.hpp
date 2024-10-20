@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cctype>
 #include <fstream>
 #include <iostream>
@@ -8,10 +10,10 @@
 
 #include <glm/glm.hpp>
 
-#include "types.hpp"
-#include "patch.hpp"
-#include "gms_appstate.hpp"
 #include "gradmesh.hpp"
+#include "gms_appstate.hpp"
+#include "patch.hpp"
+#include "types.hpp"
 
 class GradMesh;
 class GmsAppState;
