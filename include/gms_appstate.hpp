@@ -19,8 +19,7 @@ enum MergeMode
 {
     NONE,
     MANUAL,
-    RANDOM,
-    EDGELIST
+    RANDOM
 };
 
 enum MergeStatus
@@ -66,11 +65,8 @@ public:
     std::string filename = "../meshes/global-refinement.hemesh";
     bool filenameChanged = false;
 
-    // Mesh
+    // Mesh and mesh rendering data
     GradMesh mesh;
-    AABB meshAABB;
-
-    // Mesh rendering data
     std::vector<Patch> patches;
     std::vector<Vertex> tangentHandles;
     std::vector<GLfloat> glPatches;
@@ -79,7 +75,7 @@ public:
     int maxHWTessellation;
     bool isWireframeMode = false;
     bool renderControlPoints = true;
-    bool renderHandles = true;
+    bool renderHandles = false;
     bool renderCurves = true;
     bool renderPatches = true;
     float handleLineWidth = 2.0f;
@@ -94,15 +90,12 @@ public:
     int selectedEdgeId = -1;
     std::vector<int> selectedEdges;
     int attemptedMergesIdx = 0;
-    std::vector<int> edgeIds; // for reading a list of edges from file
     MergeMetrics::MetricMode metricMode = MergeMetrics::MetricMode::FLIP;
+    MergeMetrics::PixelRegion pixelRegion = MergeMetrics::PixelRegion::Global;
 
-    // Merging gui stats
-    MergeStats mergeStats;
-
-    // Merging history
+    // Merging stats
     MergeStatus mergeStatus = NA;
-    bool saveMerges = false;
+    MergeStats mergeStats;
     std::vector<int> merges{};
 
     // Merging metrics - capturing pixels and error
@@ -124,8 +117,6 @@ public:
     {
         merges.clear();
         filenameChanged = false;
-        meshAABB = getMeshAABB(patches);
         mergeStatus = NA;
     }
-    bool noMoreEdgeIds(int idx) const { return edgeIds.empty() || idx == edgeIds.size() - 1; }
 };

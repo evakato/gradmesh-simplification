@@ -5,19 +5,44 @@
 MergeMetrics::MergeMetrics(Params params)
     : unmergedGlPatches(params.unmergedGlPatches),
       unmergedTexture(params.unmergedTexture),
-      mergedTexture(params.mergedTexture)
+      mergedTexture(params.mergedTexture),
+      mesh(params.mesh),
+      aabb(params.aabb)
 {
     patchShaderId = params.patchShaderId;
     glGenFramebuffers(1, &unmergedFbo);
     glGenFramebuffers(1, &mergedFbo);
 }
 
-void MergeMetrics::captureBeforeMerge(AABB aabb) const
+void MergeMetrics::setAABB(PixelRegion region, int halfEdgeIdx)
+{
+    switch (region)
+    {
+    case PixelRegion::Local:
+    {
+        auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = mesh.getFaceEdgeIdxs(halfEdgeIdx);
+        auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = mesh.getFaceEdgeIdxs(mesh.edges[halfEdgeIdx].twinIdx);
+        int twin1 = mesh.edges[face1BIdx].twinIdx;
+        int twin2 = mesh.edges[face1TIdx].twinIdx;
+        int twin3 = mesh.edges[face2BIdx].twinIdx;
+        int twin4 = mesh.edges[face2TIdx].twinIdx;
+        aabb = mesh.getBoundingBoxOverFaces({halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4});
+        break;
+    }
+    case PixelRegion::Global:
+    {
+        aabb = mesh.getAABB();
+        break;
+    }
+    }
+}
+
+void MergeMetrics::captureBeforeMerge() const
 {
     renderFBO(ORIG_METRIC_IMG, unmergedTexture, unmergedFbo, unmergedGlPatches, patchShaderId, aabb);
 }
 
-bool MergeMetrics::doMerge(std::vector<GLfloat> &glPatches, MetricMode metric, AABB aabb, float eps)
+bool MergeMetrics::doMerge(std::vector<GLfloat> &glPatches, MetricMode metric, float eps)
 {
     renderFBO(MERGE_METRIC_IMG, mergedTexture, mergedFbo, glPatches, patchShaderId, aabb);
     float error;
@@ -170,10 +195,7 @@ void renderFBO(const char *imgPath, GLuint texture, GLuint fbo, std::vector<GLfl
         glDrawArrays(GL_PATCHES, i * VERTS_PER_PATCH, VERTS_PER_PATCH);
 
     std::vector<uint8_t> pixelsA(POOLING_LENGTH * POOLING_LENGTH * 3); // 3 channels for RGB
-    std::cout << pixelWidth << std::endl;
-    std::cout << pixelHeight << std::endl;
     glReadPixels(0, 0, POOLING_LENGTH, POOLING_LENGTH, GL_RGB, GL_UNSIGNED_BYTE, pixelsA.data());
-    std::cout << "Allocated pixelsA size: " << pixelsA.size() << std::endl;
     int stride_bytes = POOLING_LENGTH * 3;
     stbi_write_png(imgPath, POOLING_LENGTH, POOLING_LENGTH, 3, pixelsA.data(), stride_bytes);
 

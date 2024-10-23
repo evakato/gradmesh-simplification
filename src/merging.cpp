@@ -1,7 +1,7 @@
 #include "merging.hpp"
 #include "gradmesh.hpp"
 
-GradMeshMerger::GradMeshMerger(GmsAppState &appState, int patchShaderId) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{patchShaderId, appState.glPatches, appState.unmergedTexture, appState.mergedTexture}} {}
+GradMeshMerger::GradMeshMerger(GmsAppState &appState, int patchShaderId) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{patchShaderId, appState.glPatches, appState.unmergedTexture, appState.mergedTexture, appState.mesh, appState.mergeAABB}} {}
 
 MergeStatus GradMeshMerger::mergeAtSelectedEdge()
 {
@@ -11,22 +11,10 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge()
     appState.merges.push_back(appState.selectedEdgeId);
     writeLogFile(mesh, appState, "debug1.txt");
 
-    if (appState.saveMerges)
-        writeMergeList(appState, "mergelist.txt");
-
     int halfEdgeIdx = candidateMerges[appState.selectedEdgeId].getHalfEdgeIdx();
 
-    auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = mesh.getFaceEdgeIdxs(halfEdgeIdx);
-    auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = mesh.getFaceEdgeIdxs(mesh.edges[halfEdgeIdx].twinIdx);
-    int twin1 = mesh.edges[face1BIdx].twinIdx;
-    int twin2 = mesh.edges[face1TIdx].twinIdx;
-    int twin3 = mesh.edges[face2BIdx].twinIdx;
-    int twin4 = mesh.edges[face2TIdx].twinIdx;
-
-    AABB aabb = mesh.getBoundingBoxOverFaces({halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4});
-    appState.mergeAABB = aabb;
-
-    metrics.captureBeforeMerge(aabb);
+    metrics.setAABB(appState.pixelRegion, halfEdgeIdx);
+    metrics.captureBeforeMerge();
 
     GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
 
@@ -44,7 +32,7 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge()
     }
 
     auto glPatches = getAllPatchGLData(mergedPatches.value(), &Patch::getControlMatrix);
-    if (!appState.useError || metrics.doMerge(glPatches, appState.metricMode, aabb, appState.errorThreshold))
+    if (!appState.useError || metrics.doMerge(glPatches, appState.metricMode, appState.errorThreshold))
     {
         appState.updateMeshRender(mergedPatches.value(), glPatches);
         appState.mergeStats = stats;

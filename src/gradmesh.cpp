@@ -194,13 +194,18 @@ AABB GradMesh::getFaceBoundingBox(int halfEdgeIdx) const
     auto edgeIdxs = getFaceEdgeIdxs(halfEdgeIdx);
     for (int edgeIdx : edgeIdxs)
     {
-        while (edges[edgeIdx].isChild())
-            edgeIdx = edges[edgeIdx].parentIdx;
+        while (true)
+        {
+            auto curveVector = getCurve(edgeIdx);
+            assert(curveVector != std::nullopt);
+            aabb.expand(curveVector->at(0).coords);
+            aabb.expand(curveVector->at(3).coords);
 
-        auto curveVector = getCurve(edgeIdx);
-        assert(curveVector != std::nullopt);
-        aabb.expand(curveVector.value()[0].coords);
-        aabb.expand(curveVector.value()[3].coords);
+            if (!edges[edgeIdx].isChild())
+                break;
+
+            edgeIdx = edges[edgeIdx].parentIdx;
+        }
     }
     return aabb;
 }
@@ -214,5 +219,19 @@ AABB GradMesh::getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const
         if (halfEdgeIdx != -1 && edges[halfEdgeIdx].isValid())
             aabb.expand(getFaceBoundingBox(halfEdgeIdx));
     }
+    aabb.addPadding(AABB_PADDING);
+    return aabb;
+}
+
+AABB GradMesh::getAABB() const
+{
+    AABB aabb{glm::vec2(std::numeric_limits<float>::max()), glm::vec2(std::numeric_limits<float>::lowest())};
+
+    for (auto &point : points)
+    {
+        if (point.isValid())
+            aabb.expand(point.coords);
+    }
+    aabb.addPadding(AABB_PADDING);
     return aabb;
 }

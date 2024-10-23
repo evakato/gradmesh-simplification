@@ -14,7 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "stb_image_write.h"
 
-#include "patch.hpp"
+#include "gradmesh.hpp"
 #include "types.hpp"
 
 class MergeMetrics
@@ -25,17 +25,25 @@ public:
         SSIM,
         FLIP
     };
+    enum PixelRegion
+    {
+        Global,
+        Local
+    };
     struct Params
     {
         int patchShaderId;
         std::vector<GLfloat> &unmergedGlPatches;
         GLuint &unmergedTexture;
         GLuint &mergedTexture;
+        GradMesh &mesh;
+        AABB &aabb;
     };
 
     MergeMetrics(Params params);
-    bool doMerge(std::vector<GLfloat> &glPatches, MetricMode metric, AABB aabb, float eps);
-    void captureBeforeMerge(AABB aabb) const;
+    void setAABB(PixelRegion region, int halfEdgeIdx);
+    bool doMerge(std::vector<GLfloat> &glPatches, MetricMode metric, float eps);
+    void captureBeforeMerge() const;
 
 private:
     GLuint unmergedFbo;
@@ -45,6 +53,8 @@ private:
 
     GLuint &unmergedTexture;
     GLuint &mergedTexture;
+    GradMesh &mesh;
+    AABB &aabb;
 };
 
 float evaluateSSIM(const char *img1Path, const char *img2Path);

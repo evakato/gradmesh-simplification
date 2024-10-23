@@ -35,10 +35,6 @@ void GmsGui::showRightBar()
 
     ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_NoTitleBar);
 
-    ImGui::Text(("Viewing: " + appState.filename).c_str());
-    ImGui::Spacing();
-    ImGui::Text("Maximum hardware tessellation level: %i", appState.maxHWTessellation);
-    ImGui::Spacing();
     ImGui::Spacing();
 
     if (ImGui::BeginTabBar("Rendering Mode"))
@@ -50,18 +46,6 @@ void GmsGui::showRightBar()
             // showHermiteMatrixTable(appState.selectedPatchId);
 
             showRenderSettings();
-
-            AABB aabb = appState.mergeAABB;
-            auto pixelDimensions = aabb.getPixelDimensions(200);
-            int pixelWidth = pixelDimensions.x;
-            int pixelHeight = pixelDimensions.y;
-            ImGui::Begin("Image Window");
-            ImGui::SetWindowSize(ImVec2(450, 250));
-            ImGui::Image((void *)(intptr_t)appState.unmergedTexture, ImVec2(pixelWidth, pixelHeight)); // Set size to (200, 200) for example
-            ImGui::SameLine();
-            ImGui::Image((void *)(intptr_t)appState.mergedTexture, ImVec2(pixelWidth, pixelHeight)); // Set size to (200, 200) for example
-            ImGui::Text("AABB: min{%.3f, %.3f}, max {%.3f, %.3f}", aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y);
-            ImGui::End();
 
             showMergingMenu(appState);
             showDebuggingMenu(appState);
@@ -93,7 +77,7 @@ void GmsGui::showRightBar()
 
 void GmsGui::showRenderSettings()
 {
-    if (ImGui::CollapsingHeader("Render Settings", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Render Settings"))
     {
         ImGui::Spacing();
         ImGui::Checkbox("Wireframe mode", &appState.isWireframeMode);
@@ -197,6 +181,11 @@ void GmsGui::showWindowMenuBar()
             }
             ImGui::EndMenu();
         }
+
+        ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(("test" + appState.filename).c_str()).x);
+        ImGui::Text("%s", appState.filename.c_str());
+        ImGui::Button(std::to_string(appState.maxHWTessellation).c_str());
+        ImGui::SetItemTooltip("Maximum hardware tessellation level");
         ImGui::EndMenuBar();
     }
     ImGui::End();
@@ -260,15 +249,20 @@ void showMergingMenu(GmsAppState &appState)
     {
         ImGui::Spacing();
 
-        if (ImGui::TreeNode("Manual edge select"))
+        static int edge_select_current = 1;
+        const char *edge_select_items[] = {"Manual", "Random"};
+        ImGui::Text("Edge select mode");                                                                        // Display the label
+        ImGui::SetNextItemWidth(100.0f);                                                                        // Set the width for the combo box
+        ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items)); // Use empty label to remove default one
+        ImGui::SameLine();
+        switch (edge_select_current)
+        {
+        case 0:
         {
             if (appState.selectedEdgeId == -1 && appState.numOfCandidateMerges > 0)
             {
                 appState.selectedEdgeId = 0;
             }
-            ImGui::Spacing();
-            ImGui::Text("Select an edge:");
-            ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
 
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::InputInt(" ", &appState.selectedEdgeId))
@@ -288,16 +282,10 @@ void showMergingMenu(GmsAppState &appState)
             {
                 ImGui::Text("No merges possible");
             }
-
-            ImGui::PopItemFlag();
-            ImGui::TreePop();
         }
-
-        ImGui::Spacing();
-        if (ImGui::TreeNode("Random edge select"))
+        break;
+        case 1:
         {
-            ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
-            ImGui::Spacing();
             if (appState.mergeMode == RANDOM)
             {
                 if (ImGui::Button("Stop random selection"))
@@ -308,67 +296,133 @@ void showMergingMenu(GmsAppState &appState)
                 if (ImGui::Button("Start random selection"))
                 {
                     appState.mergeMode = RANDOM;
-                    appState.saveMerges = true;
                 }
             }
             else
             {
                 ImGui::Text("No merges possible");
             }
-
-            ImGui::PopItemFlag();
-            ImGui::TreePop();
+        }
+        break;
         }
 
         ImGui::Spacing();
-        if (ImGui::TreeNode("Read list edge select"))
-        {
-            ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true);
-            ImGui::Spacing();
-            ImGui::PushTextWrapPos();
-            ImGui::Text("Reads a list of selected edges and performs merging on them. Mainly for debugging.");
-            if (appState.mergeMode == EDGELIST)
-            {
-                if (ImGui::Button("Stop reading file"))
-                    appState.mergeMode = NONE;
-            }
-            else
-            {
-                if (ImGui::Button("Read file for edge ids"))
-                    appState.mergeMode = EDGELIST;
-            }
-            ImGui::PopTextWrapPos();
-
-            ImGui::PopItemFlag();
-            ImGui::TreePop();
-        }
-
-        ImGui::Spacing();
+        ImGui::Separator();
         ImGui::Spacing();
 
+        AABB aabb = appState.mergeAABB;
         ImGui::Checkbox("Use pixel-based error metrics", &appState.useError);
         if (appState.useError)
         {
+            ImGui::BeginDisabled(appState.mergeMode != NONE);
             ImGui::Spacing();
             static int item_current = static_cast<int>(appState.metricMode);
             const char *items[] = {toString(MergeMetrics::MetricMode::SSIM),
                                    toString(MergeMetrics::MetricMode::FLIP)};
+            ImGui::Text("Metric mode");
             ImGui::SetNextItemWidth(80.0f);
-            if (ImGui::Combo("Metric", &item_current, items, IM_ARRAYSIZE(items)))
+            if (ImGui::Combo("##Metric", &item_current, items, IM_ARRAYSIZE(items)))
             {
                 appState.metricMode = static_cast<MergeMetrics::MetricMode>(item_current);
             }
-            ImGui::SetNextItemWidth(140.0f);
+            ImGui::SetNextItemWidth(80.0f);
             ImGui::SameLine();
-            ImGui::SliderFloat("Epsilon", &appState.errorThreshold, 0.0f, 0.1f);
+            ImGui::InputFloat("Error threshold", &appState.errorThreshold, 0.0f, 0.0f, "%.4f");
+
+            static int item_image_region = static_cast<int>(appState.pixelRegion);
+            const char *image_region_items[] = {"Global", "Local"};
+            ImGui::SetNextItemWidth(80.0f);
+            ImGui::Dummy(ImVec2(80.0f, 0.0f));
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(80.0f);
+            if (ImGui::Combo("Pixel region AABB", &item_image_region, image_region_items, IM_ARRAYSIZE(image_region_items)))
+            {
+                appState.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
+            }
+
+            ImGui::EndDisabled();
+
+            ImGui::Spacing();
+            if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+            {
+                ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+                ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("AABB x {min, max}");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("{%.3f, %.3f}", aabb.min.x, aabb.max.x);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("AABB y {min, max}");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("{%.3f, %.3f}", aabb.min.y, aabb.max.y);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Pooling resolution");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%ipx", POOLING_LENGTH);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("AABB padding");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%.2f", AABB_PADDING);
+
+                ImGui::EndTable();
+            }
+            ImGui::Spacing();
+            if (ImGui::TreeNode("Show pixel metric images"))
+            {
+                ImGui::Spacing();
+                auto pixelDimensions = aabb.getPixelDimensions(GUI_IMAGE_SIZE);
+                int pixelWidth = pixelDimensions.x;
+                int pixelHeight = pixelDimensions.y;
+                if (ImGui::BeginTable("ImageTable", 2, ImGuiTableFlags_SizingFixedFit))
+                {
+                    ImGui::TableSetupColumn("Unmerged Image", ImGuiTableColumnFlags_WidthFixed, GUI_IMAGE_SIZE);
+                    ImGui::TableSetupColumn("Merged Image", ImGuiTableColumnFlags_WidthFixed, GUI_IMAGE_SIZE);
+                    if (appState.mergeStatus != MergeStatus::CYCLE)
+                    {
+                        ImGui::TableHeadersRow();
+                        ImGui::TableNextRow(ImGuiTableRowFlags_None, GUI_IMAGE_SIZE + 10);
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Image((void *)(intptr_t)appState.unmergedTexture, ImVec2(pixelWidth, pixelHeight)); // Fixed size
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Image((void *)(intptr_t)appState.mergedTexture, ImVec2(pixelWidth, pixelHeight)); // Fixed size
+                    }
+                    else
+                    {
+                        ImGui::TableHeadersRow();
+                        ImGui::TableNextRow(ImGuiTableRowFlags_None, GUI_IMAGE_SIZE + 10);
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::Text("Cycle - N/A");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("Cycle - N/A");
+                    }
+                    ImGui::EndTable();
+                }
+
+                ImGui::TreePop();
+            }
         }
 
         ImGui::Spacing();
+        ImGui::Separator();
         ImGui::Spacing();
+
+        ImGui::Text("Merge iteration: %d", appState.merges.size());
+
         if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
-            ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 200.0f);
-            ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+            ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+            ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
 
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
@@ -384,12 +438,6 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::TableSetColumnIndex(1);
             ImGui::Text("%d", appState.attemptedMergesIdx);
 
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-            ImGui::Text("Total number of merges");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%d", appState.merges.size());
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
@@ -582,12 +630,12 @@ void showGradMeshInfo(const GradMesh &mesh)
             ImGui::Columns(2, nullptr, true);
             ImGui::SetColumnWidth(0, 100);
             createListBox(items, item_selected_idx, item_highlighted_idx);
+            ImGui::Spacing();
+            ImGui::Text("%d edges", edgeIdxs.size());
             ImGui::NextColumn();
             setHalfEdgeInfo(halfedges, item_selected_idx, edgeIdxs);
             ImGui::Columns(1);
 
-            ImGui::Spacing();
-            ImGui::Text("%d edges", edgeIdxs.size());
             ImGui::EndTabItem();
         }
         setDefaultTab = false;

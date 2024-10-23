@@ -4,7 +4,6 @@ static bool firstRandomIteration = true;
 
 GmsApp::GmsApp()
 {
-    appState.edgeIds = readEdgeIdsFromFile("../build/logs/mergelist.txt");
     createDir(LOGS_DIR);
     createDir(IMAGE_DIR);
     createDir(SAVES_DIR);
@@ -120,33 +119,6 @@ void GmsApp::run()
             resetCurveColors();
             lastTime = currentTime;
 
-            break;
-        }
-        case EDGELIST:
-        {
-            static int edgeListIdx = 0;
-
-            if (appState.numOfCandidateMerges <= 0 || appState.noMoreEdgeIds(edgeListIdx))
-            {
-                appState.mergeMode = NONE;
-                break;
-            }
-
-            if (appState.selectedEdgeId == -1)
-            {
-                appState.selectedEdgeId = appState.edgeIds[edgeListIdx];
-                resetCurveColors();
-            }
-
-            if (merger.mergeAtSelectedEdge())
-            {
-                appState.selectedEdgeId = -1;
-                ++edgeListIdx;
-            }
-            else
-            {
-                appState.mergeMode = NONE;
-            }
             break;
         }
         }

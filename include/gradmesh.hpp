@@ -69,9 +69,11 @@ public:
     std::vector<Vertex> getHandleBars() const;
     AABB getFaceBoundingBox(int halfEdgeIdx) const;
     AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
+    AABB getAABB() const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
+    friend class MergeMetrics;
 
 private:
     EdgeDerivatives getCurve(int halfEdgeIdx, int depth = 0) const;

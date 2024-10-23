@@ -9,6 +9,36 @@
 
 #include <glm/glm.hpp>
 
+struct AABB
+{
+    glm::vec2 min;
+    glm::vec2 max;
+
+    void expand(const AABB &other)
+    {
+        min = glm::min(min, other.min);
+        max = glm::max(max, other.max);
+    }
+    void expand(const glm::vec2 &other)
+    {
+        min = glm::min(min, other);
+        max = glm::max(max, other);
+    }
+    glm::vec2 getPixelDimensions(const int maxLength)
+    {
+        glm::vec2 diff = max - min;
+        if (diff.x > diff.y)
+            return glm::vec2{maxLength, (diff.y / diff.x) * maxLength};
+
+        return glm::vec2{(diff.x / diff.y) * maxLength, maxLength};
+    }
+    void addPadding(float padding)
+    {
+        min -= padding;
+        max += padding;
+    }
+};
+
 struct Point
 {
     glm::vec2 coords;
@@ -209,13 +239,15 @@ inline constexpr int GL_LENGTH{920};
 inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr int POOLING_LENGTH{200};
+inline constexpr float AABB_PADDING{0.05f};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 inline constexpr std::string_view LOGS_DIR{"logs"};
 inline constexpr std::string_view SAVES_DIR{"mesh_saves"};
 inline const char *MERGE_METRIC_IMG{"img/mergedMesh.png"};
 inline const char *ORIG_METRIC_IMG{"img/origMesh.png"};
-inline constexpr float ERROR_THRESHOLD{0.0003f};
+inline constexpr float ERROR_THRESHOLD{0.001f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
+inline constexpr int GUI_IMAGE_SIZE{150};
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};
