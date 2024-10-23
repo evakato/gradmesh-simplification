@@ -9,6 +9,8 @@ GmsApp::GmsApp()
     createDir(IMAGE_DIR);
     createDir(SAVES_DIR);
     setupNewMesh();
+    glGenTextures(1, &appState.unmergedTexture);
+    glGenTextures(1, &appState.mergedTexture);
 }
 
 void GmsApp::setupNewMesh()
@@ -24,7 +26,6 @@ void GmsApp::setupNewMesh()
     prevSelectedEdgeId = -1;
 
     writeHemeshFile("mesh_saves/save_0.hemesh", appState.mesh);
-    renderFBO(ORIG_METRIC_IMG, appState.glPatches, patchRenderer.getPatchShaderId(), appState.meshAABB);
     firstRandomIteration = true;
 }
 
@@ -43,14 +44,16 @@ void GmsApp::run()
 
         if (appState.selectedEdgeId != prevSelectedEdgeId)
         {
-            // resetCurveColors();
+            resetCurveColors();
         }
 
         switch (appState.mergeMode)
         {
         case MANUAL:
         {
-            if (merger.mergeAtSelectedEdge())
+            MergeStatus status = merger.mergeAtSelectedEdge();
+            appState.mergeStatus = status;
+            if (status == SUCCESS)
             {
                 resetEdgeSelection();
                 resetCurveColors();
@@ -69,15 +72,18 @@ void GmsApp::run()
             if (appState.selectedEdges.empty() && firstRandomIteration)
             {
                 appState.selectedEdges = generateRandomNums(appState.numOfCandidateMerges - 1);
+                appState.attemptedMergesIdx = 0;
                 firstRandomIteration = false;
             }
 
             if (appState.selectedEdgeId == -1)
             {
-                appState.selectedEdgeId = pop(appState.selectedEdges);
+                appState.selectedEdgeId = appState.selectedEdges[appState.attemptedMergesIdx++];
             }
 
-            switch (merger.mergeAtSelectedEdge())
+            MergeStatus status = merger.mergeAtSelectedEdge();
+            appState.mergeStatus = status;
+            switch (status)
             {
             case SUCCESS:
             {
@@ -87,9 +93,10 @@ void GmsApp::run()
                 prevSelectedEdgeId = -1;
                 break;
             }
+            case CYCLE:
             case METRIC_ERROR:
             {
-                if (appState.selectedEdges.empty())
+                if (appState.attemptedMergesIdx == appState.selectedEdges.size())
                 {
                     appState.mergeMode = NONE;
                     appState.selectedEdgeId = -1;
@@ -97,7 +104,7 @@ void GmsApp::run()
                 }
                 else
                 {
-                    appState.selectedEdgeId = pop(appState.selectedEdges);
+                    appState.selectedEdgeId = appState.selectedEdges[appState.attemptedMergesIdx++];
                 }
                 break;
             }

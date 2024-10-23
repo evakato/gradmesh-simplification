@@ -6,10 +6,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include_directories(libs include libs/stb libs/imgui libs/imgui/backends libs/ssim/include)
+include_directories(libs include libs/stb libs/imgui libs/imgui/backends libs/ssim/include libs/flip)
 
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
+
 
 file(GLOB SOURCES "src/*.cpp")
 
@@ -24,9 +25,17 @@ add_executable(
     libs/imgui/backends/imgui_impl_glfw.cpp
     libs/imgui/backends/imgui_impl_opengl3.cpp
     libs/ssim/src/ssim.cpp
+    libs/ssim/src/ssim-openmp.cpp
     libs/ssim/src/ssim_avx.cpp
     libs/ssim/src/ssim_avx512.cpp
     libs/ssim/src/ssim_sse.cpp
     libs/ssim/src/ssim_fma.cpp
 )
+
 target_link_libraries(gms glfw OpenGL::GL)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(gms OpenMP::OpenMP_CXX)
+    target_compile_definitions(gms PRIVATE RMGR_SSIM_USE_OPENMP)  # Define macro for OpenMP usage
+endif()

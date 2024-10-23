@@ -50,19 +50,20 @@ void GmsGui::showRightBar()
             // showHermiteMatrixTable(appState.selectedPatchId);
 
             showRenderSettings();
-            ImGui::Spacing();
-            AABB aabb = appState.meshAABB;
-            ImGui::Text("AABB: min{%.3f, %.3f}, max {%.3f, %.3f}", aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y);
 
-            ImGui::Spacing();
-            ImGui::Spacing();
+            AABB aabb = appState.mergeAABB;
+            auto pixelDimensions = aabb.getPixelDimensions(200);
+            int pixelWidth = pixelDimensions.x;
+            int pixelHeight = pixelDimensions.y;
+            ImGui::Begin("Image Window");
+            ImGui::SetWindowSize(ImVec2(450, 250));
+            ImGui::Image((void *)(intptr_t)appState.unmergedTexture, ImVec2(pixelWidth, pixelHeight)); // Set size to (200, 200) for example
+            ImGui::SameLine();
+            ImGui::Image((void *)(intptr_t)appState.mergedTexture, ImVec2(pixelWidth, pixelHeight)); // Set size to (200, 200) for example
+            ImGui::Text("AABB: min{%.3f, %.3f}, max {%.3f, %.3f}", aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y);
+            ImGui::End();
 
             showMergingMenu(appState);
-
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-            ImGui::Spacing();
             showDebuggingMenu(appState);
             ImGui::EndTabItem();
         }
@@ -92,23 +93,28 @@ void GmsGui::showRightBar()
 
 void GmsGui::showRenderSettings()
 {
-    ImGui::Checkbox("Wireframe mode", &appState.isWireframeMode);
-    ImGui::Checkbox("Draw control points", &appState.renderControlPoints);
-    ImGui::Checkbox("Draw handles", &appState.renderHandles);
-    if (appState.renderHandles)
+    if (ImGui::CollapsingHeader("Render Settings", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(100.0f);
-        ImGui::SliderFloat("Line width", &appState.handleLineWidth, 0.0f, 10.0f);
+        ImGui::Spacing();
+        ImGui::Checkbox("Wireframe mode", &appState.isWireframeMode);
+        ImGui::Checkbox("Draw control points", &appState.renderControlPoints);
+        ImGui::Checkbox("Draw handles", &appState.renderHandles);
+        if (appState.renderHandles)
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(100.0f);
+            ImGui::SliderFloat("Line width", &appState.handleLineWidth, 0.0f, 10.0f);
+        }
+        ImGui::Checkbox("Draw curves", &appState.renderCurves);
+        if (appState.renderCurves)
+        {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(100.0f);
+            ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
+        }
+        ImGui::Checkbox("Draw patches", &appState.renderPatches);
+        ImGui::Spacing();
     }
-    ImGui::Checkbox("Draw curves", &appState.renderCurves);
-    if (appState.renderCurves)
-    {
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(100.0f);
-        ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
-    }
-    ImGui::Checkbox("Draw patches", &appState.renderPatches);
 }
 
 void GmsGui::showHermiteMatrixTable(int patchId)
@@ -344,10 +350,14 @@ void showMergingMenu(GmsAppState &appState)
         if (appState.useError)
         {
             ImGui::Spacing();
-            const char *items[] = {"SSIM", "FLIP"};
-            static int item_current = 0;
+            static int item_current = static_cast<int>(appState.metricMode);
+            const char *items[] = {toString(MergeMetrics::MetricMode::SSIM),
+                                   toString(MergeMetrics::MetricMode::FLIP)};
             ImGui::SetNextItemWidth(80.0f);
-            ImGui::Combo("Metric", &item_current, items, IM_ARRAYSIZE(items));
+            if (ImGui::Combo("Metric", &item_current, items, IM_ARRAYSIZE(items)))
+            {
+                appState.metricMode = static_cast<MergeMetrics::MetricMode>(item_current);
+            }
             ImGui::SetNextItemWidth(140.0f);
             ImGui::SameLine();
             ImGui::SliderFloat("Epsilon", &appState.errorThreshold, 0.0f, 0.1f);
@@ -357,10 +367,27 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Spacing();
         if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
+            ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 200.0f);
+            ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-            ImGui::Text("Number of merges");
+            ImGui::Text("Merge status");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Text(toString(appState.mergeStatus));
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+            ImGui::Text("Attempted merges");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::Text("%d", appState.attemptedMergesIdx);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+            ImGui::Text("Total number of merges");
             ImGui::TableSetColumnIndex(1);
             ImGui::Text("%d", appState.merges.size());
             ImGui::TableNextRow();
@@ -383,18 +410,22 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT);
         ImGui::SameLine();
         ImGui::Button(ICON_FA_ARROW_ROTATE_RIGHT);
+        ImGui::Spacing();
     }
 }
 
 void showDebuggingMenu(GmsAppState &appState)
 {
-    if (ImGui::CollapsingHeader("Debugging", ImGuiTreeNodeFlags_DefaultOpen))
+    if (ImGui::CollapsingHeader("Debugging"))
     {
         ImGui::Spacing();
         ImGui::Text("Previous merge: ");
         ImGui::Spacing();
-
         showPreviousMergeInfo(appState.mergeStats);
+    }
+    if (ImGui::CollapsingHeader("Mesh Info", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
         showGradMeshInfo(appState.mesh);
     }
 }
@@ -459,7 +490,7 @@ void showPreviousMergeInfo(GmsAppState::MergeStats &stats)
         else
             ImGui::Text("None");
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%s", stats.topEdgeCase.c_str());
+        ImGui::Text("%s", toString(stats.topEdgeCase));
 
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
@@ -470,7 +501,7 @@ void showPreviousMergeInfo(GmsAppState::MergeStats &stats)
         else
             ImGui::Text("None");
         ImGui::TableSetColumnIndex(2);
-        ImGui::Text("%s", stats.bottomEdgeCase.c_str());
+        ImGui::Text("%s", toString(stats.bottomEdgeCase));
         ImGui::EndTable();
     }
 

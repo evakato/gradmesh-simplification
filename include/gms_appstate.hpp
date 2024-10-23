@@ -5,6 +5,7 @@
 
 #include "fileio.hpp"
 #include "gradmesh.hpp"
+#include "merge_metrics.hpp"
 #include "patch.hpp"
 #include "types.hpp"
 
@@ -22,6 +23,25 @@ enum MergeMode
     EDGELIST
 };
 
+enum MergeStatus
+{
+    NA,
+    FAILURE,
+    SUCCESS,
+    METRIC_ERROR,
+    CYCLE
+};
+
+enum CornerTJunctions
+{
+    None = 0,
+    RightT = 1 << 0, // 0001
+    LeftT = 1 << 1,  // 0010
+    RightL = 1 << 2, // 0100
+    LeftL = 1 << 3,  // 1000
+    IsStem = 1 << 4
+};
+
 class GradMesh;
 
 class GmsAppState
@@ -34,8 +54,8 @@ public:
         int removedFaceId = -1;
         float topEdgeT = 0;
         float bottomEdgeT = 0;
-        std::string topEdgeCase = "";
-        std::string bottomEdgeCase = "";
+        int topEdgeCase = 0;
+        int bottomEdgeCase = 0;
     };
 
     // User modes
@@ -73,22 +93,28 @@ public:
     int numOfCandidateMerges = 0;
     int selectedEdgeId = -1;
     std::vector<int> selectedEdges;
-    std::vector<int> edgeIds;
+    int attemptedMergesIdx = 0;
+    std::vector<int> edgeIds; // for reading a list of edges from file
+    MergeMetrics::MetricMode metricMode = MergeMetrics::MetricMode::FLIP;
 
     // Merging gui stats
     MergeStats mergeStats;
 
     // Merging history
+    MergeStatus mergeStatus = NA;
     bool saveMerges = false;
     std::vector<int> merges{};
 
-    // Merging errror
+    // Merging metrics - capturing pixels and error
     bool useError = true;
     float errorThreshold = ERROR_THRESHOLD;
+    GLuint unmergedTexture;
+    GLuint mergedTexture;
+    AABB mergeAABB;
 
     void updateMeshRender(const std::vector<Patch> &patchData = {}, const std::vector<GLfloat> &glPatchData = {})
     {
-        const auto &data = patchData.empty() ? mesh.generatePatchData() : patchData;
+        const auto &data = patchData.empty() ? mesh.generatePatches().value() : patchData;
         patches = data;
         const auto &glData = glPatchData.empty() ? getAllPatchGLData(patches, &Patch::getControlMatrix) : glPatchData;
         glPatches = glData;
@@ -99,6 +125,7 @@ public:
         merges.clear();
         filenameChanged = false;
         meshAABB = getMeshAABB(patches);
+        mergeStatus = NA;
     }
     bool noMoreEdgeIds(int idx) const { return edgeIds.empty() || idx == edgeIds.size() - 1; }
 };

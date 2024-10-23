@@ -1,6 +1,6 @@
 #include "gradmesh.hpp"
 
-std::vector<Patch> GradMesh::generatePatchData() const
+std::optional<std::vector<Patch>> GradMesh::generatePatches() const
 {
     std::vector<Patch> patches{};
 
@@ -14,10 +14,18 @@ std::vector<Patch> GradMesh::generatePatchData() const
         const auto &bottomEdge = edges[rightEdge.nextIdx];
         const auto &leftEdge = edges[bottomEdge.nextIdx];
 
-        auto [m0, m0v, m1v, m0uv] = computeEdgeDerivatives(topEdge);
-        auto [m1, m1u, m3u, m1uv] = computeEdgeDerivatives(rightEdge);
-        auto [m3, m3v, m2v, m3uv] = computeEdgeDerivatives(bottomEdge);
-        auto [m2, m2u, m0u, m2uv] = computeEdgeDerivatives(leftEdge);
+        auto topEdgeDerivatives = computeEdgeDerivatives(topEdge);
+        auto rightEdgeDerivatives = computeEdgeDerivatives(rightEdge);
+        auto bottomEdgeDerivatives = computeEdgeDerivatives(bottomEdge);
+        auto leftEdgeDerivatives = computeEdgeDerivatives(leftEdge);
+
+        if (!topEdgeDerivatives || !rightEdgeDerivatives || !bottomEdgeDerivatives || !leftEdgeDerivatives)
+            return std::nullopt;
+
+        auto [m0, m0v, m1v, m0uv] = topEdgeDerivatives.value();
+        auto [m1, m1u, m3u, m1uv] = rightEdgeDerivatives.value();
+        auto [m3, m3v, m2v, m3uv] = bottomEdgeDerivatives.value();
+        auto [m2, m2u, m0u, m2uv] = leftEdgeDerivatives.value();
 
         std::vector<Vertex> controlMatrix = {m0, m0v, m1v, m1,       //
                                              -m0u, m0uv, -m1uv, m1u, //
@@ -35,10 +43,9 @@ std::vector<Patch> GradMesh::generatePatchData() const
     return patches;
 }
 
-CurveVector GradMesh::getCurve(int halfEdgeIdx) const
+EdgeDerivatives GradMesh::getCurve(int halfEdgeIdx, int depth) const
 {
     assert(halfEdgeIdx != -1);
-
     const auto &edge = edges[halfEdgeIdx];
 
     if (!edges[halfEdgeIdx].isValid())
@@ -46,16 +53,30 @@ CurveVector GradMesh::getCurve(int halfEdgeIdx) const
         std::cerr << "half edge idx not valid: " << halfEdgeIdx << std::endl;
         assert(false);
     }
-    // assert(edges[edge.nextIdx].isValid());
+    assert(edges[edge.nextIdx].isValid());
 
-    // std::cout << "recursion: " << halfEdgeIdx << "\n";
-    auto [m0, m0v, m1v, m0uv] = computeEdgeDerivatives(edge);
-    auto m1 = computeEdgeDerivatives(edges[edge.nextIdx])[0];
+    auto edgeDerivatives = computeEdgeDerivatives(edge, ++depth);
+    if (!edgeDerivatives)
+        return std::nullopt;
+
+    auto [m0, m0v, m1v, m0uv] = edgeDerivatives.value();
+
+    auto nextEdgeDerivatives = computeEdgeDerivatives(edges[edge.nextIdx], ++depth);
+    if (!nextEdgeDerivatives)
+        return std::nullopt;
+
+    auto m1 = nextEdgeDerivatives.value()[0];
     return CurveVector{m0, m0v, m1v, m1};
 }
 
-std::array<Vertex, 4> GradMesh::computeEdgeDerivatives(const HalfEdge &edge) const
+EdgeDerivatives GradMesh::computeEdgeDerivatives(const HalfEdge &edge, int depth) const
 {
+    if (depth > MAX_CURVE_DEPTH)
+    {
+        return std::nullopt;
+        // assert(false && "Maximum recursion depth exceeded in functionA!");
+    }
+
     std::array<Vertex, 4> edgeDerivatives;
 
     if (!edge.isChild())
@@ -71,14 +92,17 @@ std::array<Vertex, 4> GradMesh::computeEdgeDerivatives(const HalfEdge &edge) con
     {
         assert(edge.interval[0] >= 0 && edge.interval[0] <= 1 && edge.interval[1] >= 0 && edge.interval[1] <= 1);
 
-        CurveVector parentCurve = getCurve(edge.parentIdx);
-        Vertex v = interpolateCubic(parentCurve, edge.interval[0]);
+        auto parentCurve = getCurve(edge.parentIdx, ++depth);
+        if (!parentCurve)
+            return std::nullopt;
+
+        Vertex v = interpolateCubic(parentCurve.value(), edge.interval[0]);
         edgeDerivatives[0] = Vertex{v.coords, edge.color};
         if (edge.isBar())
         {
             float scale = edge.interval[1] - edge.interval[0];
-            edgeDerivatives[1] = interpolateCubicDerivative(parentCurve, edge.interval[0]) * scale;
-            edgeDerivatives[2] = interpolateCubicDerivative(parentCurve, edge.interval[1]) * scale;
+            edgeDerivatives[1] = interpolateCubicDerivative(parentCurve.value(), edge.interval[0]) * scale;
+            edgeDerivatives[2] = interpolateCubicDerivative(parentCurve.value(), edge.interval[1]) * scale;
         }
         else if (edge.isStem())
         {
@@ -101,11 +125,11 @@ std::vector<Vertex> GradMesh::getHandleBars() const
         {
             assert(edge.handleIdxs.first != -1 && edge.handleIdxs.second != -1);
 
-            auto &point = computeEdgeDerivatives(edge)[0];
+            auto &point = computeEdgeDerivatives(edge).value()[0];
             auto &tangent = handles[edge.handleIdxs.first];
             pointsAndHandles.push_back(Vertex{point.coords, black});
             pointsAndHandles.push_back(Vertex{hermiteToBezier(point.coords, BCM, tangent.coords), black});
-            auto &m1 = computeEdgeDerivatives(edges[edge.nextIdx])[0];
+            auto &m1 = computeEdgeDerivatives(edges[edge.nextIdx]).value()[0];
             auto &m1v = handles[edge.handleIdxs.second];
             pointsAndHandles.push_back(Vertex{m1.coords, black});
             pointsAndHandles.push_back(Vertex{hermiteToBezier(m1.coords, BCM, m1v.coords), black});
@@ -148,46 +172,7 @@ void GradMesh::fixEdges()
             edgeIdx = edge.nextIdx;
         }
     }
-    std::cout << "There are " << count << " weird edges.\n";
-}
-
-std::vector<int> GradMesh::getBarChildren(const HalfEdge &parent) const
-{
-    std::vector<int> barChildrenIdxs;
-    std::ranges::copy_if(
-        parent.childrenIdxs,
-        std::back_inserter(barChildrenIdxs),
-        [this](int childIdx)
-        { return edges[childIdx].isBar(); });
-    return barChildrenIdxs;
-}
-
-std::vector<int> GradMesh::getStemParentChildren(const HalfEdge &parent) const
-{
-    std::vector<int> stemParentChildren;
-    std::ranges::copy_if(
-        parent.childrenIdxs,
-        std::back_inserter(stemParentChildren),
-        [this](int childIdx)
-        { return edges[childIdx].isStemParent(); });
-    return stemParentChildren;
-}
-
-bool GradMesh::incidentFaceCycle(int edgeIdx) const
-{
-    if (edgeIdx == -1)
-        return false;
-
-    int currIdx = edgeIdx;
-    int childCount = 0;
-    for (int i = 0; i < 4; i++)
-    {
-        auto &currEdge = edges[currIdx];
-        if (currEdge.isRightMostChild())
-            childCount++;
-        currIdx = currEdge.nextIdx;
-    }
-    return childCount >= 3;
+    // std::cout << "There are " << count << " weird edges.\n";
 }
 
 std::array<int, 4> GradMesh::getFaceEdgeIdxs(int edgeIdx) const
@@ -201,4 +186,33 @@ std::array<int, 4> GradMesh::getFaceEdgeIdxs(int edgeIdx) const
         currIdx = currEdge.nextIdx;
     }
     return edgeIdxs;
+}
+
+AABB GradMesh::getFaceBoundingBox(int halfEdgeIdx) const
+{
+    AABB aabb{glm::vec2(std::numeric_limits<float>::max()), glm::vec2(std::numeric_limits<float>::lowest())};
+    auto edgeIdxs = getFaceEdgeIdxs(halfEdgeIdx);
+    for (int edgeIdx : edgeIdxs)
+    {
+        while (edges[edgeIdx].isChild())
+            edgeIdx = edges[edgeIdx].parentIdx;
+
+        auto curveVector = getCurve(edgeIdx);
+        assert(curveVector != std::nullopt);
+        aabb.expand(curveVector.value()[0].coords);
+        aabb.expand(curveVector.value()[3].coords);
+    }
+    return aabb;
+}
+
+AABB GradMesh::getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const
+{
+    AABB aabb{glm::vec2(std::numeric_limits<float>::max()), glm::vec2(std::numeric_limits<float>::lowest())};
+
+    for (int halfEdgeIdx : halfEdgeIdxs)
+    {
+        if (halfEdgeIdx != -1 && edges[halfEdgeIdx].isValid())
+            aabb.expand(getFaceBoundingBox(halfEdgeIdx));
+    }
+    return aabb;
 }

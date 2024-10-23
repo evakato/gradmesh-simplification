@@ -41,7 +41,7 @@ std::vector<std::string> splitString(const std::string &str)
 
 GradMesh readHemeshFile(const std::string &filename)
 {
-    std::cout << "Reading " << filename << std::endl;
+    // std::cout << "Reading " << filename << std::endl;
     std::ifstream inf{filename};
     if (!inf)
     {

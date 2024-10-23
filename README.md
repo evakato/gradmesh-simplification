@@ -5,8 +5,10 @@ This is a tool to test gradient mesh simplification driven by pixel-based (image
 This application requires C++20 and OpenGL 4.3, as well as some external libraries. In the root directory, create a folder called `libs`. Within this folder, create separate folders for each library: 
 - `glad`: for [Glad](https://glad.dav1d.de/)
 - `glm`: for the [OpenGL Mathematics library](https://github.com/g-truc/glm/tree/master/glm)
-- `imgui`: for the [Dear ImGui library](https://github.com/ocornut/imgui), as well as [imgui-filebrowser](https://github.com/AirGuanZ/imgui-filebrowser)
+- `imgui`: for the [Dear ImGui library](https://github.com/ocornut/imgui), as well as [imgui-filebrowser](https://github.com/AirGuanZ/imgui-filebrowser) (just a header file stored in the root of `imgui`)
 - `stb`: for the [stb_image_write header file](https://github.com/nothings/stb/blob/master/stb_image_write.h)
+- `ssim`: for  romigrou's [SSIM implementation](https://github.com/romigrou/ssim)
+- `flip`: for  [NVIDIA's FLIP](https://github.com/NVlabs/flip/tree/main/cpp)
 
 #### UI controls
 

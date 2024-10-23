@@ -28,18 +28,11 @@ struct DoubleHalfEdge
     }
 };
 
-enum MergeState
-{
-    FAILURE,
-    SUCCESS,
-    METRIC_ERROR
-};
-
 class GradMeshMerger
 {
 public:
     GradMeshMerger(GmsAppState &appState, int patchShaderId);
-    MergeState mergeAtSelectedEdge();
+    MergeStatus mergeAtSelectedEdge();
     void findCandidateMerges();
     const DoubleHalfEdge &getDoubleHalfEdge(int idx) { return candidateMerges[idx]; }
 
@@ -63,10 +56,6 @@ private:
     void transferChildToWithoutGeometry(int oldChildIdx, int newChildIdx);
     void fixAndSetTwin(int barIdx);
 
-    bool twinFaceIsRightCycle(const HalfEdge &e) const;
-    bool twinFaceIsCycle(const HalfEdge &e, const HalfEdge &adjEdge) const;
-    bool twinFaceIsCCWCycle(const HalfEdge &e) const;
-
     void copyEdgeTwin(int e1Idx, int e2Idx);
     void removeFace(int faceIdx);
 
@@ -76,17 +65,11 @@ private:
     MergeMetrics metrics;
 };
 
-enum CornerTJunctions
+inline int getCornerTJunctions(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT, bool isStem)
 {
-    None = 0,
-    RightT = 1 << 0, // 0001
-    LeftT = 1 << 1,  // 0010
-    RightL = 1 << 2, // 0100
-    LeftL = 1 << 3,  // 1000
-};
+    if (isStem)
+        return IsStem;
 
-inline int getCornerTJunctions(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT)
-{
     int flags = None;
     if (topLeftL)
         flags |= LeftL;

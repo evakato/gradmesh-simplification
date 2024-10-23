@@ -31,6 +31,7 @@ GmsRenderer::~GmsRenderer()
 
 void GmsRenderer::render()
 {
+    glViewport(0, 0, GL_LENGTH, GL_LENGTH);
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -83,7 +84,6 @@ void initializeOpenGL()
         return;
     }
 
-    glViewport(0, 0, GL_LENGTH, GL_LENGTH);
     glEnable(GL_PROGRAM_POINT_SIZE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);

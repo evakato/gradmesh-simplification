@@ -96,12 +96,3 @@ inline std::vector<int> generateRandomNums(int N)
     std::shuffle(numbers.begin(), numbers.end(), gen);
     return numbers;
 }
-
-template <typename T>
-T pop(std::vector<T> &vec)
-{
-    assert(!vec.empty());
-    T value = std::move(vec.back());
-    vec.pop_back();
-    return value;
-}

@@ -194,12 +194,8 @@ void createDir(std::string_view dir)
 {
     if (std::filesystem::exists(dir))
     {
-        std::filesystem::remove_all(dir); // Remove all contents in the directory
-        std::cout << "Directory already existed, contents removed." << std::endl;
+        std::filesystem::remove_all(dir);
     }
-
-    if (std::filesystem::create_directory(dir))
-        std::cout << "Directory created successfully!" << std::endl;
-    else
+    if (!std::filesystem::create_directory(dir))
         std::cout << "Failed to create directory!" << std::endl;
 }

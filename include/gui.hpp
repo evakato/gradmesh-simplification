@@ -7,6 +7,7 @@
 #include "fileio.hpp"
 #include "gms_appstate.hpp"
 #include "gradmesh.hpp"
+#include "merge_metrics.hpp"
 #include "types.hpp"
 #include "window.hpp"
 
@@ -87,3 +88,57 @@ constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S_v(1,1)",
     "S(1,1)",
 };
+
+constexpr const char *toString(MergeStatus status)
+{
+    switch (status)
+    {
+    case FAILURE:
+        return "Failure";
+    case SUCCESS:
+        return "Success";
+    case METRIC_ERROR:
+        return "Metric error";
+    case CYCLE:
+        return "Cycle";
+    default:
+        return "N/A";
+    }
+}
+
+constexpr const char *toString(int cornerFlags)
+{
+    switch (cornerFlags)
+    {
+    case IsStem:
+        return "Is stem";
+    case LeftT | RightT:
+        return "LeftT and RightT";
+    case LeftL | RightT:
+    case RightT:
+        return "RightT (w/ or w/o LeftL)";
+    case LeftT | RightL:
+    case LeftT:
+        return "LeftT (w/ or w/o RightL)";
+    case LeftL | RightL:
+    case RightL:
+        return "RightL (w/ or w/o LeftL)";
+    case LeftL:
+        return "LeftL";
+    default:
+        return "None";
+    }
+}
+
+constexpr const char *toString(MergeMetrics::MetricMode mode)
+{
+    switch (mode)
+    {
+    case MergeMetrics::MetricMode::SSIM:
+        return "SSIM";
+    case MergeMetrics::MetricMode::FLIP:
+        return "FLIP";
+    default:
+        return "Unknown";
+    }
+}

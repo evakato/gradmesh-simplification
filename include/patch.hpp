@@ -22,6 +22,19 @@ struct AABB
         min = glm::min(min, other.min);
         max = glm::max(max, other.max);
     }
+    void expand(const glm::vec2 &other)
+    {
+        min = glm::min(min, other);
+        max = glm::max(max, other);
+    }
+    glm::vec2 getPixelDimensions(const int maxLength)
+    {
+        glm::vec2 diff = max - min;
+        if (diff.x > diff.y)
+            return glm::vec2{maxLength, (diff.y / diff.x) * maxLength};
+
+        return glm::vec2{(diff.x / diff.y) * maxLength, maxLength};
+    }
 };
 
 // The Patch class describes a single bicubic patch as a 4x4 control matrix

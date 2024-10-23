@@ -3,7 +3,9 @@
 #include <bitset>
 #include <cassert>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <vector>
 
@@ -13,6 +15,8 @@
 #include "types.hpp"
 
 class GradMeshMerger;
+
+using EdgeDerivatives = std::optional<std::array<Vertex, 4>>;
 
 class GradMesh
 {
@@ -61,15 +65,17 @@ public:
     }
 
     void fixEdges();
-    std::vector<Patch> generatePatchData() const;
+    std::optional<std::vector<Patch>> generatePatches() const;
     std::vector<Vertex> getHandleBars() const;
+    AABB getFaceBoundingBox(int halfEdgeIdx) const;
+    AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
 
 private:
-    CurveVector getCurve(int halfEdgeIdx) const;
-    std::array<Vertex, 4> computeEdgeDerivatives(const HalfEdge &edge) const;
+    EdgeDerivatives getCurve(int halfEdgeIdx, int depth = 0) const;
+    EdgeDerivatives computeEdgeDerivatives(const HalfEdge &edge, int depth = 0) const;
 
     void disablePoint(const HalfEdge &e)
     {
@@ -109,9 +115,7 @@ private:
         else
             return edgeIs(idx, &HalfEdge::isStem);
     }
-    std::vector<int> getBarChildren(const HalfEdge &parent) const;
-    std::vector<int> getStemParentChildren(const HalfEdge &parent) const;
-    bool incidentFaceCycle(int edgeIdx) const;
+
     std::array<int, 4> getFaceEdgeIdxs(int edgeIdx) const;
 
     std::vector<Point> points;
