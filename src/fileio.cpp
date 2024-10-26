@@ -242,41 +242,35 @@ void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::str
     }
 }
 
-void writeMergeList(const GmsAppState &state, const std::string &filename)
+void saveImage(const char *filename, int width, int height)
 {
-    if (state.merges.empty())
-        return;
+    unsigned char *pixels = new unsigned char[width * height * 4];
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
-    std::ofstream debugLogFile(std::string{LOGS_DIR} + "/" + filename);
-    if (debugLogFile.is_open())
-    {
-        for (auto merge : state.merges)
-        {
-            debugLogFile << merge << "\n";
-        }
-        debugLogFile.close();
-    }
-    else
-    {
-        std::cerr << "Error opening file for writing!" << std::endl;
-    }
+    for (int y = 0; y < height / 2; ++y)
+        for (int x = 0; x < width * 4; ++x)
+            std::swap(pixels[y * width * 4 + x], pixels[(height - 1 - y) * width * 4 + x]);
+
+    int stride_in_bytes = width * 4;
+    if (!stbi_write_png(filename, width, height, 4, pixels, stride_in_bytes))
+        std::cout << "Failed to save image!" << std::endl;
+
+    delete[] pixels;
 }
 
-std::vector<int> readEdgeIdsFromFile(const std::string &filename)
+void createDir(const std::string_view dir)
 {
-    std::vector<int> edgeIds;
-    std::ifstream file(filename);
-    int value;
-    if (!file.is_open())
+    if (std::filesystem::exists(dir))
     {
-        std::cerr << "Error opening file: " << filename << std::endl;
-        return edgeIds;
+        std::filesystem::remove_all(dir);
     }
+    if (!std::filesystem::create_directory(dir))
+        std::cout << "Failed to create directory!" << std::endl;
+}
 
-    while (file >> value)
-    {
-        edgeIds.push_back(value);
-    }
-    file.close();
-    return edgeIds;
+void setupDirectories()
+{
+    createDir(LOGS_DIR);
+    createDir(IMAGE_DIR);
+    createDir(SAVES_DIR);
 }

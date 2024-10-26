@@ -30,34 +30,52 @@ public:
         Global,
         Local
     };
+    struct PatchRenderResources
+    {
+        GLuint unmergedTexture;
+        GLuint mergedTexture;
+        int patchShaderId;
+    };
+    struct MergeSettings
+    {
+        MetricMode metricMode = MetricMode::FLIP;
+        PixelRegion pixelRegion = PixelRegion::Global;
+        AABB aabb;
+        float errorThreshold = ERROR_THRESHOLD;
+        int poolRes = POOLING_LENGTH;
+        float aabbPadding = AABB_PADDING;
+    };
     struct Params
     {
-        int patchShaderId;
-        std::vector<GLfloat> &unmergedGlPatches;
-        GLuint &unmergedTexture;
-        GLuint &mergedTexture;
         GradMesh &mesh;
-        AABB &aabb;
+        MergeSettings &mergeSettings;
+        PatchRenderResources &patchRenderResources;
     };
 
     MergeMetrics(Params params);
-    void setAABB(PixelRegion region, int halfEdgeIdx);
-    bool doMerge(std::vector<GLfloat> &glPatches, MetricMode metric, float eps);
-    void captureBeforeMerge() const;
+    void captureBeforeMerge(int halfEdgeIdx, std::vector<GLfloat> &glPatches);
+    bool doMerge(const std::vector<GLfloat> &glPatches);
 
 private:
     GLuint unmergedFbo;
     GLuint mergedFbo;
-    int patchShaderId;
-    std::vector<GLfloat> &unmergedGlPatches;
 
-    GLuint &unmergedTexture;
-    GLuint &mergedTexture;
     GradMesh &mesh;
-    AABB &aabb;
+    PatchRenderResources &patchRenderResources;
+    MergeSettings &mergeSettings;
 };
 
+struct FBOParams
+{
+    const char *imgPath;
+    GLuint texture;
+    GLuint fbo;
+    const std::vector<GLfloat> &glPatches;
+    int patchShaderId;
+    AABB aabb;
+    int resolution;
+};
 float evaluateSSIM(const char *img1Path, const char *img2Path);
 float evaluateFLIP(const char *img1Path, const char *img2Path);
-void renderFBO(const char *imgPath, GLuint texture, GLuint fbo, std::vector<GLfloat> &glPatches, int patchShaderId, AABB aabb);
+void renderFBO(const FBOParams &params);
 void setAABBProjMat(int shaderId, AABB aabb);

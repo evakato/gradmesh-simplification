@@ -14,16 +14,21 @@
 class PatchRenderer : public GmsRenderer
 {
 public:
+    struct PatchRenderParams
+    {
+        std::vector<GLfloat> glPatches;
+        std::vector<GLfloat> glCurves;
+        std::vector<Vertex> handles;
+        std::vector<Vertex> points;
+    };
     PatchRenderer(GmsWindow &window, GmsAppState &appState);
     ~PatchRenderer();
 
-    void render(std::vector<GLfloat> &glPatches, std::vector<Patch> &patches, std::vector<Vertex> &handles);
-    int getPatchShaderId() const { return patchShaderId; }
+    void render(PatchRenderParams &params);
 
 protected:
-    void renderPatches(std::vector<GLfloat> &glPatches, std::vector<Patch> &patches, std::vector<Vertex> &handles);
+    void renderPatches(PatchRenderParams &params);
     void updatePatchData(std::vector<Patch> &patches);
 
     GLuint EBO;
-    GLuint patchShaderId;
 };

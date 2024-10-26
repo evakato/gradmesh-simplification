@@ -1,7 +1,7 @@
 #include "merging.hpp"
 #include "gradmesh.hpp"
 
-GradMeshMerger::GradMeshMerger(GmsAppState &appState, int patchShaderId) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{patchShaderId, appState.glPatches, appState.unmergedTexture, appState.mergedTexture, appState.mesh, appState.mergeAABB}} {}
+GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{appState.mesh, appState.mergeSettings, appState.patchRenderResources}} {}
 
 MergeStatus GradMeshMerger::mergeAtSelectedEdge()
 {
@@ -12,14 +12,8 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge()
     writeLogFile(mesh, appState, "debug1.txt");
 
     int halfEdgeIdx = candidateMerges[appState.selectedEdgeId].getHalfEdgeIdx();
-
-    metrics.setAABB(appState.pixelRegion, halfEdgeIdx);
-    metrics.captureBeforeMerge();
-
+    metrics.captureBeforeMerge(halfEdgeIdx, appState.patchRenderParams.glPatches);
     GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
-
-    saveImage((std::string{LOGS_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
-    writeLogFile(mesh, appState, "debug2.txt");
 
     auto mergedPatches = mesh.generatePatches();
     if (!mergedPatches)
@@ -32,11 +26,12 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge()
     }
 
     auto glPatches = getAllPatchGLData(mergedPatches.value(), &Patch::getControlMatrix);
-    if (!appState.useError || metrics.doMerge(glPatches, appState.metricMode, appState.errorThreshold))
+    if (!appState.useError || metrics.doMerge(glPatches))
     {
         appState.updateMeshRender(mergedPatches.value(), glPatches);
         appState.mergeStats = stats;
-        writeHemeshFile("mesh_saves/save_" + std::to_string(appState.merges.size()) + ".hemesh", mesh);
+        appState.currentSave = appState.merges.size();
+        writeHemeshFile("mesh_saves/save_" + std::to_string(appState.currentSave) + ".hemesh", mesh);
         findCandidateMerges();
         return SUCCESS;
     }
@@ -136,6 +131,8 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
 
     mesh.disablePoint(face1R);
     mesh.disablePoint(face1B);
+    mesh.disablePoint(face2T);
+    mesh.disablePoint(face2L);
 
     switch (stats.topEdgeCase)
     {

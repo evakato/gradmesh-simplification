@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <bitset>
 #include <cassert>
 #include <optional>
 #include <vector>
@@ -16,7 +15,7 @@
 class Patch
 {
 public:
-    Patch(std::vector<Vertex> controlMatrix, std::bitset<4> isChild);
+    Patch(std::vector<Vertex> controlMatrix);
 
     Vertex &operator[](size_t index)
     {
@@ -36,7 +35,6 @@ public:
     {
         return curveData;
     }
-    const bool curveIsChild(int idx) const { return isChild.test(idx); }
 
     void setControlMatrix(size_t index, Vertex v) { controlMatrix[index] = v; }
     void setControlMatrix(std::vector<Vertex> newControlMatrix)
@@ -51,9 +49,6 @@ private:
 
     std::vector<Vertex> controlMatrix = std::vector<Vertex>(16);
     std::vector<Vertex> curveData = std::vector<Vertex>(16);
-    std::bitset<4> isChild;
-
-    AABB aabb;
 };
 
 void vertexToGlData(std::vector<GLfloat> &glData, Vertex v, std::optional<glm::vec3> color = std::nullopt);
@@ -65,8 +60,8 @@ const std::vector<GLfloat> getAllPatchGLData(const std::vector<Patch> &patches, 
     std::vector<GLfloat> allPatchData;
     for (auto &patch : patches)
     {
-        const std::vector<Vertex> &curveData = (patch.*func)();
-        for (const Vertex &v : curveData)
+        const std::vector<Vertex> &someData = (patch.*func)();
+        for (const Vertex &v : someData)
         {
             vertexToGlData(allPatchData, v);
         }
@@ -74,7 +69,7 @@ const std::vector<GLfloat> getAllPatchGLData(const std::vector<Patch> &patches, 
     return allPatchData;
 }
 const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handles, int firstIdx = 0, int step = 1);
-const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Patch> &patches, std::optional<glm::vec3> color);
+const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Vertex> &points, std::optional<glm::vec3> color);
 int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos);
 
 using Int4x4 = std::array<std::array<int, 4>, 4>;

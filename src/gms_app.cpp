@@ -4,124 +4,89 @@ static bool firstRandomIteration = true;
 
 GmsApp::GmsApp()
 {
-    createDir(LOGS_DIR);
-    createDir(IMAGE_DIR);
-    createDir(SAVES_DIR);
+    setupDirectories();
     setupNewMesh();
-    glGenTextures(1, &appState.unmergedTexture);
-    glGenTextures(1, &appState.mergedTexture);
+}
+
+void GmsApp::readMesh()
+{
+    appState.resetMerges();
+    appState.mesh = readHemeshFile(appState.filename);
+    appState.updateMeshRender();
+    merger.findCandidateMerges();
+    firstRandomIteration = true;
 }
 
 void GmsApp::setupNewMesh()
 {
-    appState.mesh = readHemeshFile(appState.filename);
-
-    appState.updateMeshRender();
-    appState.resetMerges();
-
-    merger.findCandidateMerges();
-    patchRenderer.render(appState.glPatches, appState.patches, appState.tangentHandles);
-    appState.selectedEdgeId = -1;
-    prevSelectedEdgeId = -1;
-
-    writeHemeshFile("mesh_saves/save_0.hemesh", appState.mesh);
-    firstRandomIteration = true;
+    readMesh();
+    createDir(SAVES_DIR);
+    writeHemeshFile(DEFAULT_FIRST_SAVE_DIR, appState.mesh);
 }
 
 void GmsApp::run()
 {
     while (!gmsWindow.shouldClose())
     {
-        static auto lastTime = std::chrono::steady_clock::now();
-        auto currentTime = std::chrono::steady_clock::now();
         glfwPollEvents();
 
-        if (appState.filenameChanged)
+        if (appState.loadSave)
         {
-            setupNewMesh();
+            readMesh();
+            appState.loadSave = false;
         }
 
-        if (appState.selectedEdgeId != prevSelectedEdgeId)
-        {
-            resetCurveColors();
-        }
+        if (appState.filenameChanged)
+            setupNewMesh();
 
         switch (appState.mergeMode)
         {
         case MANUAL:
         {
-            MergeStatus status = merger.mergeAtSelectedEdge();
-            appState.mergeStatus = status;
-            if (status == SUCCESS)
-            {
-                resetEdgeSelection();
-                resetCurveColors();
-            }
+            appState.mergeStatus = merger.mergeAtSelectedEdge();
+            appState.resetEdgeSelection();
             appState.mergeMode = NONE;
             break;
         }
         case RANDOM:
         {
-            if (appState.numOfCandidateMerges <= 0)
-            {
-                appState.mergeMode = NONE;
-                break;
-            }
+            assert(appState.numOfCandidateMerges > 0);
+            appState.generateNewEdgePool(firstRandomIteration);
 
-            if (appState.selectedEdges.empty() && firstRandomIteration)
-            {
-                appState.selectedEdges = generateRandomNums(appState.numOfCandidateMerges - 1);
-                appState.attemptedMergesIdx = 0;
-                firstRandomIteration = false;
-            }
-
-            if (appState.selectedEdgeId == -1)
-            {
-                appState.selectedEdgeId = appState.selectedEdges[appState.attemptedMergesIdx++];
-            }
-
-            MergeStatus status = merger.mergeAtSelectedEdge();
-            appState.mergeStatus = status;
-            switch (status)
+            appState.mergeStatus = merger.mergeAtSelectedEdge();
+            switch (appState.mergeStatus)
             {
             case SUCCESS:
             {
                 firstRandomIteration = true;
-                appState.selectedEdges.clear();
-                appState.selectedEdgeId = -1;
-                prevSelectedEdgeId = -1;
+                appState.resetMergingIteration();
+                if (appState.numOfCandidateMerges <= 0)
+                    appState.mergeMode = NONE;
                 break;
             }
             case CYCLE:
             case METRIC_ERROR:
             {
-                if (appState.attemptedMergesIdx == appState.selectedEdges.size())
+                if (appState.attemptedMergesIdx < appState.selectedEdgePool.size())
                 {
-                    appState.mergeMode = NONE;
-                    appState.selectedEdgeId = -1;
-                    prevSelectedEdgeId = -1;
+                    appState.setNewEdgeFromPool();
+                    break;
                 }
-                else
-                {
-                    appState.selectedEdgeId = appState.selectedEdges[appState.attemptedMergesIdx++];
-                }
-                break;
+                [[fallthrough]];
             }
             case FAILURE:
             {
-                appState.selectedEdgeId = -1;
-                prevSelectedEdgeId = -1;
+                appState.resetMergingIteration();
                 appState.mergeMode = NONE;
-                appState.selectedEdges.clear();
                 break;
             }
             }
-            resetCurveColors();
-            lastTime = currentTime;
-
             break;
         }
         }
+
+        merger.setDoubleHalfEdge();
+        appState.resetCurveColors();
 
         switch (appState.currentMode)
         {
@@ -129,41 +94,11 @@ void GmsApp::run()
             // curveRenderer.render();
             break;
         case RENDER_PATCHES:
-            patchRenderer.render(appState.glPatches, appState.patches, appState.tangentHandles);
+            patchRenderer.render(appState.patchRenderParams);
             break;
         }
 
         gui.render();
         gmsWindow.swapBuffers();
     }
-}
-
-void GmsApp::resetEdgeSelection()
-{
-    if (appState.numOfCandidateMerges > 0)
-    {
-        appState.selectedEdgeId = 0;
-        prevSelectedEdgeId = 0;
-    }
-    else
-    {
-        appState.selectedEdgeId = -1;
-        prevSelectedEdgeId = -1;
-    }
-}
-
-void GmsApp::resetCurveColors()
-{
-    if (prevSelectedEdgeId != -1)
-        setCurveColor(prevSelectedEdgeId, black);
-    if (appState.selectedEdgeId != -1)
-        setCurveColor(appState.selectedEdgeId, blue);
-    prevSelectedEdgeId = appState.selectedEdgeId;
-}
-
-void GmsApp::setCurveColor(int edgeIdx, glm::vec3 color)
-{
-    DoubleHalfEdge dhe = merger.getDoubleHalfEdge(edgeIdx);
-    appState.patches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, color);
-    appState.patches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, color);
 }

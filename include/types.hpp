@@ -9,10 +9,48 @@
 
 #include <glm/glm.hpp>
 
+struct PointId
+{
+    int primitiveId;
+    int pointId;
+};
+
+struct CurveId
+{
+    int patchId;
+    int curveId;
+};
+
+struct DoubleHalfEdge
+{
+    int halfEdgeIdx1;
+    int halfEdgeIdx2;
+    CurveId curveId1;
+    CurveId curveId2;
+    DoubleHalfEdge() : halfEdgeIdx1(-1), halfEdgeIdx2(-1), curveId1(CurveId()) {}
+    DoubleHalfEdge(int heIdx1, int heIdx2, CurveId curveId1) : halfEdgeIdx1(heIdx1), halfEdgeIdx2(heIdx2), curveId1(curveId1) {};
+
+    int getHalfEdgeIdx() const
+    {
+        return halfEdgeIdx1;
+    }
+};
+
 struct AABB
 {
     glm::vec2 min;
     glm::vec2 max;
+
+    AABB()
+    {
+        min = glm::vec2(0.0f);
+        max = glm::vec2(0.0f);
+    }
+    AABB(glm::vec2 min, glm::vec2 max) : min{min}, max{max}
+    {
+        min = glm::vec2(0.0f);
+        max = glm::vec2(0.0f);
+    }
 
     void expand(const AABB &other)
     {
@@ -24,18 +62,45 @@ struct AABB
         min = glm::min(min, other);
         max = glm::max(max, other);
     }
-    glm::vec2 getPixelDimensions(const int maxLength)
-    {
-        glm::vec2 diff = max - min;
-        if (diff.x > diff.y)
-            return glm::vec2{maxLength, (diff.y / diff.x) * maxLength};
-
-        return glm::vec2{(diff.x / diff.y) * maxLength, maxLength};
-    }
     void addPadding(float padding)
     {
         min -= padding;
         max += padding;
+    }
+    void ensureSize(const glm::vec2 &targetSize)
+    {
+        glm::vec2 currentSize = max - min;
+        if (currentSize.x > targetSize.x && currentSize.y > targetSize.y)
+            return;
+
+        glm::vec2 newMin = min;
+        glm::vec2 newMax = min + targetSize;
+        if (currentSize.x < targetSize.x)
+        {
+            float centerX = (min.x + max.x) / 2.0f;
+            newMin.x = centerX - (targetSize.x / 2.0f);
+            newMax.x = centerX + (targetSize.x / 2.0f);
+        }
+        if (currentSize.y < targetSize.y)
+        {
+            float centerY = (min.y + max.y) / 2.0f;
+            newMin.y = centerY - (targetSize.y / 2.0f);
+            newMax.y = centerY + (targetSize.y / 2.0f);
+        }
+
+        min = newMin;
+        max = newMax;
+    }
+    void resizeToSquare()
+    {
+        glm::vec2 currentSize = max - min;
+        float maxLength = glm::max(currentSize.x, currentSize.y);
+        float centerX = (min.x + max.x) / 2.0f;
+        float centerY = (min.y + max.y) / 2.0f;
+        min.x = centerX - (maxLength / 2.0f);
+        max.x = centerX + (maxLength / 2.0f);
+        min.y = centerY - (maxLength / 2.0f);
+        max.y = centerY + (maxLength / 2.0f);
     }
 };
 
@@ -216,18 +281,6 @@ inline std::vector<int> getValidCompIndices(const auto &comps)
     return indices;
 }
 
-struct PointId
-{
-    int primitiveId;
-    int pointId;
-};
-
-struct CurveId
-{
-    int patchId;
-    int curveId;
-};
-
 using CurveVector = std::array<Vertex, 4>;
 
 inline constexpr float BCM{1.0f / 3.0f}; // bezier conversion multiplier
@@ -238,16 +291,19 @@ inline constexpr int SCR_HEIGHT{960};
 inline constexpr int GL_LENGTH{920};
 inline constexpr int GUI_WIDTH{SCR_WIDTH - GL_LENGTH};
 inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
-inline constexpr int POOLING_LENGTH{200};
-inline constexpr float AABB_PADDING{0.05f};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 inline constexpr std::string_view LOGS_DIR{"logs"};
 inline constexpr std::string_view SAVES_DIR{"mesh_saves"};
+inline const std::string DEFAULT_FIRST_SAVE_DIR{"mesh_saves/save_0.hemesh"};
 inline const char *MERGE_METRIC_IMG{"img/mergedMesh.png"};
 inline const char *ORIG_METRIC_IMG{"img/origMesh.png"};
 inline constexpr float ERROR_THRESHOLD{0.001f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
-inline constexpr int GUI_IMAGE_SIZE{150};
+
+// pooling
+inline constexpr int POOLING_LENGTH{200};
+inline constexpr float AABB_PADDING{0.03f};
+inline constexpr glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 black{0.0f};

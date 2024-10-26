@@ -1,6 +1,6 @@
 #include "patch.hpp"
 
-Patch::Patch(std::vector<Vertex> controlMatrix, std::bitset<4> isChild) : controlMatrix{controlMatrix}, isChild{isChild}
+Patch::Patch(std::vector<Vertex> controlMatrix) : controlMatrix{controlMatrix}
 {
     populateCurveData();
 }
@@ -9,12 +9,12 @@ void Patch::populateCurveData()
 {
     for (int i = 0; i < 4; i++)
     {
-        std::array<int, 4> curveIdxs = patchCurveIndices[i];
-        Vertex p0 = Vertex{controlMatrix[curveIdxs[0]].coords, black};
-        Vertex p3 = Vertex{controlMatrix[curveIdxs[3]].coords, black};
+        auto [m0, m0v, m1v, m0uv] = patchCurveIndices[i];
+        Vertex p0 = Vertex{controlMatrix[m0].coords, black};
+        Vertex p3 = Vertex{controlMatrix[m0uv].coords, black};
         curveData[i * 4 + 0] = p0;
-        curveData[i * 4 + 1] = Vertex{hermiteToBezier(p0.coords, BCM, controlMatrix[curveIdxs[1]].coords), black};
-        curveData[i * 4 + 2] = Vertex{hermiteToBezier(p3.coords, -BCM, controlMatrix[curveIdxs[2]].coords), black};
+        curveData[i * 4 + 1] = Vertex{hermiteToBezier(p0.coords, BCM, controlMatrix[m0v].coords), black};
+        curveData[i * 4 + 2] = Vertex{hermiteToBezier(p3.coords, -BCM, controlMatrix[m1v].coords), black};
         curveData[i * 4 + 3] = p3;
     }
 }
@@ -41,16 +41,11 @@ const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handl
     }
     return allHandleData;
 }
-const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Patch> &patches, std::optional<glm::vec3> color)
+const std::vector<GLfloat> getAllPatchGLControlPointData(std::vector<Vertex> &points, std::optional<glm::vec3> color)
 {
     std::vector<GLfloat> allPatchData;
-    for (auto &patch : patches)
-    {
-        const std::vector<Vertex> &controlMatrix = patch.getControlMatrix();
-        for (int i = 0; i < 4; i++)
-            if (!patch.curveIsChild(i))
-                vertexToGlData(allPatchData, controlMatrix[controlPointIdxs[i]], color);
-    }
+    for (auto &point : points)
+        vertexToGlData(allPatchData, point, color);
     return allPatchData;
 }
 

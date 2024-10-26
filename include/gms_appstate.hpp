@@ -7,6 +7,7 @@
 #include "gradmesh.hpp"
 #include "merge_metrics.hpp"
 #include "patch.hpp"
+#include "patch_renderer.hpp"
 #include "types.hpp"
 
 enum RenderMode
@@ -57,6 +58,13 @@ public:
         int bottomEdgeCase = 0;
     };
 
+    GmsAppState()
+    {
+        // make sure to gen textures after intializing opengl
+        glGenTextures(1, &patchRenderResources.unmergedTexture);
+        glGenTextures(1, &patchRenderResources.mergedTexture);
+    }
+
     // User modes
     RenderMode currentMode = {RENDER_PATCHES};
     MergeMode mergeMode = {NONE};
@@ -64,12 +72,12 @@ public:
     // Metadata
     std::string filename = "../meshes/global-refinement.hemesh";
     bool filenameChanged = false;
+    bool loadSave = false;
 
     // Mesh and mesh rendering data
     GradMesh mesh;
     std::vector<Patch> patches;
-    std::vector<Vertex> tangentHandles;
-    std::vector<GLfloat> glPatches;
+    PatchRenderer::PatchRenderParams patchRenderParams;
 
     // User rendering preferences
     int maxHWTessellation;
@@ -88,35 +96,87 @@ public:
     // Merging edge selection
     int numOfCandidateMerges = 0;
     int selectedEdgeId = -1;
-    std::vector<int> selectedEdges;
+    int prevSelectedEdgeId = -1;
+    DoubleHalfEdge selectedDhe;
+    DoubleHalfEdge prevSelectedDhe;
+    std::vector<int> selectedEdgePool;
     int attemptedMergesIdx = 0;
-    MergeMetrics::MetricMode metricMode = MergeMetrics::MetricMode::FLIP;
-    MergeMetrics::PixelRegion pixelRegion = MergeMetrics::PixelRegion::Global;
 
     // Merging stats
     MergeStatus mergeStatus = NA;
     MergeStats mergeStats;
     std::vector<int> merges{};
+    int currentSave = 0;
 
     // Merging metrics - capturing pixels and error
     bool useError = true;
-    float errorThreshold = ERROR_THRESHOLD;
-    GLuint unmergedTexture;
-    GLuint mergedTexture;
-    AABB mergeAABB;
+    MergeMetrics::MergeSettings mergeSettings;
+    MergeMetrics::PatchRenderResources patchRenderResources;
 
     void updateMeshRender(const std::vector<Patch> &patchData = {}, const std::vector<GLfloat> &glPatchData = {})
     {
-        const auto &data = patchData.empty() ? mesh.generatePatches().value() : patchData;
-        patches = data;
-        const auto &glData = glPatchData.empty() ? getAllPatchGLData(patches, &Patch::getControlMatrix) : glPatchData;
-        glPatches = glData;
-        tangentHandles = mesh.getHandleBars();
+        patches = patchData.empty() ? mesh.generatePatches().value() : patchData;
+        patchRenderParams.glPatches = glPatchData.empty() ? getAllPatchGLData(patches, &Patch::getControlMatrix) : glPatchData;
+        patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
+        patchRenderParams.handles = mesh.getHandleBars();
+        patchRenderParams.points = mesh.getControlPoints();
+    }
+    void setSelectedAndPrev(int val)
+    {
+        selectedEdgeId = val;
+        prevSelectedEdgeId = val;
     }
     void resetMerges()
     {
         merges.clear();
         filenameChanged = false;
         mergeStatus = NA;
+        setSelectedAndPrev(-1);
+    }
+    void resetCurveColors()
+    {
+        if (selectedEdgeId == prevSelectedEdgeId)
+            return;
+        if (prevSelectedEdgeId != -1)
+        {
+            patches[prevSelectedDhe.curveId1.patchId].setCurveSelected(prevSelectedDhe.curveId1.curveId, black);
+            patches[prevSelectedDhe.curveId2.patchId].setCurveSelected(prevSelectedDhe.curveId2.curveId, black);
+        }
+        if (selectedEdgeId != -1)
+        {
+            patches[selectedDhe.curveId1.patchId].setCurveSelected(selectedDhe.curveId1.curveId, blue);
+            patches[selectedDhe.curveId2.patchId].setCurveSelected(selectedDhe.curveId2.curveId, blue);
+        }
+        prevSelectedEdgeId = selectedEdgeId;
+    }
+    void resetEdgeSelection()
+    {
+        if (mergeStatus != SUCCESS)
+            return;
+
+        if (numOfCandidateMerges > 0)
+            setSelectedAndPrev(0);
+        else
+            setSelectedAndPrev(-1);
+    }
+    void resetMergingIteration()
+    {
+        setSelectedAndPrev(-1);
+        selectedEdgePool.clear();
+    }
+    void setNewEdgeFromPool()
+    {
+        selectedEdgeId = selectedEdgePool[attemptedMergesIdx++];
+    }
+    void generateNewEdgePool(bool &firstRandomIteration)
+    {
+        if (selectedEdgePool.empty() && firstRandomIteration)
+        {
+            selectedEdgePool = generateRandomNums(numOfCandidateMerges - 1);
+            attemptedMergesIdx = 0;
+            firstRandomIteration = false;
+        }
+        if (selectedEdgeId == -1)
+            setNewEdgeFromPool();
     }
 };

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <filesystem>
 #include <iostream>
 
 #include <glad/glad.h>
@@ -57,7 +56,3 @@ private:
     static void scrollCallback(GLFWwindow *window, double xoffset, double yoffset);
     static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 };
-
-// Function to save the current framebuffer to a PNG file
-void saveImage(const char *filename, int width, int height);
-void createDir(std::string_view dir);

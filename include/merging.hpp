@@ -14,27 +14,21 @@
 
 class GradMesh;
 
-struct DoubleHalfEdge
-{
-    int halfEdgeIdx1;
-    int halfEdgeIdx2;
-    CurveId curveId1;
-    CurveId curveId2;
-    DoubleHalfEdge(int heIdx1, int heIdx2, CurveId curveId1) : halfEdgeIdx1(heIdx1), halfEdgeIdx2(heIdx2), curveId1(curveId1) {};
-
-    int getHalfEdgeIdx() const
-    {
-        return halfEdgeIdx1;
-    }
-};
-
 class GradMeshMerger
 {
 public:
-    GradMeshMerger(GmsAppState &appState, int patchShaderId);
+    GradMeshMerger(GmsAppState &appState);
     MergeStatus mergeAtSelectedEdge();
     void findCandidateMerges();
-    const DoubleHalfEdge &getDoubleHalfEdge(int idx) { return candidateMerges[idx]; }
+    void setDoubleHalfEdge() const
+    {
+        int selectedIdx = appState.selectedEdgeId;
+        int prevIdx = appState.prevSelectedEdgeId;
+        if (selectedIdx >= 0 && selectedIdx < candidateMerges.size())
+            appState.selectedDhe = candidateMerges[selectedIdx];
+        if (prevIdx >= 0 && prevIdx < candidateMerges.size())
+            appState.prevSelectedDhe = candidateMerges[prevIdx];
+    }
 
 private:
     GmsAppState::MergeStats mergePatches(int halfEdgeIdx);

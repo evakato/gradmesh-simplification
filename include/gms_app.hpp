@@ -26,17 +26,12 @@ public:
     void run();
 
 private:
+    void readMesh();
     void setupNewMesh();
-    void resetEdgeSelection();
-    void resetCurveColors();
-    void setCurveColor(int edgeIdx, glm::vec3 color);
-
-    GmsAppState appState{};
 
     GmsWindow gmsWindow{SCR_WIDTH, SCR_HEIGHT, "gms"};
     GmsGui gui{gmsWindow, appState};
     PatchRenderer patchRenderer{gmsWindow, appState};
-    GradMeshMerger merger{appState, patchRenderer.getPatchShaderId()};
-
-    int prevSelectedEdgeId = -1;
+    GradMeshMerger merger{appState};
+    GmsAppState appState{};
 };

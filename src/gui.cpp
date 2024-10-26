@@ -286,7 +286,7 @@ void showMergingMenu(GmsAppState &appState)
         break;
         case 1:
         {
-            if (appState.mergeMode == RANDOM)
+            if (appState.mergeMode == RANDOM && appState.numOfCandidateMerges > 0)
             {
                 if (ImGui::Button("Stop random selection"))
                     appState.mergeMode = NONE;
@@ -310,80 +310,39 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Separator();
         ImGui::Spacing();
 
-        AABB aabb = appState.mergeAABB;
+        AABB aabb = appState.mergeSettings.aabb;
         ImGui::Checkbox("Use pixel-based error metrics", &appState.useError);
         if (appState.useError)
         {
             ImGui::BeginDisabled(appState.mergeMode != NONE);
             ImGui::Spacing();
-            static int item_current = static_cast<int>(appState.metricMode);
+            ImGui::PushItemWidth(INPUT_WIDTH);
+            static int item_current = static_cast<int>(appState.mergeSettings.metricMode);
             const char *items[] = {toString(MergeMetrics::MetricMode::SSIM),
                                    toString(MergeMetrics::MetricMode::FLIP)};
-            ImGui::Text("Metric mode");
-            ImGui::SetNextItemWidth(80.0f);
-            if (ImGui::Combo("##Metric", &item_current, items, IM_ARRAYSIZE(items)))
+            if (ImGui::Combo("Metric mode", &item_current, items, IM_ARRAYSIZE(items)))
             {
-                appState.metricMode = static_cast<MergeMetrics::MetricMode>(item_current);
+                appState.mergeSettings.metricMode = static_cast<MergeMetrics::MetricMode>(item_current);
             }
-            ImGui::SetNextItemWidth(80.0f);
-            ImGui::SameLine();
-            ImGui::InputFloat("Error threshold", &appState.errorThreshold, 0.0f, 0.0f, "%.4f");
-
-            static int item_image_region = static_cast<int>(appState.pixelRegion);
+            static int item_image_region = static_cast<int>(appState.mergeSettings.pixelRegion);
             const char *image_region_items[] = {"Global", "Local"};
-            ImGui::SetNextItemWidth(80.0f);
-            ImGui::Dummy(ImVec2(80.0f, 0.0f));
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(80.0f);
             if (ImGui::Combo("Pixel region AABB", &item_image_region, image_region_items, IM_ARRAYSIZE(image_region_items)))
             {
-                appState.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
+                appState.mergeSettings.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
             }
+
+            ImGui::DragFloat("Error threshold", &appState.mergeSettings.errorThreshold, 0.001f, 0.0001f, 0.1f);
+            ImGui::DragInt("Pooling resolution", &appState.mergeSettings.poolRes, 1.0f, 100, 1000);
+            ImGui::DragFloat("AABB padding", &appState.mergeSettings.aabbPadding, 0.01f, 0.0f, 0.1f);
+            ImGui::PopItemWidth();
 
             ImGui::EndDisabled();
 
             ImGui::Spacing();
-            if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
-            {
-                ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
-                ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-                ImGui::Text("AABB x {min, max}");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("{%.3f, %.3f}", aabb.min.x, aabb.max.x);
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-                ImGui::Text("AABB y {min, max}");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("{%.3f, %.3f}", aabb.min.y, aabb.max.y);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-                ImGui::Text("Pooling resolution");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%ipx", POOLING_LENGTH);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-                ImGui::Text("AABB padding");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%.2f", AABB_PADDING);
-
-                ImGui::EndTable();
-            }
-            ImGui::Spacing();
             if (ImGui::TreeNode("Show pixel metric images"))
             {
                 ImGui::Spacing();
-                auto pixelDimensions = aabb.getPixelDimensions(GUI_IMAGE_SIZE);
-                int pixelWidth = pixelDimensions.x;
-                int pixelHeight = pixelDimensions.y;
+                ImGui::Text("AABB: [(%.3f, %.3f), (%.3f, %.3f)]", aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y);
                 if (ImGui::BeginTable("ImageTable", 2, ImGuiTableFlags_SizingFixedFit))
                 {
                     ImGui::TableSetupColumn("Unmerged Image", ImGuiTableColumnFlags_WidthFixed, GUI_IMAGE_SIZE);
@@ -393,9 +352,9 @@ void showMergingMenu(GmsAppState &appState)
                         ImGui::TableHeadersRow();
                         ImGui::TableNextRow(ImGuiTableRowFlags_None, GUI_IMAGE_SIZE + 10);
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::Image((void *)(intptr_t)appState.unmergedTexture, ImVec2(pixelWidth, pixelHeight)); // Fixed size
+                        ImGui::Image((void *)(intptr_t)appState.patchRenderResources.unmergedTexture, ImVec2(GUI_IMAGE_SIZE, GUI_IMAGE_SIZE)); // Fixed size
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Image((void *)(intptr_t)appState.mergedTexture, ImVec2(pixelWidth, pixelHeight)); // Fixed size
+                        ImGui::Image((void *)(intptr_t)appState.patchRenderResources.mergedTexture, ImVec2(GUI_IMAGE_SIZE, GUI_IMAGE_SIZE)); // Fixed size
                     }
                     else
                     {
@@ -455,7 +414,11 @@ void showMergingMenu(GmsAppState &appState)
             appState.filenameChanged = true;
         }
         ImGui::SameLine();
-        ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT);
+        if (ImGui::Button(ICON_FA_ARROW_ROTATE_LEFT) && appState.currentSave != 0)
+        {
+            appState.loadSave = true;
+            appState.filename = "mesh_saves/save_" + std::to_string(--appState.currentSave) + ".hemesh";
+        }
         ImGui::SameLine();
         ImGui::Button(ICON_FA_ARROW_ROTATE_RIGHT);
         ImGui::Spacing();

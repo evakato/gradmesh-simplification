@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cctype>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -23,5 +24,9 @@ std::vector<std::string> splitString(const std::string &str);
 GradMesh readHemeshFile(const std::string &filename);
 void writeHemeshFile(const std::string &filename, const GradMesh &mesh);
 void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::string &filename);
-void writeMergeList(const GmsAppState &state, const std::string &filename);
-std::vector<int> readEdgeIdsFromFile(const std::string &filename);
+
+// Function to save the current framebuffer to a PNG file
+void saveImage(const char *filename, int width, int height);
+
+void createDir(const std::string_view dir);
+void setupDirectories();

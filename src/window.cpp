@@ -173,29 +173,3 @@ glm::vec2 GmsWindow::getNDCCoordinates(float screenX, float screenY)
     float convertedY = -1 * (screenY / viewport[3] * 2 - 1);
     return glm::vec2(convertedX, convertedY);
 }
-
-void saveImage(const char *filename, int width, int height)
-{
-    unsigned char *pixels = new unsigned char[width * height * 4];
-    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-    for (int y = 0; y < height / 2; ++y)
-        for (int x = 0; x < width * 4; ++x)
-            std::swap(pixels[y * width * 4 + x], pixels[(height - 1 - y) * width * 4 + x]);
-
-    int stride_in_bytes = width * 4;
-    if (!stbi_write_png(filename, width, height, 4, pixels, stride_in_bytes))
-        std::cout << "Failed to save image!" << std::endl;
-
-    delete[] pixels;
-}
-
-void createDir(std::string_view dir)
-{
-    if (std::filesystem::exists(dir))
-    {
-        std::filesystem::remove_all(dir);
-    }
-    if (!std::filesystem::create_directory(dir))
-        std::cout << "Failed to create directory!" << std::endl;
-}

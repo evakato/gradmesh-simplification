@@ -32,12 +32,7 @@ std::optional<std::vector<Patch>> GradMesh::generatePatches() const
                                              -m2u, -m2uv, m3uv, m3u, //
                                              m2, -m2v, -m3v, m3};
 
-        std::bitset<4> isChild = ((topEdge.isChild()) << 0 |
-                                  (rightEdge.isChild()) << 1 |
-                                  (bottomEdge.isChild()) << 2 |
-                                  (leftEdge.isChild()) << 3);
-
-        patches.push_back(Patch{controlMatrix, isChild});
+        patches.push_back(Patch{controlMatrix});
     }
 
     return patches;
@@ -138,6 +133,15 @@ std::vector<Vertex> GradMesh::getHandleBars() const
     return pointsAndHandles;
 }
 
+std::vector<Vertex> GradMesh::getControlPoints() const
+{
+    std::vector<Vertex> controlPoints = {};
+    for (auto &point : points)
+        if (point.isValid())
+            controlPoints.push_back(Vertex{point.coords, white});
+    return controlPoints;
+}
+
 void GradMesh::fixEdges()
 {
     int count = 0;
@@ -219,7 +223,6 @@ AABB GradMesh::getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const
         if (halfEdgeIdx != -1 && edges[halfEdgeIdx].isValid())
             aabb.expand(getFaceBoundingBox(halfEdgeIdx));
     }
-    aabb.addPadding(AABB_PADDING);
     return aabb;
 }
 
@@ -232,6 +235,5 @@ AABB GradMesh::getAABB() const
         if (point.isValid())
             aabb.expand(point.coords);
     }
-    aabb.addPadding(AABB_PADDING);
     return aabb;
 }

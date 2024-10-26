@@ -142,3 +142,6 @@ constexpr const char *toString(MergeMetrics::MetricMode mode)
         return "Unknown";
     }
 }
+
+inline constexpr int GUI_IMAGE_SIZE{150};
+inline constexpr float INPUT_WIDTH{170.0f};

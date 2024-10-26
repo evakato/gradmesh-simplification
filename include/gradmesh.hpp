@@ -1,6 +1,5 @@
 #pragma once
 
-#include <bitset>
 #include <cassert>
 #include <iostream>
 #include <limits>
@@ -67,6 +66,8 @@ public:
     void fixEdges();
     std::optional<std::vector<Patch>> generatePatches() const;
     std::vector<Vertex> getHandleBars() const;
+    std::vector<Vertex> getControlPoints() const;
+
     AABB getFaceBoundingBox(int halfEdgeIdx) const;
     AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
     AABB getAABB() const;
