@@ -12,7 +12,7 @@
 class CurveRenderer : public GmsRenderer
 {
 public:
-    CurveRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Curve> &curveData);
+    CurveRenderer(GmsWindow &window, GmsAppState &appState);
     ~CurveRenderer();
 
     const void render();
@@ -21,5 +21,5 @@ protected:
     const void renderCurves();
     const void updateCurveData();
 
-    std::vector<Curve> &curves;
+    std::vector<Curve> curves;
 };

@@ -1,16 +1,10 @@
 #pragma once
 
-#include <chrono>
-
 #include "curve_renderer.hpp"
 #include "fileio.hpp"
 #include "gms_appstate.hpp"
-#include "gms_math.hpp"
-#include "gradmesh.hpp"
 #include "gui.hpp"
 #include "merging.hpp"
-#include "merge_metrics.hpp"
-#include "patch.hpp"
 #include "patch_renderer.hpp"
 #include "renderer.hpp"
 #include "types.hpp"
@@ -26,11 +20,12 @@ public:
     void run();
 
 private:
-    void readMesh();
+    void loadMesh();
     void setupNewMesh();
 
     GmsWindow gmsWindow{SCR_WIDTH, SCR_HEIGHT, "gms"};
     GmsGui gui{gmsWindow, appState};
+    CurveRenderer curveRenderer{gmsWindow, appState};
     PatchRenderer patchRenderer{gmsWindow, appState};
     GradMeshMerger merger{appState};
     GmsAppState appState{};

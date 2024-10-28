@@ -68,8 +68,6 @@ void createListBox(std::vector<const char *> &items, int &item_selected_idx, int
 void setComponentText(const auto &components, int &item_selected_idx, const auto &idxs);
 void compButton(int &item_selected_idx, const auto &idxs, const int findIdx, std::string text);
 
-constexpr char *modeNames[2] = {(char *)"Patch",
-                                (char *)"Curve"};
 constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S(0,0)",
     "S_v(0,0)",
@@ -93,8 +91,6 @@ constexpr const char *toString(MergeStatus status)
 {
     switch (status)
     {
-    case FAILURE:
-        return "Failure";
     case SUCCESS:
         return "Success";
     case METRIC_ERROR:
@@ -130,18 +126,10 @@ constexpr const char *toString(int cornerFlags)
     }
 }
 
-constexpr const char *toString(MergeMetrics::MetricMode mode)
-{
-    switch (mode)
-    {
-    case MergeMetrics::MetricMode::SSIM:
-        return "SSIM";
-    case MergeMetrics::MetricMode::FLIP:
-        return "FLIP";
-    default:
-        return "Unknown";
-    }
-}
+constexpr const char *renderModeStrings[] = {"Patch", "Curve"};
+constexpr const char *metric_mode_items[] = {"SSIM", "FLIP"};
+constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid"};
+static int edge_select_current = GRID;
 
 inline constexpr int GUI_IMAGE_SIZE{150};
 inline constexpr float INPUT_WIDTH{170.0f};

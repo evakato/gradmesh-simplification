@@ -62,19 +62,24 @@ public:
                 return childIdx;
         return -1;
     }
+    int getTwinIdx(int halfEdgeIdx) const
+    {
+        return edges[halfEdgeIdx].twinIdx;
+    }
 
     void fixEdges();
     std::optional<std::vector<Patch>> generatePatches() const;
     std::vector<Vertex> getHandleBars() const;
     std::vector<Vertex> getControlPoints() const;
 
-    AABB getFaceBoundingBox(int halfEdgeIdx) const;
+    std::array<int, 4> getFaceEdgeIdxs(int edgeIdx) const;
     AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
     AABB getAABB() const;
+    std::pair<int, int> findCornerFace() const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
-    friend class MergeMetrics;
+    friend class MergeSelect;
 
 private:
     EdgeDerivatives getCurve(int halfEdgeIdx, int depth = 0) const;
@@ -118,8 +123,7 @@ private:
         else
             return edgeIs(idx, &HalfEdge::isStem);
     }
-
-    std::array<int, 4> getFaceEdgeIdxs(int edgeIdx) const;
+    AABB getFaceBoundingBox(int halfEdgeIdx) const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;

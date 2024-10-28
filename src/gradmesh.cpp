@@ -237,3 +237,39 @@ AABB GradMesh::getAABB() const
     }
     return aabb;
 }
+
+std::pair<int, int> GradMesh::findCornerFace() const
+{
+    for (const auto &face : faces)
+    {
+        if (!face.isValid())
+            continue;
+
+        auto faceEdges = getFaceEdgeIdxs(face.halfEdgeIdx);
+        for (size_t i = 0; i < faceEdges.size(); ++i)
+        {
+            int currentIdx = faceEdges[i];
+            int nextIdx = faceEdges[(i + 1) % faceEdges.size()];
+            int thirdIdx = faceEdges[(i + 2) % faceEdges.size()];
+            if (edges[currentIdx].twinIdx == -1 && edges[nextIdx].twinIdx == -1)
+            {
+                if (edges[thirdIdx].twinIdx == -1)
+                {
+                    return {faceEdges[(i + 3) % faceEdges.size()], -1};
+                }
+                std::array<int, 2> nonConsecutiveEdges{};
+                int count = 0;
+                for (const auto &idx : faceEdges)
+                {
+                    if (idx != currentIdx && idx != nextIdx && edges[idx].twinIdx != -1)
+                    {
+                        nonConsecutiveEdges[count++] = idx;
+                        if (count == 2)
+                            return {nonConsecutiveEdges[0], nonConsecutiveEdges[1]};
+                    }
+                }
+            }
+        }
+    }
+    return {-1, -1};
+}

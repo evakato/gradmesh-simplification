@@ -4,6 +4,7 @@
 GmsRenderer::GmsRenderer(GmsWindow &window, GmsAppState &appState) : window{window}, appState{appState}
 {
     initializeOpenGL();
+    bindBuffers();
 }
 
 void GmsRenderer::bindBuffers()
@@ -37,6 +38,10 @@ void GmsRenderer::render()
 
     window.processInput();
     setProjectionMatrix();
+
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glPolygonMode(GL_FRONT_AND_BACK, appState.isWireframeMode ? GL_LINE : GL_FILL);
 }
 
 void GmsRenderer::setProjectionMatrix()

@@ -4,7 +4,6 @@
 
 PatchRenderer::PatchRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState)
 {
-    GmsRenderer::bindBuffers();
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     appState.patchRenderResources.patchShaderId = linkShaders(patchShaders);
@@ -18,10 +17,6 @@ PatchRenderer::~PatchRenderer()
 
 void PatchRenderer::renderPatches(PatchRenderParams &params)
 {
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glPolygonMode(GL_FRONT_AND_BACK, appState.isWireframeMode ? GL_LINE : GL_FILL);
-
     if (appState.renderPatches)
     {
         // same with this call

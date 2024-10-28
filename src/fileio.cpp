@@ -218,7 +218,7 @@ void writeHemeshFile(const std::string &filename, const GradMesh &mesh)
     out.close();
 }
 
-void writeLogFile(const GradMesh &mesh, const GmsAppState &state, const std::string &filename)
+void writeLogFile(const GradMesh &mesh, const std::string &filename)
 {
     std::ofstream debugLogFile(std::string{LOGS_DIR} + "/" + filename);
 

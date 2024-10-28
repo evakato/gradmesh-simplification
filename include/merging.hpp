@@ -8,6 +8,7 @@
 #include "gms_appstate.hpp"
 #include "gms_math.hpp"
 #include "merge_metrics.hpp"
+#include "merge_select.hpp"
 #include "patch.hpp"
 #include "types.hpp"
 #include "window.hpp"
@@ -18,17 +19,12 @@ class GradMeshMerger
 {
 public:
     GradMeshMerger(GmsAppState &appState);
-    MergeStatus mergeAtSelectedEdge();
-    void findCandidateMerges();
-    void setDoubleHalfEdge() const
+    void startupMesh()
     {
-        int selectedIdx = appState.selectedEdgeId;
-        int prevIdx = appState.prevSelectedEdgeId;
-        if (selectedIdx >= 0 && selectedIdx < candidateMerges.size())
-            appState.selectedDhe = candidateMerges[selectedIdx];
-        if (prevIdx >= 0 && prevIdx < candidateMerges.size())
-            appState.prevSelectedDhe = candidateMerges[prevIdx];
+        select.findCandidateMerges();
     }
+    void merge();
+    MergeStatus mergeAtSelectedEdge(int halfEdgeIdx);
 
 private:
     GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
@@ -55,8 +51,9 @@ private:
 
     GradMesh &mesh;
     GmsAppState &appState;
-    std::vector<DoubleHalfEdge> candidateMerges;
     MergeMetrics metrics;
+    MergeSelect select;
+    bool firstIteration = true;
 };
 
 inline int getCornerTJunctions(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT, bool isStem)

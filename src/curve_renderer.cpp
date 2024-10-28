@@ -1,8 +1,21 @@
 #include "curve_renderer.hpp"
 
-CurveRenderer::CurveRenderer(GmsWindow &window, GmsAppState &appState, std::vector<Curve> &curveData) : GmsRenderer(window, appState), curves(curveData)
+CurveRenderer::CurveRenderer(GmsWindow &window, GmsAppState &appState) : GmsRenderer(window, appState)
 {
-    GmsRenderer::setVertexData(getAllGLVertexData(curves));
+    glm::vec3 col1{0.0f, 1.0f, 0.0f};
+    glm::vec3 col2{1.0f, 1.0f, 0.0f};
+    glm::vec3 col3{0.5f, 0.2f, 0.7f};
+    glm::vec3 col4{1.0f, 0.2f, 0.2f};
+
+    Curve curve3{
+        {glm::vec2(-0.2f, -0.2f), col1},
+        {glm::vec2(-0.4f, 0.45f), col2},
+        {glm::vec2(0.4f, 0.3f), col4},
+        {glm::vec2(0.45f, 0.0f), col3},
+    };
+
+    curves = {curve3};
+    GmsRenderer::setVertexData(getAllGLVertexDataCol(curves));
 }
 
 CurveRenderer::~CurveRenderer()
@@ -13,28 +26,28 @@ CurveRenderer::~CurveRenderer()
 
 const void CurveRenderer::renderCurves()
 {
+    auto curveData = getAllGLVertexDataCol(curves);
     // this call is prob inefficient and we might just want to add a member var for this later or only call this if the user is switching between patches and curves
-    GmsRenderer::setVertexData(getAllGLVertexDataCol(curves));
-    glBindVertexArray(VAO);
+    GmsRenderer::setVertexData(curveData);
 
     // draw curves
     glUseProgram(curveShaderId);
     glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
-    for (int i = 0; i < curves.size(); i++)
-        glDrawArrays(GL_PATCHES, i * 4, 4);
+    glLineWidth(appState.curveLineWidth);
+    setUniformProjectionMatrix(curveShaderId, projectionMatrix);
+    glDrawArrays(GL_PATCHES, 0, curveData.size() / 5);
 
     // draw the lines between control point and handle
     glUseProgram(lineShaderId);
-    glLineWidth(1.2f);
-    for (int i = 0; i < curves.size(); i++)
-        glDrawArrays(GL_LINES, i * 4, 4);
+    glLineWidth(appState.handleLineWidth);
+    setUniformProjectionMatrix(lineShaderId, projectionMatrix);
+    glDrawArrays(GL_LINES, 0, curveData.size() / 5);
 
     // draw points
     glUseProgram(pointShaderId);
-    GmsRenderer::highlightSelectedPoint(4);
-
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_POINTS, 0, curves.size() * 4);
+    setUniformProjectionMatrix(pointShaderId, projectionMatrix);
+    // GmsRenderer::highlightSelectedPoint(4);
+    glDrawArrays(GL_POINTS, 0, curveData.size() / 5);
 }
 
 const void CurveRenderer::updateCurveData()
@@ -65,6 +78,6 @@ const void CurveRenderer::updateCurveData()
 const void CurveRenderer::render()
 {
     GmsRenderer::render();
-    updateCurveData();
+    // updateCurveData();
     renderCurves();
 }

@@ -1,27 +1,45 @@
 #include "merging.hpp"
 #include "gradmesh.hpp"
 
-GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{appState.mesh, appState.mergeSettings, appState.patchRenderResources}} {}
+GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{appState.mesh, appState.mergeSettings, appState.patchRenderResources}}, select{appState} {}
 
-MergeStatus GradMeshMerger::mergeAtSelectedEdge()
+void GradMeshMerger::merge()
 {
-    if (candidateMerges.empty() || appState.selectedEdgeId < 0 || appState.selectedEdgeId >= candidateMerges.size())
-        return FAILURE;
+    if (appState.numOfCandidateMerges <= 0 || appState.mergeMode == NONE)
+    {
+        appState.mergeMode = NONE;
+        return;
+    }
 
-    appState.merges.push_back(appState.selectedEdgeId);
-    writeLogFile(mesh, appState, "debug1.txt");
+    int selectedHalfEdgeIdx = select.selectEdge();
+    appState.mergeStatus = mergeAtSelectedEdge(selectedHalfEdgeIdx);
 
-    int halfEdgeIdx = candidateMerges[appState.selectedEdgeId].getHalfEdgeIdx();
+    if (appState.mergeMode == MANUAL)
+    {
+        appState.mergeMode = NONE;
+        if (appState.numOfCandidateMerges > 0)
+            appState.selectedEdgeId = 0;
+    }
+
+    select.setDoubleHalfEdge();
+    appState.resetCurveColors();
+}
+
+MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
+{
+    assert(!select.getCandidateMerges().empty());
+
+    writeLogFile(mesh, "debug1.txt");
+
     metrics.captureBeforeMerge(halfEdgeIdx, appState.patchRenderParams.glPatches);
     GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
 
     auto mergedPatches = mesh.generatePatches();
     if (!mergedPatches)
     {
-        appState.merges.pop_back();
-        appState.mesh = readHemeshFile("mesh_saves/save_" + std::to_string(appState.merges.size()) + ".hemesh");
+        appState.mesh = readHemeshFile("mesh_saves/save_" + std::to_string(appState.numOfMerges) + ".hemesh");
         appState.updateMeshRender();
-        findCandidateMerges();
+        select.findCandidateMerges();
         return CYCLE;
     }
 
@@ -30,58 +48,15 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge()
     {
         appState.updateMeshRender(mergedPatches.value(), glPatches);
         appState.mergeStats = stats;
-        appState.currentSave = appState.merges.size();
+        appState.currentSave = ++appState.numOfMerges;
         writeHemeshFile("mesh_saves/save_" + std::to_string(appState.currentSave) + ".hemesh", mesh);
-        findCandidateMerges();
+        select.findCandidateMerges();
         return SUCCESS;
     }
-    appState.merges.pop_back();
-    appState.mesh = readHemeshFile("mesh_saves/save_" + std::to_string(appState.merges.size()) + ".hemesh");
+    appState.mesh = readHemeshFile("mesh_saves/save_" + std::to_string(appState.numOfMerges) + ".hemesh");
     appState.updateMeshRender();
-    findCandidateMerges();
+    select.findCandidateMerges();
     return METRIC_ERROR;
-}
-
-void GradMeshMerger::findCandidateMerges()
-{
-    candidateMerges.clear();
-    int faceIdx = 0;
-    for (auto &face : mesh.getFaces())
-    {
-        if (face.isValid())
-        {
-            int currIdx = face.halfEdgeIdx;
-            for (int i = 0; i < 4; i++)
-            {
-                const auto &currEdge = mesh.edges[currIdx];
-                if (currEdge.hasTwin() && !currEdge.isBar() && !mesh.twinIsParent(currEdge) && !currEdge.isParent())
-                {
-                    auto findEdgeIdx = std::find_if(candidateMerges.begin(), candidateMerges.end(), [currIdx](const DoubleHalfEdge &dhe)
-                                                    { return dhe.halfEdgeIdx2 == currIdx; });
-
-                    if (findEdgeIdx == candidateMerges.end())
-                    {
-                        candidateMerges.push_back(DoubleHalfEdge{currIdx, currEdge.twinIdx, CurveId{faceIdx, i}});
-                    }
-                    else
-                    {
-                        size_t foundIndex = std::distance(candidateMerges.begin(), findEdgeIdx);
-                        // assert(currIdx != candidateMerges[foundIndex].halfEdgeIdx2)
-                        candidateMerges[foundIndex]
-                            .curveId2 = CurveId{faceIdx, i};
-                    }
-                }
-                currIdx = currEdge.nextIdx;
-            }
-            faceIdx++;
-        }
-    }
-
-    for (auto &doublehe : candidateMerges)
-    {
-        // std::cout << doublehe.halfEdgeIdx1 << ", " << doublehe.halfEdgeIdx2 << "\n";
-    }
-    appState.numOfCandidateMerges = candidateMerges.size();
 }
 
 GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
@@ -106,9 +81,8 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
     int newTopEdgeIdx = face1TIdx;
     int newBottomEdgeIdx = face1BIdx;
 
-    // ya bitch can rly name shit well
-    bool test = true;
-    bool test2 = true;
+    bool scaleTopHandles = true;
+    bool scaleBottomHandles = true;
     bool addTopT = true;
     bool addBottomT = true;
 
@@ -151,7 +125,7 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
             parent.removeChildIdx(face2TIdx);
         }
         transferChildTo(face2RIdx, face1RIdx);
-        test = addTopT = 0;
+        scaleTopHandles = addTopT = 0;
         break;
     }
     case LeftT | RightT:
@@ -204,14 +178,12 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
         rightTUpdateInterval(newTopEdgeIdx, newCurvePart, totalCurve);
         transferChildTo(face2RIdx, face1RIdx);
 
-        test = false;
+        scaleTopHandles = false;
         break;
     }
     case LeftT | RightL:
         // 9 --> 47 --> 8 or 16 -> 38 --> 26
-        // transferChildToWithoutGeometry(face2TIdx, face1T.parentIdx);
         transferChildTo(face2RIdx, face1RIdx);
-        // mesh.edges[face2R.parentIdx].nextIdx = face1BIdx;
         [[fallthrough]];
     case LeftT:
     {
@@ -229,7 +201,6 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
     {
         // for leftL, weird case: basically just delete the stem from the RightL
         // 2 --> 49 --> 7 or 18 --> 35 --> 16
-        // mesh.edges[face2R.parentIdx].nextIdx = face1BIdx;
         transferChildToWithoutGeometry(face2RIdx, face1RIdx);
         break;
     }
@@ -258,7 +229,7 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
         if (!topIsStem)
             transferChildTo(face2RIdx, face1RIdx);
 
-        test2 = addBottomT = 0;
+        scaleBottomHandles = addBottomT = 0;
         break;
     }
     case LeftT | RightT:
@@ -288,8 +259,7 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
     }
     case RightT:
     {
-        // 1 -> 31 -> 9 (now i don't have to twist my head)
-        // the bottom left edge is not a stem.. its twin is a stem
+        // 1 -> 31 -> 9 the bottom left edge is not a stem.. its twin is a stem
         // the bottom left edge inherits the bar data from the bottom right edge
         newBottomEdgeIdx = face2B.parentIdx;
         bottomRightEdge = &mesh.edges[newBottomEdgeIdx];
@@ -305,7 +275,7 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
         transferChildTo(face2BIdx, face1BIdx);
 
         leftTUpdateInterval(newBottomEdgeIdx, totalCurve);
-        test2 = false;
+        scaleBottomHandles = false;
         break;
     }
     case LeftT | RightL:
@@ -342,7 +312,7 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
     }
     }
 
-    if (test)
+    if (scaleTopHandles)
     {
         assert(topLeftEdge->handleIdxs.first != -1 && topLeftEdge->handleIdxs.second != -1);
         if (topRightEdge->handleIdxs.second == -1)
@@ -360,7 +330,7 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
         face1R.copyGeometricData(face2R);
     }
 
-    if (test2)
+    if (scaleBottomHandles)
     {
         assert(bottomLeftEdge->handleIdxs.first != -1 && bottomLeftEdge->handleIdxs.second != -1);
         assert(bottomRightEdge->handleIdxs.first != -1);
@@ -377,7 +347,6 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
     face1R.handleIdxs = face2R.handleIdxs;
     setNextRightL(face2R, face1BIdx);
 
-    // appState.updateMergeInfo(mergeEdgeIdx, t, face2L.faceIdx, 1.0f - topEdgeT, bottomEdgeT);
     int topTwinIdx = addTopT ? addTJunction(*topRightEdge, *topLeftEdge, newTopEdgeIdx, 1.0f - topEdgeT) : -1;
     int bottomTwinIdx = addBottomT ? addTJunction(*bottomLeftEdge, *bottomRightEdge, newBottomEdgeIdx, bottomEdgeT) : -1;
 

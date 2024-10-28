@@ -19,11 +19,11 @@ void MergeMetrics::captureBeforeMerge(int halfEdgeIdx, std::vector<GLfloat> &glP
     case PixelRegion::Local:
     {
         auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = mesh.getFaceEdgeIdxs(halfEdgeIdx);
-        auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = mesh.getFaceEdgeIdxs(mesh.edges[halfEdgeIdx].twinIdx);
-        int twin1 = mesh.edges[face1BIdx].twinIdx;
-        int twin2 = mesh.edges[face1TIdx].twinIdx;
-        int twin3 = mesh.edges[face2BIdx].twinIdx;
-        int twin4 = mesh.edges[face2TIdx].twinIdx;
+        auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = mesh.getFaceEdgeIdxs(mesh.getTwinIdx(halfEdgeIdx));
+        int twin1 = mesh.getTwinIdx(face1BIdx);
+        int twin2 = mesh.getTwinIdx(face1TIdx);
+        int twin3 = mesh.getTwinIdx(face2BIdx);
+        int twin4 = mesh.getTwinIdx(face2TIdx);
         aabb = mesh.getBoundingBoxOverFaces({halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4});
         break;
     }

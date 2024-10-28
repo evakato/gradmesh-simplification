@@ -6,6 +6,7 @@
 #include "fileio.hpp"
 #include "gradmesh.hpp"
 #include "merge_metrics.hpp"
+#include "merge_select.hpp"
 #include "patch.hpp"
 #include "patch_renderer.hpp"
 #include "types.hpp"
@@ -14,22 +15,6 @@ enum RenderMode
 {
     RENDER_PATCHES,
     RENDER_CURVES
-};
-
-enum MergeMode
-{
-    NONE,
-    MANUAL,
-    RANDOM
-};
-
-enum MergeStatus
-{
-    NA,
-    FAILURE,
-    SUCCESS,
-    METRIC_ERROR,
-    CYCLE
 };
 
 enum CornerTJunctions
@@ -42,6 +27,21 @@ enum CornerTJunctions
     IsStem = 1 << 4
 };
 
+enum MergeSelectMode
+{
+    NONE = -1,
+    MANUAL,
+    RANDOM,
+    GRID
+};
+
+enum MergeStatus
+{
+    NA,
+    SUCCESS,
+    METRIC_ERROR,
+    CYCLE
+};
 class GradMesh;
 
 class GmsAppState
@@ -67,7 +67,8 @@ public:
 
     // User modes
     RenderMode currentMode = {RENDER_PATCHES};
-    MergeMode mergeMode = {NONE};
+    MergeSelectMode mergeMode = {NONE};
+    MergeStatus mergeStatus = {NA};
 
     // Metadata
     std::string filename = "../meshes/global-refinement.hemesh";
@@ -99,13 +100,11 @@ public:
     int prevSelectedEdgeId = -1;
     DoubleHalfEdge selectedDhe;
     DoubleHalfEdge prevSelectedDhe;
-    std::vector<int> selectedEdgePool;
     int attemptedMergesIdx = 0;
 
     // Merging stats
-    MergeStatus mergeStatus = NA;
     MergeStats mergeStats;
-    std::vector<int> merges{};
+    int numOfMerges = 0;
     int currentSave = 0;
 
     // Merging metrics - capturing pixels and error
@@ -128,8 +127,8 @@ public:
     }
     void resetMerges()
     {
-        merges.clear();
-        filenameChanged = false;
+        numOfMerges = 0;
+        loadSave = filenameChanged = false;
         mergeStatus = NA;
         setSelectedAndPrev(-1);
     }
@@ -141,42 +140,14 @@ public:
         {
             patches[prevSelectedDhe.curveId1.patchId].setCurveSelected(prevSelectedDhe.curveId1.curveId, black);
             patches[prevSelectedDhe.curveId2.patchId].setCurveSelected(prevSelectedDhe.curveId2.curveId, black);
+            patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
         }
         if (selectedEdgeId != -1)
         {
             patches[selectedDhe.curveId1.patchId].setCurveSelected(selectedDhe.curveId1.curveId, blue);
             patches[selectedDhe.curveId2.patchId].setCurveSelected(selectedDhe.curveId2.curveId, blue);
+            patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
         }
         prevSelectedEdgeId = selectedEdgeId;
-    }
-    void resetEdgeSelection()
-    {
-        if (mergeStatus != SUCCESS)
-            return;
-
-        if (numOfCandidateMerges > 0)
-            setSelectedAndPrev(0);
-        else
-            setSelectedAndPrev(-1);
-    }
-    void resetMergingIteration()
-    {
-        setSelectedAndPrev(-1);
-        selectedEdgePool.clear();
-    }
-    void setNewEdgeFromPool()
-    {
-        selectedEdgeId = selectedEdgePool[attemptedMergesIdx++];
-    }
-    void generateNewEdgePool(bool &firstRandomIteration)
-    {
-        if (selectedEdgePool.empty() && firstRandomIteration)
-        {
-            selectedEdgePool = generateRandomNums(numOfCandidateMerges - 1);
-            attemptedMergesIdx = 0;
-            firstRandomIteration = false;
-        }
-        if (selectedEdgeId == -1)
-            setNewEdgeFromPool();
     }
 };

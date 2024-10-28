@@ -37,21 +37,10 @@ void GmsGui::showRightBar()
 
     ImGui::Spacing();
 
+    static bool firstRender = true;
     if (ImGui::BeginTabBar("Rendering Mode"))
     {
-        if (ImGui::BeginTabItem(modeNames[RENDER_PATCHES]))
-        {
-            appState.currentMode = {RENDER_PATCHES};
-
-            // showHermiteMatrixTable(appState.selectedPatchId);
-
-            showRenderSettings();
-
-            showMergingMenu(appState);
-            showDebuggingMenu(appState);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem(modeNames[RENDER_CURVES]))
+        if (ImGui::BeginTabItem(renderModeStrings[RENDER_CURVES]))
         {
             appState.currentMode = {RENDER_CURVES};
             ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
@@ -69,6 +58,17 @@ void GmsGui::showRightBar()
 
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem(renderModeStrings[RENDER_PATCHES], nullptr, firstRender ? ImGuiTabItemFlags_SetSelected : 0))
+        {
+            appState.currentMode = {RENDER_PATCHES};
+
+            // showHermiteMatrixTable(appState.selectedPatchId);
+            showRenderSettings();
+            showMergingMenu(appState);
+            showDebuggingMenu(appState);
+            ImGui::EndTabItem();
+        }
+        firstRender = false;
         ImGui::EndTabBar();
     }
 
@@ -249,15 +249,13 @@ void showMergingMenu(GmsAppState &appState)
     {
         ImGui::Spacing();
 
-        static int edge_select_current = 1;
-        const char *edge_select_items[] = {"Manual", "Random"};
-        ImGui::Text("Edge select mode");                                                                        // Display the label
-        ImGui::SetNextItemWidth(100.0f);                                                                        // Set the width for the combo box
-        ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items)); // Use empty label to remove default one
+        ImGui::Text("Edge select mode");
+        ImGui::SetNextItemWidth(100.0f);
+        ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items));
         ImGui::SameLine();
         switch (edge_select_current)
         {
-        case 0:
+        case MANUAL:
         {
             if (appState.selectedEdgeId == -1 && appState.numOfCandidateMerges > 0)
             {
@@ -284,7 +282,7 @@ void showMergingMenu(GmsAppState &appState)
             }
         }
         break;
-        case 1:
+        case RANDOM:
         {
             if (appState.mergeMode == RANDOM && appState.numOfCandidateMerges > 0)
             {
@@ -295,6 +293,7 @@ void showMergingMenu(GmsAppState &appState)
             {
                 if (ImGui::Button("Start random selection"))
                 {
+                    appState.mergeStatus = NA;
                     appState.mergeMode = RANDOM;
                 }
             }
@@ -304,6 +303,24 @@ void showMergingMenu(GmsAppState &appState)
             }
         }
         break;
+        case GRID:
+            if (appState.mergeMode == GRID && appState.numOfCandidateMerges > 0)
+            {
+                if (ImGui::Button("Stop grid selection"))
+                    appState.mergeMode = NONE;
+            }
+            else if (appState.numOfCandidateMerges > 0)
+            {
+                if (ImGui::Button("Start grid selection"))
+                {
+                    appState.mergeMode = GRID;
+                }
+            }
+            else
+            {
+                ImGui::Text("No merges possible");
+            }
+            break;
         }
 
         ImGui::Spacing();
@@ -318,9 +335,7 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::Spacing();
             ImGui::PushItemWidth(INPUT_WIDTH);
             static int item_current = static_cast<int>(appState.mergeSettings.metricMode);
-            const char *items[] = {toString(MergeMetrics::MetricMode::SSIM),
-                                   toString(MergeMetrics::MetricMode::FLIP)};
-            if (ImGui::Combo("Metric mode", &item_current, items, IM_ARRAYSIZE(items)))
+            if (ImGui::Combo("Metric mode", &item_current, metric_mode_items, IM_ARRAYSIZE(metric_mode_items)))
             {
                 appState.mergeSettings.metricMode = static_cast<MergeMetrics::MetricMode>(item_current);
             }
@@ -376,7 +391,7 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Separator();
         ImGui::Spacing();
 
-        ImGui::Text("Merge iteration: %d", appState.merges.size());
+        ImGui::Text("Merge iteration: %d", appState.numOfMerges);
 
         if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
