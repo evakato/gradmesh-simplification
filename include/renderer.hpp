@@ -37,3 +37,4 @@ private:
 
 void initializeOpenGL();
 void setUniformProjectionMatrix(GLuint shaderId, glm::mat4 &projectionMatrix);
+void setLineColor(GLuint shaderId, const glm::vec3 &color);

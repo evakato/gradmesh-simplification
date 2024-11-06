@@ -1,3 +1,5 @@
+#include <glm/gtc/type_ptr.hpp>
+
 #include "renderer.hpp"
 #include "gms_app.hpp"
 
@@ -38,7 +40,6 @@ void GmsRenderer::render()
 
     window.processInput();
     setProjectionMatrix();
-
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glPolygonMode(GL_FRONT_AND_BACK, appState.isWireframeMode ? GL_LINE : GL_FILL);
@@ -98,4 +99,10 @@ void setUniformProjectionMatrix(GLuint shaderId, glm::mat4 &projectionMatrix)
 {
     GLint projectionLoc = glGetUniformLocation(shaderId, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projectionMatrix[0][0]);
+}
+
+void setLineColor(GLuint shaderId, const glm::vec3 &color)
+{
+    GLint lineColorLocation = glGetUniformLocation(shaderId, "lineColor");
+    glUniform3fv(lineColorLocation, 1, glm::value_ptr(color));
 }

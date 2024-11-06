@@ -7,25 +7,36 @@ Patch::Patch(std::vector<Vertex> controlMatrix) : controlMatrix{controlMatrix}
 
 void Patch::populateCurveData()
 {
+    curves.clear();
     for (int i = 0; i < 4; i++)
     {
         auto [m0, m0v, m1v, m0uv] = patchCurveIndices[i];
         Vertex p0 = Vertex{controlMatrix[m0].coords, black};
         Vertex p3 = Vertex{controlMatrix[m0uv].coords, black};
-        curveData[i * 4 + 0] = p0;
-        curveData[i * 4 + 1] = Vertex{hermiteToBezier(p0.coords, BCM, controlMatrix[m0v].coords), black};
-        curveData[i * 4 + 2] = Vertex{hermiteToBezier(p3.coords, -BCM, controlMatrix[m1v].coords), black};
-        curveData[i * 4 + 3] = p3;
+
+        Curve curve{p0, Vertex{hermiteToBezier(p0.coords, BCM, controlMatrix[m0v].coords), black}, Vertex{hermiteToBezier(p3.coords, -BCM, controlMatrix[m1v].coords), black}, p3, Curve::CurveType::Bezier};
+
+        curves.push_back(curve);
+        aabb.expand(curve.getAABB());
     }
 }
 
 void Patch::setCurveSelected(int curveIdx, glm::vec3 color)
 {
     assert(curveIdx >= 0 && curveIdx < 4);
-    curveData[curveIdx * 4 + 0].color = color;
-    curveData[curveIdx * 4 + 1].color = color;
-    curveData[curveIdx * 4 + 2].color = color;
-    curveData[curveIdx * 4 + 3].color = color;
+    curves[curveIdx].setColor(color);
+}
+
+int Patch::getContainingCurve(glm::vec2 pos) const
+{
+    for (size_t i = 0; i < 4; ++i)
+    {
+        auto curveAABB = curves[i].getAABB();
+        curveAABB.addPadding(0.01f);
+        if (curveAABB.contains(pos))
+            return i;
+    }
+    return -1;
 }
 
 const std::vector<GLfloat> getAllHandleGLPoints(const std::vector<Vertex> &handles, int firstIdx, int step)
@@ -69,6 +80,8 @@ void vertexToGlData(std::vector<GLfloat> &glData, Vertex v, std::optional<glm::v
 
 int getSelectedPatch(const std::vector<Patch> &patches, glm::vec2 pos)
 {
-    // got rid of AABB stuff in this class so this function died (for now)
+    for (size_t i = 0; i < patches.size(); ++i)
+        if (patches[i].contains(pos))
+            return i;
     return -1;
 }

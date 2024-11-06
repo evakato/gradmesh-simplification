@@ -28,3 +28,9 @@ inline std::ostream &operator<<(std::ostream &os, const Vertex &vertex)
        << "col: (" << vertex.color.r << ", " << vertex.color.g << ", " << vertex.color.b << ")";
     return os;
 }
+inline std::ostream &operator<<(std::ostream &os, const AABB &aabb)
+{
+    os << "AABB(min: (" << aabb.min.x << ", " << aabb.min.y << "), "
+       << "max: (" << aabb.max.x << ", " << aabb.max.y << "))";
+    return os;
+}

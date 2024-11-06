@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 
+#include "curve_renderer.hpp"
 #include "fileio.hpp"
 #include "gms_appstate.hpp"
 #include "gradmesh.hpp"
@@ -30,8 +31,6 @@ public:
 
 private:
     void showRightBar();
-    void showHermiteMatrixTable(int patchId);
-    void showRenderSettings();
     void showWindowMenuBar();
 
     GmsWindow &gmsWindow;
@@ -52,12 +51,18 @@ enum class ButtonColor
     Children
 };
 
+void showRenderSettings(GmsAppState &appState);
+void showCurvesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState);
+void showPatchesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState);
+
 void createImguiContext(GLFWwindow *window);
 void prepareImguiFrame(GLFWwindow *window);
 void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::FileBrowser &fileDialog);
 void showMergingMenu(GmsAppState &appState);
 void showDebuggingMenu(GmsAppState &appState);
+void showDCELInfo(GmsAppState &appState);
 
+void showHermiteMatrixTable(GmsAppState &appState);
 void showPreviousMergeInfo(GmsAppState::MergeStats &stats);
 void showGradMeshInfo(const GradMesh &mesh);
 void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs);
@@ -128,8 +133,8 @@ constexpr const char *toString(int cornerFlags)
 
 constexpr const char *renderModeStrings[] = {"Patch", "Curve"};
 constexpr const char *metric_mode_items[] = {"SSIM", "FLIP"};
-constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid"};
-static int edge_select_current = GRID;
+constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid"};
+static int edge_select_current = DUAL_GRID;
 
 inline constexpr int GUI_IMAGE_SIZE{150};
 inline constexpr float INPUT_WIDTH{170.0f};

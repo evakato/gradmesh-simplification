@@ -35,19 +35,19 @@ GLuint linkShaders(const std::array<ShaderSource, N> &shaders)
 }
 
 constexpr std::array<ShaderSource, 4> curveShaders{
-    ShaderSource{"../shaders/bezier.vs.glsl", GL_VERTEX_SHADER},
-    ShaderSource{"../shaders/bezier.tcs.glsl", GL_TESS_CONTROL_SHADER},
-    ShaderSource{"../shaders/bezier.tes.glsl", GL_TESS_EVALUATION_SHADER},
-    ShaderSource{"../shaders/bezier.fs.glsl", GL_FRAGMENT_SHADER},
+    ShaderSource{"../shaders/curve.vs.glsl", GL_VERTEX_SHADER},
+    ShaderSource{"../shaders/curve.tcs.glsl", GL_TESS_CONTROL_SHADER},
+    ShaderSource{"../shaders/curve.tes.glsl", GL_TESS_EVALUATION_SHADER},
+    ShaderSource{"../shaders/curve.fs.glsl", GL_FRAGMENT_SHADER},
 };
 
 constexpr std::array<ShaderSource, 2> pointShaders{
-    ShaderSource{"../shaders/controlpt.vs.glsl", GL_VERTEX_SHADER},
-    ShaderSource{"../shaders/controlpt.fs.glsl", GL_FRAGMENT_SHADER},
+    ShaderSource{"../shaders/point.vs.glsl", GL_VERTEX_SHADER},
+    ShaderSource{"../shaders/point.fs.glsl", GL_FRAGMENT_SHADER},
 };
 
 constexpr std::array<ShaderSource, 2> lineShaders{
-    ShaderSource{"../shaders/controlpt.vs.glsl", GL_VERTEX_SHADER},
+    ShaderSource{"../shaders/point.vs.glsl", GL_VERTEX_SHADER},
     ShaderSource{"../shaders/line.fs.glsl", GL_FRAGMENT_SHADER},
 };
 

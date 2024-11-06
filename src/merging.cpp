@@ -5,29 +5,41 @@ GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), app
 
 void GradMeshMerger::merge()
 {
-    if (appState.numOfCandidateMerges <= 0 || appState.mergeMode == NONE)
+    if (appState.candidateMerges.size() <= 0 || appState.mergeMode == NONE)
     {
         appState.mergeMode = NONE;
         return;
     }
 
     int selectedHalfEdgeIdx = select.selectEdge();
+    std::cout << "selected edge: " << selectedHalfEdgeIdx << std::endl;
+    if (selectedHalfEdgeIdx == -1)
+    {
+        appState.mergeStatus = NA;
+        appState.mergeMode = NONE;
+        return;
+    }
     appState.mergeStatus = mergeAtSelectedEdge(selectedHalfEdgeIdx);
+    if (appState.mergeStatus == CYCLE)
+    {
+        std::cout << "problematic " << selectedHalfEdgeIdx << std::endl;
+        // appState.mergeMode = NONE;
+    }
 
     if (appState.mergeMode == MANUAL)
     {
         appState.mergeMode = NONE;
-        if (appState.numOfCandidateMerges > 0)
+        if (appState.candidateMerges.size() > 0)
             appState.selectedEdgeId = 0;
-    }
 
-    select.setDoubleHalfEdge();
-    appState.resetCurveColors();
+        if (appState.mergeStatus == SUCCESS)
+            appState.userSelectedId = {-1, -1};
+    }
 }
 
 MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
 {
-    assert(!select.getCandidateMerges().empty());
+    assert(!appState.candidateMerges.empty());
 
     writeLogFile(mesh, "debug1.txt");
 

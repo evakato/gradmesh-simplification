@@ -38,6 +38,19 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         glDrawArrays(GL_PATCHES, 0, params.glCurves.size() / 5);
     }
 
+    if (appState.componentSelectOptions.renderPatchAABB() && appState.userSelectedId.patchId != -1)
+    {
+        auto &selectedPatch = appState.patches[appState.userSelectedId.patchId];
+        // auto aabbData = getAllCurveGLData(selectedPatch.getCurves(), &Curve::getGLAABBData);
+        auto aabbData = selectedPatch.getGLAABBData();
+        GmsRenderer::setVertexData(aabbData);
+        glUseProgram(lineShaderId);
+        setLineColor(lineShaderId, blue);
+        setUniformProjectionMatrix(lineShaderId, projectionMatrix);
+        for (int i = 0; i < aabbData.size() / 5; i++)
+            glDrawArrays(GL_LINE_LOOP, i * 4, 4);
+    }
+
     if (appState.renderHandles)
     {
         const std::vector<GLfloat> pointHandleData = getAllHandleGLPoints(params.handles);
@@ -67,43 +80,45 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
     }
 }
 
-void PatchRenderer::updatePatchData(std::vector<Patch> &patches)
+void PatchRenderer::updatePatches(std::vector<Patch> &patches)
 {
-    if (GmsWindow::isClicked)
+    if (!GmsWindow::isClicked)
+        return;
+
+    GmsWindow::isClicked = false;
+    if (!appState.componentSelectOptions.on && !appState.manualEdgeSelect)
+        return;
+
+    if (!appState.userSelectedId.isNull())
     {
-        int selectedPatch = getSelectedPatch(patches, GmsWindow::mousePos);
-        appState.selectedPatchId = selectedPatch;
-        if (selectedPatch != -1)
-            appState.currentPatchData = patches[selectedPatch].getControlMatrix();
-        // GmsWindow::selectedPoint = getSelectedPointId(patches, GmsWindow::mousePos);
-        //  gmsgui::setCurrentColor(getColorAtPoint(curves, GmsWindow::selectedPoint));
-        GmsWindow::isClicked = false;
+        appState.setPatchCurveColor(appState.userSelectedId, black);
+        appState.resetSelectedDhe();
     }
-    /*
-    else if (GmsWindow::isDragging && GmsWindow::validSelectedPoint())
+    glm::mat4 inverseProjectionMatrix = glm::inverse(projectionMatrix);
+    glm::vec4 transformedPoint = inverseProjectionMatrix * glm::vec4{GmsWindow::mousePos, 0.0f, 1.0f};
+
+    appState.userSelectedId.patchId = getSelectedPatch(patches, transformedPoint);
+    if (appState.userSelectedId.patchId == -1 || (appState.componentSelectOptions.type == ComponentSelectOptions::Type::Patch && !appState.manualEdgeSelect))
+        return;
+
+    auto &selectedPatch = patches[appState.userSelectedId.patchId];
+    int curveIdx = selectedPatch.getContainingCurve(transformedPoint);
+    CurveId newSelectedCurve = CurveId{appState.userSelectedId.patchId, curveIdx};
+
+    appState.userSelectedId = newSelectedCurve;
+    if (curveIdx != -1 && appState.manualEdgeSelect)
     {
-        setPatchCoords(patches, GmsWindow::selectedPoint, GmsWindow::mousePos);
-        //  size_t offset = GmsWindow::selectedPoint.primitiveId * 4 * sizeof(glm::vec2) + (GmsWindow::selectedPoint.pointId * sizeof(glm::vec2));
-        //  glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(glm::vec2), &GmsWindow::mousePos);
+        appState.setSelectedDhe();
     }
-    */
+    else if (curveIdx != -1)
+        appState.setPatchCurveColor(appState.userSelectedId, yellow);
+
+    appState.patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
 }
 
 void PatchRenderer::render(PatchRenderParams &params)
 {
     GmsRenderer::render();
-    // updatePatchData(patches);
+    updatePatches(appState.patches);
     renderPatches(params);
-
-    /*
-        if (gui.patchColorChange)
-        {
-            patches[0].setControlMatrix(gui.currentPatchData);
-            gui.patchColorChange = false;
-        }
-        else
-        {
-            gui.currentPatchData = patches[0].getControlMatrix();
-        }
-        **/
 }

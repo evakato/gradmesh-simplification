@@ -3,6 +3,7 @@
 #include <cassert>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -75,7 +76,7 @@ public:
     std::array<int, 4> getFaceEdgeIdxs(int edgeIdx) const;
     AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
     AABB getAABB() const;
-    std::pair<int, int> findCornerFace() const;
+    std::vector<std::pair<int, int>> findCornerFace() const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
@@ -124,9 +125,14 @@ private:
             return edgeIs(idx, &HalfEdge::isStem);
     }
     AABB getFaceBoundingBox(int halfEdgeIdx) const;
+    void findULPoints();
+    bool isULMergeEdge(const HalfEdge &edge) const;
+    int findParentPointIdx(int halfEdgeIdx) const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;
     std::vector<Face> faces;
     std::vector<HalfEdge> edges;
+
+    std::vector<int> ulPointIdxs;
 };

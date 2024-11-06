@@ -29,3 +29,6 @@ void saveImage(const char *filename, int width, int height);
 
 void createDir(const std::string_view dir);
 void setupDirectories();
+
+bool isValidNumber(const std::string &str);
+int safeStringToInt(const std::string &str);

@@ -19,7 +19,13 @@ struct CurveId
 {
     int patchId;
     int curveId;
+    bool isNull() const { return patchId == -1 || curveId == -1; }
 };
+
+inline bool operator==(const CurveId &lhs, const CurveId &rhs)
+{
+    return lhs.patchId == rhs.patchId && lhs.curveId == rhs.curveId;
+}
 
 struct DoubleHalfEdge
 {
@@ -34,6 +40,10 @@ struct DoubleHalfEdge
     {
         return halfEdgeIdx1;
     }
+    bool matches(CurveId other)
+    {
+        return curveId1 == other || curveId2 == other;
+    }
 };
 
 struct AABB
@@ -43,14 +53,10 @@ struct AABB
 
     AABB()
     {
-        min = glm::vec2(0.0f);
-        max = glm::vec2(0.0f);
+        min = glm::vec2(std::numeric_limits<float>::max());
+        max = glm::vec2(std::numeric_limits<float>::lowest());
     }
-    AABB(glm::vec2 min, glm::vec2 max) : min{min}, max{max}
-    {
-        min = glm::vec2(0.0f);
-        max = glm::vec2(0.0f);
-    }
+    AABB(glm::vec2 min, glm::vec2 max) : min{min}, max{max} {}
 
     void expand(const AABB &other)
     {
@@ -61,6 +67,11 @@ struct AABB
     {
         min = glm::min(min, other);
         max = glm::max(max, other);
+    }
+    bool contains(const glm::vec2 &point) const
+    {
+        return (point.x >= min.x && point.x <= max.x &&
+                point.y >= min.y && point.y <= max.y);
     }
     void addPadding(float padding)
     {
@@ -301,10 +312,11 @@ inline constexpr float ERROR_THRESHOLD{0.001f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
 
 // pooling
-inline constexpr int POOLING_LENGTH{200};
+inline constexpr int POOLING_LENGTH{300};
 inline constexpr float AABB_PADDING{0.03f};
 inline constexpr glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
+inline constexpr glm::vec3 yellow{1.0f, 0.9f, 0.0f};
 inline constexpr glm::vec3 black{0.0f};
 inline constexpr glm::vec3 white{1.0f};

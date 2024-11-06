@@ -17,6 +17,7 @@
 #include "gradmesh.hpp"
 #include "types.hpp"
 
+// Facilitates the GradMeshMerger class in evaluating pixel-based metrics for a given merge
 class MergeMetrics
 {
 public:

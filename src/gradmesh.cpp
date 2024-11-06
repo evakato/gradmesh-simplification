@@ -238,8 +238,10 @@ AABB GradMesh::getAABB() const
     return aabb;
 }
 
-std::pair<int, int> GradMesh::findCornerFace() const
+std::vector<std::pair<int, int>> GradMesh::findCornerFace() const
 {
+    std::vector<std::pair<int, int>> cornerFaces;
+
     for (const auto &face : faces)
     {
         if (!face.isValid())
@@ -255,21 +257,81 @@ std::pair<int, int> GradMesh::findCornerFace() const
             {
                 if (edges[thirdIdx].twinIdx == -1)
                 {
-                    return {faceEdges[(i + 3) % faceEdges.size()], -1};
+                    cornerFaces.push_back({faceEdges[(i + 3) % faceEdges.size()], -1});
+                    std::cout << "een\n";
                 }
                 std::array<int, 2> nonConsecutiveEdges{};
                 int count = 0;
-                for (const auto &idx : faceEdges)
+                for (size_t loopIdx = 0; loopIdx < faceEdges.size(); ++loopIdx)
                 {
+                    int idx = faceEdges[loopIdx];
+
                     if (idx != currentIdx && idx != nextIdx && edges[idx].twinIdx != -1)
                     {
                         nonConsecutiveEdges[count++] = idx;
-                        if (count == 2)
-                            return {nonConsecutiveEdges[0], nonConsecutiveEdges[1]};
+                        if (count == 2 && loopIdx != 3)
+                            cornerFaces.push_back({nonConsecutiveEdges[0], nonConsecutiveEdges[1]});
+                        else if (count == 2)
+                            cornerFaces.push_back({nonConsecutiveEdges[1], nonConsecutiveEdges[0]});
                     }
                 }
             }
         }
     }
-    return {-1, -1};
+    return cornerFaces;
+}
+
+void GradMesh::findULPoints()
+{
+    std::map<int, std::pair<int, int>> pointMap;
+    for (size_t edgeIdx = 0; edgeIdx < edges.size(); edgeIdx++)
+    {
+        auto &edge = edges[edgeIdx];
+        if (!edge.isValid() || edge.isChild())
+            continue;
+
+        auto it = pointMap.find(edge.originIdx);
+        if (it != pointMap.end())
+        {
+            ++pointMap[edge.originIdx].first;
+        }
+        else
+            pointMap[edge.originIdx] = {1, 0};
+
+        if (!edge.hasTwin())
+            ++pointMap[edge.originIdx].second;
+    }
+    for (const auto &point : pointMap)
+    {
+        auto pair = point.second;
+        if (pair.first > 2 && pair.second > 0)
+            ulPointIdxs.push_back(point.first);
+    }
+}
+
+bool GradMesh::isULMergeEdge(const HalfEdge &edge) const
+{
+    if (std::ranges::find(ulPointIdxs, edge.originIdx) != ulPointIdxs.end())
+    {
+        return true;
+    }
+    if (edge.hasTwin())
+    {
+        const auto &twinEdge = edges[edge.twinIdx];
+        if (std::ranges::find(ulPointIdxs, twinEdge.originIdx) != ulPointIdxs.end())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+int GradMesh::findParentPointIdx(int halfEdgeIdx) const
+{
+    auto *currEdge = &edges[halfEdgeIdx];
+    while (currEdge->parentIdx != -1)
+    {
+        currEdge = &edges[currEdge->parentIdx];
+    }
+    return currEdge->originIdx;
 }

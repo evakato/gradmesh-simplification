@@ -10,6 +10,7 @@
 
 #include "types.hpp"
 #include "gms_math.hpp"
+#include "curve.hpp"
 
 // The Patch class describes a single bicubic patch as a 4x4 control matrix
 class Patch
@@ -31,9 +32,19 @@ public:
     {
         return controlMatrix;
     }
-    const std::vector<Vertex> &getCurveData() const
+    const std::vector<Curve> &getCurves() const
     {
-        return curveData;
+        return curves;
+    }
+    const std::vector<Vertex> getCurveData() const
+    {
+        std::vector<Vertex> allVertices;
+        for (const auto &curve : curves)
+        {
+            const auto &vertices = curve.getVertices();
+            allVertices.insert(allVertices.end(), vertices.begin(), vertices.end());
+        }
+        return allVertices;
     }
 
     void setControlMatrix(size_t index, Vertex v) { controlMatrix[index] = v; }
@@ -43,12 +54,27 @@ public:
     }
 
     void setCurveSelected(int curveIdx, glm::vec3 color);
+    bool contains(glm::vec2 pos) const
+    {
+        return aabb.contains(pos);
+    }
+    int getContainingCurve(glm::vec2 pos) const;
+    const std::vector<GLfloat> getGLAABBData() const
+    {
+        auto col = blue;
+        return {
+            aabb.min.x, aabb.min.y, col[0], col[1], col[2],
+            aabb.min.x, aabb.max.y, col[0], col[1], col[2],
+            aabb.max.x, aabb.max.y, col[0], col[1], col[2],
+            aabb.max.x, aabb.min.y, col[0], col[1], col[2]};
+    }
 
 private:
     void populateCurveData();
 
     std::vector<Vertex> controlMatrix = std::vector<Vertex>(16);
-    std::vector<Vertex> curveData = std::vector<Vertex>(16);
+    std::vector<Curve> curves;
+    AABB aabb;
 };
 
 void vertexToGlData(std::vector<GLfloat> &glData, Vertex v, std::optional<glm::vec3> color = std::nullopt);

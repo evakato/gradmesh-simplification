@@ -84,6 +84,7 @@ void GmsWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, 
         glfwGetCursorPos(window, &startX, &startY);
         mousePos = getNDCCoordinates(startX, startY);
         isDragging = false;
+        isClicked = true;
     }
 
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
@@ -93,14 +94,7 @@ void GmsWindow::mouseButtonCallback(GLFWwindow *window, int button, int action, 
         double deltaX = endX - startX;
         double deltaY = endY - startY;
         double distance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
-
-        if (distance < 2.0)
-            isClicked = true;
-        else
-            isClicked = false;
-
-        // selectedPoint.primitiveId = -1;
-        // selectedPoint.pointId = -1;
+        isClicked = false;
     }
     if (button == GLFW_MOUSE_BUTTON_MIDDLE)
     {
@@ -168,8 +162,8 @@ glm::vec2 GmsWindow::getNDCCoordinates(float screenX, float screenY)
 {
     GLint viewport[4];
     glGetIntegerv(GL_VIEWPORT, viewport);
-
+    int topBarHeight = (SCR_HEIGHT - GL_LENGTH);
     float convertedX = screenX / viewport[2] * 2 - 1;
-    float convertedY = -1 * (screenY / viewport[3] * 2 - 1);
+    float convertedY = -1 * ((screenY - topBarHeight) / viewport[3] * 2 - 1);
     return glm::vec2(convertedX, convertedY);
 }

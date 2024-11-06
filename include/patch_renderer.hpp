@@ -28,7 +28,8 @@ public:
 
 protected:
     void renderPatches(PatchRenderParams &params);
-    void updatePatchData(std::vector<Patch> &patches);
+    // modify patches vector based on user input
+    void updatePatches(std::vector<Patch> &patches);
 
     GLuint EBO;
 };

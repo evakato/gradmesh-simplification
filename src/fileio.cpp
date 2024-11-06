@@ -103,39 +103,42 @@ GradMesh readHemeshFile(const std::string &filename)
             halfEdge.interval.y = std::stof(tokens[1]);
             halfEdge.twist = {glm::vec2(std::stof(tokens[2]), std::stof(tokens[3])), glm::vec3(std::stof(tokens[4]), std::stof(tokens[5]), std::stof(tokens[6]))};
             halfEdge.color = glm::vec3(std::stof(tokens[7]), std::stof(tokens[8]), std::stof(tokens[9]));
-            if (std::stoi(tokens[10]) >= 0)
+            if (safeStringToInt(tokens[10]) >= 0)
             {
-                halfEdge.handleIdxs = {std::stoi(tokens[10]), std::stoi(tokens[11])};
+                halfEdge.handleIdxs = {safeStringToInt(tokens[10]), safeStringToInt(tokens[11])};
             }
             else
             {
                 halfEdge.handleIdxs = {-1, -1};
             }
 
-            if (std::stoi(tokens[12]) >= 0)
-                halfEdge.twinIdx = std::stoi(tokens[12]);
+            if (safeStringToInt(tokens[12]) >= 0)
+                halfEdge.twinIdx = safeStringToInt(tokens[12]);
             else
                 halfEdge.twinIdx = -1;
 
-            halfEdge.prevIdx = std::stoi(tokens[13]);
-            halfEdge.nextIdx = std::stoi(tokens[14]);
-            halfEdge.faceIdx = std::stoi(tokens[15]);
+            halfEdge.prevIdx = safeStringToInt(tokens[13]);
+            halfEdge.nextIdx = safeStringToInt(tokens[14]);
+            halfEdge.faceIdx = safeStringToInt(tokens[15]);
             // if (std::stoi(tokens[16]) >= 0)
             // std::cout << "left most child type shi\n";
-            if (std::stoi(tokens[17]))
+            if (safeStringToInt(tokens[17]))
             {
-                halfEdge.parentIdx = std::stoi(tokens[18]);
+                halfEdge.parentIdx = safeStringToInt(tokens[18]);
                 halfEdge.originIdx = -1;
             }
             else
             {
                 halfEdge.parentIdx = -1;
-                halfEdge.originIdx = std::stoi(tokens[20]);
+                halfEdge.originIdx = safeStringToInt(tokens[20]);
             }
 
-            for (size_t i = 24; i < tokens.size(); ++i)
+            if (tokens.size() > 23)
             {
-                halfEdge.childrenIdxs.push_back(std::stoi(tokens[i]));
+                for (size_t i = 24; i < tokens.size(); ++i)
+                {
+                    halfEdge.childrenIdxs.push_back(safeStringToInt(tokens[i]));
+                }
             }
             gradMesh.addEdge(halfEdge);
         }
@@ -273,4 +276,56 @@ void setupDirectories()
     createDir(LOGS_DIR);
     createDir(IMAGE_DIR);
     createDir(SAVES_DIR);
+}
+
+bool isValidNumber(const std::string &str)
+{
+    if (str.empty())
+    {
+        return false;
+    }
+
+    size_t start = (str[0] == '-') ? 1 : 0;
+    for (size_t i = start; i < str.size(); ++i)
+    {
+        if (!std::isdigit(str[i]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+int safeStringToInt(const std::string &str)
+{
+    if (!isValidNumber(str))
+    {
+        // std::cerr << "Invalid input, defaulting to 0." << std::endl;
+        return 0; // Default to 0 for invalid input
+    }
+
+    if (str.length() > std::to_string(std::numeric_limits<int>::max()).length())
+    {
+        // std::cerr << "Number too large, defaulting to 0." << std::endl;
+        return 0; // Default to 0 for too large numbers
+    }
+
+    long long number = 0;
+    size_t start = (str[0] == '-') ? 1 : 0; // Handle negative numbers
+
+    for (size_t i = start; i < str.length(); ++i)
+    {
+        number = number * 10 + (str[i] - '0');
+        if (number > std::numeric_limits<int>::max())
+        {
+            // std::cerr << "Number too large, defaulting to 0." << std::endl;
+            return 0; // Default to 0 for overflow
+        }
+    }
+
+    if (start == 1)
+    {
+        number = -number;
+    }
+    return static_cast<int>(number);
 }

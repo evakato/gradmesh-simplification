@@ -18,64 +18,99 @@ GmsGui::~GmsGui()
 void GmsGui::render()
 {
     prepareImguiFrame(gmsWindow.getGLFWwindow());
-
     showRightBar();
     showWindowMenuBar();
-
     processKeyInput(gmsWindow.getGLFWwindow(), appState, fileDialog);
-
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void showCurvesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState)
+{
+    if (ImGui::BeginTabItem(renderModeStrings[RENDER_CURVES], nullptr, firstRender && isRenderCurves ? ImGuiTabItemFlags_SetSelected : 0))
+    {
+        appState.currentMode = {RENDER_CURVES};
+
+        ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
+        ImGui::Checkbox("Show AABB", &appState.showCurveAABB);
+
+        if (ImGui::RadioButton("Bézier", appState.curveRenderParams.curveMode == CurveRenderer::Bezier))
+        {
+            appState.curveRenderParams.curveMode = CurveRenderer::Bezier;
+            appState.updateCurveRender();
+        }
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Hermite", appState.curveRenderParams.curveMode == CurveRenderer::Hermite))
+        {
+            appState.curveRenderParams.curveMode = CurveRenderer::Hermite;
+            appState.updateCurveRender();
+        }
+
+        if (GmsWindow::validSelectedPoint())
+        {
+            ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
+            ImGui::SameLine();
+            ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
+        }
+        else
+        {
+            ImGui::Text("Selected point: none");
+        }
+
+        auto curves = appState.curveRenderParams.curves;
+        ImGui::Text("Control Points for Curve 0:");
+
+        for (int i = 0; i < 4; ++i)
+        {
+            const auto &point = curves[0].getP(i);
+            std::string label = "P" + std::to_string(i) + ": ";
+            std::array<char, 64> textboxValue; // Adjust size as needed
+            snprintf(textboxValue.data(), textboxValue.size(), "(%.2f, %.2f)", point.coords.x, point.coords.y);
+            ImGui::PushID(i);
+            ImGui::Text(label.c_str());
+            ImGui::SameLine();
+            ImGui::InputText(("##Point" + std::to_string(i)).c_str(), textboxValue.data(), textboxValue.size());
+            ImGui::PopID();
+        }
+
+        ImGui::EndTabItem();
+    }
+}
+
+void showPatchesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState)
+{
+    if (ImGui::BeginTabItem(renderModeStrings[RENDER_PATCHES], nullptr, firstRender && !isRenderCurves ? ImGuiTabItemFlags_SetSelected : 0))
+    {
+        appState.currentMode = {RENDER_PATCHES};
+        showRenderSettings(appState);
+        showMergingMenu(appState);
+        showDebuggingMenu(appState);
+        showHermiteMatrixTable(appState);
+        showDCELInfo(appState);
+        ImGui::EndTabItem();
+    }
 }
 
 void GmsGui::showRightBar()
 {
     ImGui::SetNextWindowPos(ImVec2(GUI_POS, 0));
     ImGui::SetNextWindowSize(ImVec2(GUI_WIDTH, SCR_HEIGHT));
-
-    ImGui::Begin("Hello, world!", nullptr, ImGuiWindowFlags_NoTitleBar);
-
+    ImGui::Begin("gms", nullptr, ImGuiWindowFlags_NoTitleBar);
     ImGui::Spacing();
 
     static bool firstRender = true;
     if (ImGui::BeginTabBar("Rendering Mode"))
     {
-        if (ImGui::BeginTabItem(renderModeStrings[RENDER_CURVES]))
-        {
-            appState.currentMode = {RENDER_CURVES};
-            ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
-
-            if (GmsWindow::validSelectedPoint())
-            {
-                ImGui::Text("Selected point: (%i, %i)", GmsWindow::selectedPoint.primitiveId, GmsWindow::selectedPoint.pointId);
-                ImGui::SameLine();
-                ImGui::Text("at (%.3f, %.3f)", GmsWindow::mousePos.x, GmsWindow::mousePos.y);
-            }
-            else
-            {
-                ImGui::Text("Selected point: none");
-            }
-
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem(renderModeStrings[RENDER_PATCHES], nullptr, firstRender ? ImGuiTabItemFlags_SetSelected : 0))
-        {
-            appState.currentMode = {RENDER_PATCHES};
-
-            // showHermiteMatrixTable(appState.selectedPatchId);
-            showRenderSettings();
-            showMergingMenu(appState);
-            showDebuggingMenu(appState);
-            ImGui::EndTabItem();
-        }
+        bool isRenderCurves = appState.currentMode == RENDER_CURVES;
+        showCurvesTab(isRenderCurves, firstRender, appState);
+        showPatchesTab(isRenderCurves, firstRender, appState);
         firstRender = false;
         ImGui::EndTabBar();
     }
-
     ImGui::End();
 }
 
-void GmsGui::showRenderSettings()
+void showRenderSettings(GmsAppState &appState)
 {
     if (ImGui::CollapsingHeader("Render Settings"))
     {
@@ -101,60 +136,83 @@ void GmsGui::showRenderSettings()
     }
 }
 
-void GmsGui::showHermiteMatrixTable(int patchId)
+void showHermiteMatrixTable(GmsAppState &appState)
 {
-    if (patchId == -1)
+    if (ImGui::CollapsingHeader("Component Select", appState.componentSelectOptions.on ? ImGuiTreeNodeFlags_DefaultOpen : 0))
     {
-        ImGui::Text("No patch selected");
-        return;
-    }
-    static int selected_index = -1; // Stores the index of the currently selected item
-
-    ImGui::Spacing();
-    ImGui::Spacing();
-
-    ImGui::Text("Selected patch: %i", appState.selectedPatchId);
-    ImGui::Text("Hermite control matrix:");
-    if (ImGui::BeginTable("split1", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
-    {
-        for (int i = 0; i < 16; i++)
+        appState.componentSelectOptions.on = true;
+        ImGui::Spacing();
+        if (ImGui::RadioButton("Patch", appState.componentSelectOptions.type == ComponentSelectOptions::Type::Patch))
         {
-            char label[32];
-            sprintf(label, "%.2f,%.2f", appState.currentPatchData[i].coords.x, appState.currentPatchData[i].coords.y);
-            ImGui::TableNextColumn();
-
-            bool is_selected = (selected_index == i);
-            ImGui::PushID(i);
-            if (ImGui::Selectable(label, is_selected))
-            {
-                selected_index = i;
-            }
-            ImGui::PopID();
+            appState.componentSelectOptions.type = ComponentSelectOptions::Type::Patch;
         }
-        ImGui::EndTable();
-    }
-
-    if (selected_index != -1)
-    {
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Curve", appState.componentSelectOptions.type == ComponentSelectOptions::Type::Curve))
+        {
+            appState.componentSelectOptions.type = ComponentSelectOptions::Type::Curve;
+        }
         ImGui::Spacing();
 
-        glm::vec3 &patchColor = appState.currentPatchData[selected_index].color;
-        ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
-
-        ImGui::Text("Control point at");
-        ImGui::SameLine();
-        ImGui::Text(hermiteControlMatrixLabels[selected_index]);
-        ImGui::SetNextItemWidth(200.0f);
-        if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
+        if (appState.componentSelectOptions.type == 0)
         {
-            patchColor.x = patchPointColor.x;
-            patchColor.y = patchPointColor.y;
-            patchColor.z = patchPointColor.z;
-        }
-    }
+            ImGui::Checkbox("Show bounding box", &appState.componentSelectOptions.showPatchAABB);
+            int patchId = appState.userSelectedId.patchId;
+            if (patchId == -1)
+            {
+                ImGui::Text("No patch selected");
+                return;
+            }
+            static int selected_index = -1; // Stores the index of the currently selected item
 
-    ImGui::Spacing();
-    ImGui::Spacing();
+            ImGui::Text("Selected patch: %i", patchId);
+            ImGui::Text("Hermite control matrix:");
+            auto &selectedPatch = appState.patches[patchId].getControlMatrix();
+            if (ImGui::BeginTable("HermiteTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+            {
+                for (int i = 0; i < 16; i++)
+                {
+                    char label[32];
+                    sprintf(label, "%.2f,%.2f", selectedPatch[i].coords.x, selectedPatch[i].coords.y);
+                    ImGui::TableNextColumn();
+
+                    bool is_selected = (selected_index == i);
+                    ImGui::PushID(i);
+                    if (ImGui::Selectable(label, is_selected))
+                    {
+                        selected_index = i;
+                    }
+                    ImGui::PopID();
+                }
+                ImGui::EndTable();
+            }
+
+            if (selected_index != -1)
+            {
+                ImGui::Spacing();
+
+                glm::vec3 patchColor = selectedPatch[selected_index].color;
+                ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
+
+                ImGui::Text("Control point at");
+                ImGui::SameLine();
+                ImGui::Text(hermiteControlMatrixLabels[selected_index]);
+                ImGui::SetNextItemWidth(200.0f);
+                if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
+                {
+                    patchColor.x = patchPointColor.x;
+                    patchColor.y = patchPointColor.y;
+                    patchColor.z = patchPointColor.z;
+                }
+            }
+            ImGui::Spacing();
+        }
+
+        ImGui::Spacing();
+    }
+    else
+    {
+        appState.componentSelectOptions.on = false;
+    }
 }
 
 void GmsGui::showWindowMenuBar()
@@ -257,7 +315,7 @@ void showMergingMenu(GmsAppState &appState)
         {
         case MANUAL:
         {
-            if (appState.selectedEdgeId == -1 && appState.numOfCandidateMerges > 0)
+            if (appState.selectedEdgeId == -1 && appState.candidateMerges.size() > 0)
             {
                 appState.selectedEdgeId = 0;
             }
@@ -265,12 +323,13 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::InputInt(" ", &appState.selectedEdgeId))
             {
-                appState.selectedEdgeId = std::max(0, std::min(appState.selectedEdgeId, appState.numOfCandidateMerges - 1));
+                appState.selectedEdgeId = std::max(0, std::min<int>(appState.selectedEdgeId, static_cast<int>(appState.candidateMerges.size()) - 1));
             }
 
             ImGui::SameLine();
-            if (appState.numOfCandidateMerges > 0)
+            if (appState.candidateMerges.size() > 0)
             {
+                appState.manualEdgeSelect = true;
                 if (ImGui::Button("Merge edge"))
                 {
                     appState.mergeMode = MANUAL;
@@ -284,12 +343,12 @@ void showMergingMenu(GmsAppState &appState)
         break;
         case RANDOM:
         {
-            if (appState.mergeMode == RANDOM && appState.numOfCandidateMerges > 0)
+            if (appState.mergeMode == RANDOM && appState.candidateMerges.size() > 0)
             {
                 if (ImGui::Button("Stop random selection"))
                     appState.mergeMode = NONE;
             }
-            else if (appState.numOfCandidateMerges > 0)
+            else if (appState.candidateMerges.size() > 0)
             {
                 if (ImGui::Button("Start random selection"))
                 {
@@ -304,16 +363,34 @@ void showMergingMenu(GmsAppState &appState)
         }
         break;
         case GRID:
-            if (appState.mergeMode == GRID && appState.numOfCandidateMerges > 0)
+            if (appState.mergeMode == GRID && appState.candidateMerges.size() > 0)
             {
                 if (ImGui::Button("Stop grid selection"))
                     appState.mergeMode = NONE;
             }
-            else if (appState.numOfCandidateMerges > 0)
+            else if (appState.candidateMerges.size() > 0)
             {
                 if (ImGui::Button("Start grid selection"))
                 {
                     appState.mergeMode = GRID;
+                }
+            }
+            else
+            {
+                ImGui::Text("No merges possible");
+            }
+            break;
+        case DUAL_GRID:
+            if (appState.mergeMode == DUAL_GRID && appState.candidateMerges.size() > 0)
+            {
+                if (ImGui::Button("Stop dual grid selection"))
+                    appState.mergeMode = NONE;
+            }
+            else if (appState.candidateMerges.size() > 0)
+            {
+                if (ImGui::Button("Start dual grid selection"))
+                {
+                    appState.mergeMode = DUAL_GRID;
                 }
             }
             else
@@ -393,7 +470,7 @@ void showMergingMenu(GmsAppState &appState)
 
         ImGui::Text("Merge iteration: %d", appState.numOfMerges);
 
-        if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+        if (ImGui::BeginTable("MergeTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
             ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
             ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
@@ -417,7 +494,7 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
             ImGui::Text("Candidate edge merges");
             ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%d", appState.numOfCandidateMerges);
+            ImGui::Text("%d", appState.candidateMerges.size());
 
             ImGui::EndTable();
         }
@@ -449,6 +526,10 @@ void showDebuggingMenu(GmsAppState &appState)
         ImGui::Spacing();
         showPreviousMergeInfo(appState.mergeStats);
     }
+}
+
+void showDCELInfo(GmsAppState &appState)
+{
     if (ImGui::CollapsingHeader("Mesh Info", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Spacing();
@@ -458,7 +539,7 @@ void showDebuggingMenu(GmsAppState &appState)
 
 void showPreviousMergeInfo(GmsAppState::MergeStats &stats)
 {
-    if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+    if (ImGui::BeginTable("MergeStats", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
     {
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -689,7 +770,7 @@ void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto 
     }
     ImGui::Spacing();
 
-    if (ImGui::BeginTable("split1", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+    if (ImGui::BeginTable("HalfEdges", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
     {
         ImGui::TableSetupColumn("FirstColumn", ImGuiTableColumnFlags_WidthFixed, 65.0f);
 

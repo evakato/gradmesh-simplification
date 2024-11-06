@@ -15,12 +15,15 @@
 
 class GradMesh;
 
+// Primary merge class with functions to modify the mesh for a merge
 class GradMeshMerger
 {
 public:
     GradMeshMerger(GmsAppState &appState);
     void startupMesh()
     {
+        mesh.findULPoints();
+        select.reset();
         select.findCandidateMerges();
     }
     void merge();

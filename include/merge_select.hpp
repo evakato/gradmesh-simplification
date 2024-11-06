@@ -1,32 +1,45 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 
 #include "gms_appstate.hpp"
 
 class GmsAppState;
 
+// Facilitates the GradMeshMerger class in selecting a specific edge for a merge
 class MergeSelect
 {
 public:
     MergeSelect(GmsAppState &state);
-    void setDoubleHalfEdge() const;
     void findCandidateMerges();
-
     int selectEdge();
-    void selectRandomEdge();
-    int selectGridEdge();
 
-    std::vector<DoubleHalfEdge> &getCandidateMerges()
+    bool validEdgeType(const HalfEdge &edge) const;
+    void reset()
     {
-        return candidateMerges;
-    };
+        cornerEdges = {-1, -1};
+        currAdjPair = {-1, -1};
+        otherDirEdges.clear();
+        otherDirIdx = 0;
+        verticalDir = false;
+        firstRow = true;
+    }
+    bool checkCycle(int edgeIdx) const;
 
 private:
-    GmsAppState &state;
-    std::vector<int> selectedEdgePool;
-    int currEdgeIdx;
-    std::vector<DoubleHalfEdge> candidateMerges;
+    int selectRandomEdge();
+    int selectGridEdge();
+    int selectDualGridEdge();
 
-    std::vector<int> prevSeenEdges;
+    GmsAppState &state;
+    std::vector<int> selectedEdgePool; // for random selection
+
+    std::pair<int, int> cornerEdges = {-1, -1}; // for grid selection
+    std::pair<int, int> currAdjPair = {-1, -1};
+    std::vector<int> otherDirEdges;
+    bool verticalDir = false;
+    int otherDirIdx = 0;
+
+    bool firstRow = true;
 };

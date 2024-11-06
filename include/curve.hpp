@@ -1,33 +1,63 @@
 #pragma once
 
-#include "types.hpp"
+#include <vector>
 
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 
-#include <vector>
+#include "types.hpp"
 
-class Curve {
-    public:
-        Curve(Vertex v0, Vertex v1, Vertex v2, Vertex v3);
-        //Curve(glm::vec2 pt1, glm::vec2 pt2, glm::vec2 pt3, glm::vec2 pt4);
+class Curve
+{
+public:
+    enum CurveType
+    {
+        Bezier,
+        Hermite
+    };
 
-        const std::vector<Vertex>& getVertices() const { return vertices; }
-        const glm::vec3 getColorAtVertex(int i) const { return vertices[i].color; }
+    Curve(Vertex v0, Vertex v1, Vertex v2, Vertex v3, CurveType curveType);
 
-        void setVertex(int i, glm::vec2 coords) {
-            vertices[i].coords = coords;
-        }
+    const std::vector<Vertex> &getVertices() const { return vertices; }
+    const glm::vec3 getColorAtVertex(int i) const { return vertices[i].color; }
 
-        const std::vector<GLfloat> getGLVertexData() const;
-        const std::vector<GLfloat> getGLVertexDataCol() const;
+    void setVertex(int i, glm::vec2 coords)
+    {
+        vertices[i].coords = coords;
+    }
+    Vertex getP(int idx) const { return vertices[idx]; }
+    AABB getAABB() const { return aabb; }
+    bool contains(glm::vec2 pos) const { return aabb.contains(pos); }
 
-    private:
-        std::vector<Vertex> vertices;
+    void setColor(glm::vec3 col)
+    {
+        for (auto &vertex : vertices)
+            vertex.color = col;
+    }
+
+    const std::vector<GLfloat> getGLVertexDataCol() const;
+    const std::vector<GLfloat> getGLPointData() const;
+    const std::vector<GLfloat> getGLAABBData() const;
+
+private:
+    std::vector<Vertex> vertices;
+    CurveType curveType;
+    AABB aabb;
 };
 
-const std::vector<GLfloat> getAllGLVertexData(const std::vector<Curve>& curves);
-const std::vector<GLfloat> getAllGLVertexDataCol(const std::vector<Curve> &curves);
-const PointId getSelectedPointId(const std::vector<Curve>& curves, glm::vec2 pos);
-const void setCurveCoords(std::vector<Curve>& curves, PointId id, glm::vec2 newCoords);
-const glm::vec3 getColorAtPoint(const std::vector<Curve>& curves, PointId id);
+const PointId getSelectedPointId(const std::vector<Curve> &curves, glm::vec2 pos);
+void setCurveCoords(std::vector<Curve> &curves, PointId id, glm::vec2 newCoords);
+const glm::vec3 getColorAtPoint(const std::vector<Curve> &curves, PointId id);
+std::vector<Curve> getRandomCurves(Curve::CurveType curveType);
+
+template <typename DataFunc>
+std::vector<GLfloat> getAllCurveGLData(const std::vector<Curve> &curves, DataFunc dataFunc)
+{
+    std::vector<GLfloat> allData;
+    for (const auto &curve : curves)
+    {
+        std::vector<GLfloat> curveData = (curve.*dataFunc)();
+        allData.insert(allData.end(), curveData.begin(), curveData.end());
+    }
+    return allData;
+}

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "curve_renderer.hpp"
 #include "fileio.hpp"
 #include "gradmesh.hpp"
 #include "merge_metrics.hpp"
@@ -32,7 +33,8 @@ enum MergeSelectMode
     NONE = -1,
     MANUAL,
     RANDOM,
-    GRID
+    GRID,
+    DUAL_GRID
 };
 
 enum MergeStatus
@@ -41,6 +43,19 @@ enum MergeStatus
     SUCCESS,
     METRIC_ERROR,
     CYCLE
+};
+struct ComponentSelectOptions
+{
+    enum Type
+    {
+        Patch,
+        Curve
+    };
+    bool on = false;
+    Type type = Type::Patch;
+    bool showPatchAABB = true;
+
+    bool renderPatchAABB() const { return on && type == Type::Patch && showPatchAABB; }
 };
 class GradMesh;
 
@@ -63,6 +78,7 @@ public:
         // make sure to gen textures after intializing opengl
         glGenTextures(1, &patchRenderResources.unmergedTexture);
         glGenTextures(1, &patchRenderResources.mergedTexture);
+        updateCurveRender();
     }
 
     // User modes
@@ -71,7 +87,7 @@ public:
     MergeStatus mergeStatus = {NA};
 
     // Metadata
-    std::string filename = "../meshes/global-refinement.hemesh";
+    std::string filename = "../meshes/order1.hemesh";
     bool filenameChanged = false;
     bool loadSave = false;
 
@@ -79,6 +95,7 @@ public:
     GradMesh mesh;
     std::vector<Patch> patches;
     PatchRenderer::PatchRenderParams patchRenderParams;
+    CurveRenderer::CurveRenderParams curveRenderParams{CurveRenderer::Hermite, {}};
 
     // User rendering preferences
     int maxHWTessellation;
@@ -87,19 +104,18 @@ public:
     bool renderHandles = false;
     bool renderCurves = true;
     bool renderPatches = true;
+    bool showCurveAABB = false;
     float handleLineWidth = 2.0f;
     float curveLineWidth = 2.0f;
+    ComponentSelectOptions componentSelectOptions;
 
     // Patch selection data
-    int selectedPatchId = -1;
-    std::vector<Vertex> currentPatchData = std::vector<Vertex>(16);
+    bool manualEdgeSelect = false;
+    CurveId userSelectedId{-1, -1};
 
     // Merging edge selection
-    int numOfCandidateMerges = 0;
+    std::vector<DoubleHalfEdge> candidateMerges{};
     int selectedEdgeId = -1;
-    int prevSelectedEdgeId = -1;
-    DoubleHalfEdge selectedDhe;
-    DoubleHalfEdge prevSelectedDhe;
     int attemptedMergesIdx = 0;
 
     // Merging stats
@@ -112,6 +128,28 @@ public:
     MergeMetrics::MergeSettings mergeSettings;
     MergeMetrics::PatchRenderResources patchRenderResources;
 
+    void setSelectedDhe()
+    {
+        for (size_t i = 0; i < candidateMerges.size(); i++)
+        {
+            auto &dhe = candidateMerges[i];
+            if (dhe.matches(userSelectedId))
+            {
+                selectedEdgeId = i;
+                setPatchCurveColor(dhe.curveId1, blue);
+                setPatchCurveColor(dhe.curveId2, blue);
+                return;
+            }
+        }
+        selectedEdgeId = candidateMerges.size() > 0 ? 0 : -1;
+    }
+    void resetSelectedDhe()
+    {
+        auto &dhe = candidateMerges[selectedEdgeId];
+        selectedEdgeId = -1;
+        setPatchCurveColor(dhe.curveId1, black);
+        setPatchCurveColor(dhe.curveId2, black);
+    }
     void updateMeshRender(const std::vector<Patch> &patchData = {}, const std::vector<GLfloat> &glPatchData = {})
     {
         patches = patchData.empty() ? mesh.generatePatches().value() : patchData;
@@ -120,10 +158,20 @@ public:
         patchRenderParams.handles = mesh.getHandleBars();
         patchRenderParams.points = mesh.getControlPoints();
     }
+    void updateCurveRender()
+    {
+        if (curveRenderParams.curveMode == CurveRenderer::Bezier)
+        {
+            curveRenderParams.curves = getRandomCurves(Curve::CurveType::Bezier);
+        }
+        else
+        {
+            curveRenderParams.curves = getRandomCurves(Curve::CurveType::Hermite);
+        }
+    }
     void setSelectedAndPrev(int val)
     {
         selectedEdgeId = val;
-        prevSelectedEdgeId = val;
     }
     void resetMerges()
     {
@@ -132,22 +180,8 @@ public:
         mergeStatus = NA;
         setSelectedAndPrev(-1);
     }
-    void resetCurveColors()
+    void setPatchCurveColor(CurveId someCurve, glm::vec3 col)
     {
-        if (selectedEdgeId == prevSelectedEdgeId)
-            return;
-        if (prevSelectedEdgeId != -1)
-        {
-            patches[prevSelectedDhe.curveId1.patchId].setCurveSelected(prevSelectedDhe.curveId1.curveId, black);
-            patches[prevSelectedDhe.curveId2.patchId].setCurveSelected(prevSelectedDhe.curveId2.curveId, black);
-            patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
-        }
-        if (selectedEdgeId != -1)
-        {
-            patches[selectedDhe.curveId1.patchId].setCurveSelected(selectedDhe.curveId1.curveId, blue);
-            patches[selectedDhe.curveId2.patchId].setCurveSelected(selectedDhe.curveId2.curveId, blue);
-            patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
-        }
-        prevSelectedEdgeId = selectedEdgeId;
+        patches[someCurve.patchId].setCurveSelected(someCurve.curveId, col);
     }
 };
