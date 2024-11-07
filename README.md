@@ -1,6 +1,8 @@
 #### Gradient mesh simplification
 This is a tool to test gradient mesh simplification driven by pixel-based (image) metrics.
 
+![img](assets/output.gif)
+
 #### Building
 This application requires C++20 and OpenGL 4.3, as well as some external libraries. In the root directory, create a folder called `libs`. Within this folder, create separate folders for each library: 
 - `glad`: for [Glad](https://glad.dav1d.de/)

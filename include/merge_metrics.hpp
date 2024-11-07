@@ -17,6 +17,10 @@
 #include "gradmesh.hpp"
 #include "types.hpp"
 
+inline const int POOLING_LENGTH{500};
+inline const float AABB_PADDING{0.03f};
+inline const glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
+
 // Facilitates the GradMeshMerger class in evaluating pixel-based metrics for a given merge
 class MergeMetrics
 {

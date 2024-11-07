@@ -32,7 +32,8 @@ inline Vertex interpolateCubic(CurveVector curve, float t)
     return curve[0] * tVec[0] + curve[1] * tVec[1] + curve[2] * tVec[2] + curve[3] * tVec[3];
 }
 
-inline glm::vec2 interpolateCubic(glm::vec2 p0, glm::vec2 p1, glm::vec2 p2, glm::vec2 p3, float t, const glm::mat4 basisMat)
+template <typename VecType>
+inline VecType interpolateCubic(VecType p0, VecType p1, VecType p2, VecType p3, float t, const glm::mat4 &basisMat)
 {
     glm::vec4 tVec = glm::vec4(1.0f, t, t * t, t * t * t) * basisMat;
     return p0 * tVec[0] + p1 * tVec[1] + p2 * tVec[2] + p3 * tVec[3];

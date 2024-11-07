@@ -311,11 +311,6 @@ inline const char *ORIG_METRIC_IMG{"img/origMesh.png"};
 inline constexpr float ERROR_THRESHOLD{0.001f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
 
-// pooling
-inline constexpr int POOLING_LENGTH{300};
-inline constexpr float AABB_PADDING{0.03f};
-inline constexpr glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
-
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 yellow{1.0f, 0.9f, 0.0f};
 inline constexpr glm::vec3 black{0.0f};

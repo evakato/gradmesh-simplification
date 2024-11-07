@@ -113,7 +113,7 @@ int MergeSelect::selectGridEdge()
     {
         auto cornerFaces = state.mesh.findCornerFace();
         std::cout << cornerFaces.size() << std::endl;
-        cornerEdges = cornerFaces[3];
+        cornerEdges = cornerFaces[7];
         auto [adj1, adj2] = cornerEdges;
         int adj2Twin = adj2 == -1 ? -1 : state.mesh.getTwinIdx(adj2);
         int nextEdgeIdx = adj2Twin == -1 ? -1 : state.mesh.edges[adj2Twin].nextIdx;

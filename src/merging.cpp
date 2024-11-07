@@ -12,7 +12,6 @@ void GradMeshMerger::merge()
     }
 
     int selectedHalfEdgeIdx = select.selectEdge();
-    std::cout << "selected edge: " << selectedHalfEdgeIdx << std::endl;
     if (selectedHalfEdgeIdx == -1)
     {
         appState.mergeStatus = NA;

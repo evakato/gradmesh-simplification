@@ -85,7 +85,7 @@ void showPatchesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState
         showRenderSettings(appState);
         showMergingMenu(appState);
         showDebuggingMenu(appState);
-        showHermiteMatrixTable(appState);
+        showComponentSelect(appState);
         showDCELInfo(appState);
         ImGui::EndTabItem();
     }
@@ -135,15 +135,68 @@ void showRenderSettings(GmsAppState &appState)
         ImGui::Spacing();
     }
 }
-
 void showHermiteMatrixTable(GmsAppState &appState)
 {
+    int patchId = appState.userSelectedId.patchId;
+    if (patchId == -1)
+    {
+        ImGui::Text("No patch selected");
+        return;
+    }
+    static int selected_index = -1; // Stores the index of the currently selected item
+
+    ImGui::Text("Hermite control matrix:");
+    auto &selectedPatch = appState.patches[patchId].getControlMatrix();
+    if (ImGui::BeginTable("HermiteTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+    {
+        for (int i = 0; i < 16; i++)
+        {
+            char label[32];
+            sprintf(label, "%.2f,%.2f", selectedPatch[i].coords.x, selectedPatch[i].coords.y);
+            ImGui::TableNextColumn();
+
+            bool is_selected = (selected_index == i);
+            ImGui::PushID(i);
+            if (ImGui::Selectable(label, is_selected))
+            {
+                selected_index = i;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+
+    if (selected_index != -1)
+    {
+        ImGui::Spacing();
+
+        glm::vec3 patchColor = selectedPatch[selected_index].color;
+        ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
+
+        ImGui::Text("Control point at");
+        ImGui::SameLine();
+        ImGui::Text(hermiteControlMatrixLabels[selected_index]);
+        ImGui::SetNextItemWidth(200.0f);
+        if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
+        {
+            patchColor.x = patchPointColor.x;
+            patchColor.y = patchPointColor.y;
+            patchColor.z = patchPointColor.z;
+        }
+    }
+    ImGui::Spacing();
+}
+
+void showComponentSelect(GmsAppState &appState)
+{
+    ImGui::BeginDisabled(appState.manualEdgeSelect);
     if (ImGui::CollapsingHeader("Component Select", appState.componentSelectOptions.on ? ImGuiTreeNodeFlags_DefaultOpen : 0))
     {
         appState.componentSelectOptions.on = true;
         ImGui::Spacing();
         if (ImGui::RadioButton("Patch", appState.componentSelectOptions.type == ComponentSelectOptions::Type::Patch))
         {
+            appState.resetUserSelectedCurve();
             appState.componentSelectOptions.type = ComponentSelectOptions::Type::Patch;
         }
         ImGui::SameLine();
@@ -153,66 +206,20 @@ void showHermiteMatrixTable(GmsAppState &appState)
         }
         ImGui::Spacing();
 
-        if (appState.componentSelectOptions.type == 0)
+        if (appState.isCompSelect(ComponentSelectOptions::Type::Patch))
         {
             ImGui::Checkbox("Show bounding box", &appState.componentSelectOptions.showPatchAABB);
-            int patchId = appState.userSelectedId.patchId;
-            if (patchId == -1)
-            {
-                ImGui::Text("No patch selected");
-                return;
-            }
-            static int selected_index = -1; // Stores the index of the currently selected item
-
-            ImGui::Text("Selected patch: %i", patchId);
-            ImGui::Text("Hermite control matrix:");
-            auto &selectedPatch = appState.patches[patchId].getControlMatrix();
-            if (ImGui::BeginTable("HermiteTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
-            {
-                for (int i = 0; i < 16; i++)
-                {
-                    char label[32];
-                    sprintf(label, "%.2f,%.2f", selectedPatch[i].coords.x, selectedPatch[i].coords.y);
-                    ImGui::TableNextColumn();
-
-                    bool is_selected = (selected_index == i);
-                    ImGui::PushID(i);
-                    if (ImGui::Selectable(label, is_selected))
-                    {
-                        selected_index = i;
-                    }
-                    ImGui::PopID();
-                }
-                ImGui::EndTable();
-            }
-
-            if (selected_index != -1)
-            {
-                ImGui::Spacing();
-
-                glm::vec3 patchColor = selectedPatch[selected_index].color;
-                ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
-
-                ImGui::Text("Control point at");
-                ImGui::SameLine();
-                ImGui::Text(hermiteControlMatrixLabels[selected_index]);
-                ImGui::SetNextItemWidth(200.0f);
-                if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
-                {
-                    patchColor.x = patchPointColor.x;
-                    patchColor.y = patchPointColor.y;
-                    patchColor.z = patchPointColor.z;
-                }
-            }
-            ImGui::Spacing();
+            showHermiteMatrixTable(appState);
         }
 
         ImGui::Spacing();
     }
-    else
+    else if (appState.componentSelectOptions.on)
     {
+        appState.resetUserSelectedCurve();
         appState.componentSelectOptions.on = false;
     }
+    ImGui::EndDisabled();
 }
 
 void GmsGui::showWindowMenuBar()
@@ -293,12 +300,27 @@ void prepareImguiFrame(GLFWwindow *window)
     ImGui::StyleColorsLight();
 }
 
-void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::FileBrowser &fileDialog)
+void processKeyInput(GLFWwindow *window, GmsAppState &appState, ImGui::FileBrowser &fileDialog)
 {
     if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
         fileDialog.Open();
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
+
+    static bool mKeyWasPressed = false;
+    int mKeyState = glfwGetKey(window, GLFW_KEY_M);
+    if (mKeyState == GLFW_PRESS && !mKeyWasPressed)
+    {
+        if (appState.manualEdgeSelect && !appState.candidateMerges.empty())
+        {
+            appState.mergeMode = MANUAL;
+        }
+        mKeyWasPressed = true; // Update the flag to indicate the key is held down
+    }
+    else if (mKeyState == GLFW_RELEASE && mKeyWasPressed)
+    {
+        mKeyWasPressed = false; // Reset the flag to indicate the key is no longer pressed
+    }
 }
 
 void showMergingMenu(GmsAppState &appState)
@@ -311,16 +333,22 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::SetNextItemWidth(100.0f);
         ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items));
         ImGui::SameLine();
+        appState.manualEdgeSelect = edge_select_current == MANUAL;
+        if (appState.manualEdgeSelect)
+        {
+            appState.componentSelectOptions.on = false;
+        }
         switch (edge_select_current)
         {
         case MANUAL:
         {
+
             if (appState.selectedEdgeId == -1 && appState.candidateMerges.size() > 0)
             {
                 appState.selectedEdgeId = 0;
             }
 
-            ImGui::SetNextItemWidth(100.0f);
+            ImGui::SetNextItemWidth(80.0f);
             if (ImGui::InputInt(" ", &appState.selectedEdgeId))
             {
                 appState.selectedEdgeId = std::max(0, std::min<int>(appState.selectedEdgeId, static_cast<int>(appState.candidateMerges.size()) - 1));
@@ -329,7 +357,6 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::SameLine();
             if (appState.candidateMerges.size() > 0)
             {
-                appState.manualEdgeSelect = true;
                 if (ImGui::Button("Merge edge"))
                 {
                     appState.mergeMode = MANUAL;
@@ -338,6 +365,14 @@ void showMergingMenu(GmsAppState &appState)
             else
             {
                 ImGui::Text("No merges possible");
+            }
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                ImGui::Text("Click on an edge to select it. Press M to perform merge with selected edge.");
+                ImGui::EndTooltip();
             }
         }
         break;
@@ -533,7 +568,7 @@ void showDCELInfo(GmsAppState &appState)
     if (ImGui::CollapsingHeader("Mesh Info", ImGuiTreeNodeFlags_DefaultOpen))
     {
         ImGui::Spacing();
-        showGradMeshInfo(appState.mesh);
+        showGradMeshInfo(appState);
     }
 }
 
@@ -616,8 +651,9 @@ void showPreviousMergeInfo(GmsAppState::MergeStats &stats)
     ImGui::Spacing();
 }
 
-void showGradMeshInfo(const GradMesh &mesh)
+void showGradMeshInfo(GmsAppState &appState)
 {
+    const GradMesh &mesh = appState.mesh;
     if (ImGui::BeginTabBar("DCEL Components"))
     {
         static bool setDefaultTab = true;
@@ -664,12 +700,21 @@ void showGradMeshInfo(const GradMesh &mesh)
             std::vector<const char *> items;
             createListItems(faceIdxs, dynamicItems, items, "f");
 
-            static int item_selected_idx = 0; // Here we store our selected data as an index.
-            int item_highlighted_idx = -1;    // Here we store our highlighted data as an index.
+            int item_highlighted_idx = -1; // Here we store our highlighted data as an index.
+            int selectedFaceIdx = -1;
+            if (appState.userSelectedId.patchId != -1)
+            {
+                selectedFaceIdx = appState.patches[appState.userSelectedId.patchId].getFaceIdx();
+            }
             ImGui::Spacing();
-            createListBox(items, item_selected_idx, item_highlighted_idx);
+            bool selectedFaceChanged = createListBox(items, selectedFaceIdx, item_highlighted_idx);
+            if (selectedFaceChanged && selectedFaceIdx != appState.patches[appState.userSelectedId.patchId].getFaceIdx())
+            {
+                appState.userSelectedId.patchId = getPatchFromFaceIdx(appState.patches, selectedFaceIdx);
+            }
             ImGui::SameLine();
-            setComponentText(mesh.getFaces(), item_selected_idx, faceIdxs);
+            if (selectedFaceIdx != -1)
+                setComponentText(mesh.getFaces(), selectedFaceIdx, faceIdxs);
 
             ImGui::Spacing();
             ImGui::Text("%d faces", faceIdxs.size());
@@ -683,16 +728,41 @@ void showGradMeshInfo(const GradMesh &mesh)
             std::vector<const char *> items;
             createListItems(edgeIdxs, dynamicItems, items, "e");
 
-            static int item_selected_idx = 0; // Here we store our selected data as an index.
-            int item_highlighted_idx = -1;    // Here we store our highlighted data as an index.
+            int item_highlighted_idx = -1; // Here we store our highlighted data as an index.
+            int selectedHalfEdgeIdx = -1;
+            auto userId = appState.userSelectedId;
+            if (!userId.isNull())
+            {
+                auto &selectedPatch = appState.patches[userId.patchId];
+                for (int i = 0; i < edgeIdxs.size(); i++)
+                {
+                    if (edgeIdxs[i] == selectedPatch.getCurve(userId.curveId).getHalfEdgeIdx())
+                    {
+                        selectedHalfEdgeIdx = i;
+                    }
+                }
+            }
             ImGui::Spacing();
             ImGui::Columns(2, nullptr, true);
             ImGui::SetColumnWidth(0, 100);
-            createListBox(items, item_selected_idx, item_highlighted_idx);
+            bool selectedEdgeChanged = createListBox(items, selectedHalfEdgeIdx, item_highlighted_idx);
+            if (selectedEdgeChanged && appState.isCompSelect(ComponentSelectOptions::Type::Curve))
+            {
+                appState.setUserCurveColor(black);
+                int prevPatch = userId.patchId;
+                appState.userSelectedId = getCurveIdFromEdgeIdx(appState.patches, edgeIdxs[selectedHalfEdgeIdx]);
+                appState.setUserCurveColor(yellow);
+                appState.updateCurves({prevPatch, appState.userSelectedId.patchId});
+            }
+            else if (selectedEdgeChanged)
+            {
+                appState.userSelectedId = getCurveIdFromEdgeIdx(appState.patches, edgeIdxs[selectedHalfEdgeIdx]);
+            }
             ImGui::Spacing();
             ImGui::Text("%d edges", edgeIdxs.size());
             ImGui::NextColumn();
-            setHalfEdgeInfo(halfedges, item_selected_idx, edgeIdxs);
+            if (selectedHalfEdgeIdx != -1)
+                setHalfEdgeInfo(halfedges, selectedHalfEdgeIdx, edgeIdxs);
             ImGui::Columns(1);
 
             ImGui::EndTabItem();
@@ -910,15 +980,19 @@ void createListItems(std::vector<int> &idxs, std::vector<std::string> &dynamicIt
     }
 }
 
-void createListBox(std::vector<const char *> &items, int &item_selected_idx, int &item_highlighted_idx)
+bool createListBox(std::vector<const char *> &items, int &item_selected_idx, int &item_highlighted_idx)
 {
+    bool selectionChanged = false;
     if (ImGui::BeginListBox("##listbox 2", ImVec2(80.0f, 12 * ImGui::GetTextLineHeightWithSpacing())))
     {
         for (int n = 0; n < items.size(); n++)
         {
             const bool is_selected = (item_selected_idx == n);
             if (ImGui::Selectable(items[n], is_selected))
+            {
                 item_selected_idx = n;
+                selectionChanged = true;
+            }
 
             if (ImGui::IsItemHovered())
                 item_highlighted_idx = n;
@@ -928,6 +1002,7 @@ void createListBox(std::vector<const char *> &items, int &item_selected_idx, int
         }
         ImGui::EndListBox();
     }
+    return selectionChanged;
 }
 
 void setComponentText(const auto &components, int &item_selected_idx, const auto &idxs)

@@ -2,7 +2,7 @@
 #include "gms_math.hpp"
 #include "ostream_ops.hpp"
 
-Curve::Curve(Vertex v0, Vertex v1, Vertex v2, Vertex v3, CurveType curveType) : curveType{curveType}
+Curve::Curve(Vertex v0, Vertex v1, Vertex v2, Vertex v3, CurveType curveType, int halfEdgeIdx) : curveType{curveType}, halfEdgeIdx{halfEdgeIdx}
 {
     vertices.assign({v0, v1, v2, v3});
     if (curveType == CurveType::Bezier)
@@ -63,6 +63,25 @@ const std::vector<GLfloat> Curve::getGLAABBData() const
         aabb.min.x, aabb.max.y, col[0], col[1], col[2],
         aabb.max.x, aabb.max.y, col[0], col[1], col[2],
         aabb.max.x, aabb.min.y, col[0], col[1], col[2]};
+}
+
+float Curve::distanceToCurve(const glm::vec2 &point) const
+{
+    int numSamples = 100;
+    float minDistance = std::numeric_limits<float>::max();
+    for (int i = 0; i <= numSamples; ++i)
+    {
+        float t = static_cast<float>(i) / numSamples;
+        auto curvePoint = interpolateCubic(vertices[0], vertices[1], vertices[2], vertices[3], t, bezierBasisMat);
+        float distance = glm::distance(point, curvePoint.coords);
+
+        if (distance < minDistance)
+        {
+            minDistance = distance;
+        }
+    }
+
+    return minDistance;
 }
 
 const PointId getSelectedPointId(const std::vector<Curve> &curves, glm::vec2 pos)

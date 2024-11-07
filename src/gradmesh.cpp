@@ -4,20 +4,17 @@ std::optional<std::vector<Patch>> GradMesh::generatePatches() const
 {
     std::vector<Patch> patches{};
 
-    for (const auto &face : faces)
+    for (int faceIdx = 0; faceIdx < faces.size(); faceIdx++)
     {
+        const auto &face = faces[faceIdx];
         if (!face.isValid())
             continue;
 
-        const auto &topEdge = edges[face.halfEdgeIdx];
-        const auto &rightEdge = edges[topEdge.nextIdx];
-        const auto &bottomEdge = edges[rightEdge.nextIdx];
-        const auto &leftEdge = edges[bottomEdge.nextIdx];
-
-        auto topEdgeDerivatives = computeEdgeDerivatives(topEdge);
-        auto rightEdgeDerivatives = computeEdgeDerivatives(rightEdge);
-        auto bottomEdgeDerivatives = computeEdgeDerivatives(bottomEdge);
-        auto leftEdgeDerivatives = computeEdgeDerivatives(leftEdge);
+        auto [e0, e1, e2, e3] = getFaceEdgeIdxs(face.halfEdgeIdx);
+        auto topEdgeDerivatives = computeEdgeDerivatives(edges[e0]);
+        auto rightEdgeDerivatives = computeEdgeDerivatives(edges[e1]);
+        auto bottomEdgeDerivatives = computeEdgeDerivatives(edges[e2]);
+        auto leftEdgeDerivatives = computeEdgeDerivatives(edges[e3]);
 
         if (!topEdgeDerivatives || !rightEdgeDerivatives || !bottomEdgeDerivatives || !leftEdgeDerivatives)
             return std::nullopt;
@@ -32,7 +29,7 @@ std::optional<std::vector<Patch>> GradMesh::generatePatches() const
                                              -m2u, -m2uv, m3uv, m3u, //
                                              m2, -m2v, -m3v, m3};
 
-        patches.push_back(Patch{controlMatrix});
+        patches.push_back(Patch{controlMatrix, faceIdx, {e0, e1, e2, e3}});
     }
 
     return patches;
@@ -202,8 +199,9 @@ AABB GradMesh::getFaceBoundingBox(int halfEdgeIdx) const
         {
             auto curveVector = getCurve(edgeIdx);
             assert(curveVector != std::nullopt);
-            aabb.expand(curveVector->at(0).coords);
-            aabb.expand(curveVector->at(3).coords);
+            auto curve = curveVector.value();
+            Curve newCurve = Curve{curve[0], curve[1], curve[2], curve[3], Curve::CurveType::Bezier};
+            aabb.expand(newCurve.getAABB());
 
             if (!edges[edgeIdx].isChild())
                 break;

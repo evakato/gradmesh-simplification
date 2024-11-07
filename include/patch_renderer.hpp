@@ -31,5 +31,8 @@ protected:
     // modify patches vector based on user input
     void updatePatches(std::vector<Patch> &patches);
 
+private:
+    void resetPreviousSelection();
+
     GLuint EBO;
 };

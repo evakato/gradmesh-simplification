@@ -80,6 +80,17 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
     }
 }
 
+void PatchRenderer::resetPreviousSelection()
+{
+    if (!appState.userSelectedId.isNull())
+    {
+        if (appState.manualEdgeSelect)
+            appState.resetSelectedDhe();
+        else if (appState.isCompSelect(ComponentSelectOptions::Type::Curve))
+            appState.setUserCurveColor(black);
+    }
+}
+
 void PatchRenderer::updatePatches(std::vector<Patch> &patches)
 {
     if (!GmsWindow::isClicked)
@@ -89,31 +100,32 @@ void PatchRenderer::updatePatches(std::vector<Patch> &patches)
     if (!appState.componentSelectOptions.on && !appState.manualEdgeSelect)
         return;
 
-    if (!appState.userSelectedId.isNull())
-    {
-        appState.setPatchCurveColor(appState.userSelectedId, black);
-        appState.resetSelectedDhe();
-    }
+    resetPreviousSelection();
+
     glm::mat4 inverseProjectionMatrix = glm::inverse(projectionMatrix);
     glm::vec4 transformedPoint = inverseProjectionMatrix * glm::vec4{GmsWindow::mousePos, 0.0f, 1.0f};
-
-    appState.userSelectedId.patchId = getSelectedPatch(patches, transformedPoint);
+    int prevPatchId = appState.userSelectedId.patchId;
+    int newPatchId = getSelectedPatch(patches, transformedPoint);
+    appState.userSelectedId.patchId = newPatchId;
     if (appState.userSelectedId.patchId == -1 || (appState.componentSelectOptions.type == ComponentSelectOptions::Type::Patch && !appState.manualEdgeSelect))
-        return;
+        return; // only selected patch was modified (not curve)
 
-    auto &selectedPatch = patches[appState.userSelectedId.patchId];
-    int curveIdx = selectedPatch.getContainingCurve(transformedPoint);
-    CurveId newSelectedCurve = CurveId{appState.userSelectedId.patchId, curveIdx};
+    auto &selectedPatch = patches[newPatchId];
+    int newCurveId = selectedPatch.getContainingCurve(transformedPoint);
+    CurveId newUserCurve = CurveId{newPatchId, newCurveId};
 
-    appState.userSelectedId = newSelectedCurve;
-    if (curveIdx != -1 && appState.manualEdgeSelect)
+    if (appState.manualEdgeSelect && newCurveId != -1)
     {
-        appState.setSelectedDhe();
+        appState.setSelectedDhe(newUserCurve);
+        appState.updateCurves({});
     }
-    else if (curveIdx != -1)
-        appState.setPatchCurveColor(appState.userSelectedId, yellow);
+    else if (newCurveId != -1)
+    {
+        appState.setPatchCurveColor(newUserCurve, yellow);
+        appState.updateCurves({prevPatchId, newPatchId});
+    }
 
-    appState.patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
+    appState.userSelectedId = newUserCurve;
 }
 
 void PatchRenderer::render(PatchRenderParams &params)

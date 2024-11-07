@@ -57,19 +57,20 @@ void showPatchesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState
 
 void createImguiContext(GLFWwindow *window);
 void prepareImguiFrame(GLFWwindow *window);
-void processKeyInput(GLFWwindow *window, const GmsAppState &appState, ImGui::FileBrowser &fileDialog);
+void processKeyInput(GLFWwindow *window, GmsAppState &appState, ImGui::FileBrowser &fileDialog);
 void showMergingMenu(GmsAppState &appState);
 void showDebuggingMenu(GmsAppState &appState);
 void showDCELInfo(GmsAppState &appState);
 
+void showComponentSelect(GmsAppState &appState);
 void showHermiteMatrixTable(GmsAppState &appState);
 void showPreviousMergeInfo(GmsAppState::MergeStats &stats);
-void showGradMeshInfo(const GradMesh &mesh);
+void showGradMeshInfo(GmsAppState &appState);
 void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs);
 void pushColor(ButtonColor color);
 
 void createListItems(std::vector<int> &idxs, std::vector<std::string> &dynamicItems, std::vector<const char *> &items, std::string ctype);
-void createListBox(std::vector<const char *> &items, int &item_selected_idx, int &item_highlighted_idx);
+bool createListBox(std::vector<const char *> &items, int &item_selected_idx, int &item_highlighted_idx);
 void setComponentText(const auto &components, int &item_selected_idx, const auto &idxs);
 void compButton(int &item_selected_idx, const auto &idxs, const int findIdx, std::string text);
 

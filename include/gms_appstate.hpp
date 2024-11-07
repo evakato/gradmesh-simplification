@@ -48,10 +48,11 @@ struct ComponentSelectOptions
 {
     enum Type
     {
+        None,
         Patch,
         Curve
     };
-    bool on = false;
+    bool on = true;
     Type type = Type::Patch;
     bool showPatchAABB = true;
 
@@ -128,12 +129,12 @@ public:
     MergeMetrics::MergeSettings mergeSettings;
     MergeMetrics::PatchRenderResources patchRenderResources;
 
-    void setSelectedDhe()
+    void setSelectedDhe(CurveId selectedCurve)
     {
         for (size_t i = 0; i < candidateMerges.size(); i++)
         {
             auto &dhe = candidateMerges[i];
-            if (dhe.matches(userSelectedId))
+            if (dhe.matches(selectedCurve))
             {
                 selectedEdgeId = i;
                 setPatchCurveColor(dhe.curveId1, blue);
@@ -183,5 +184,26 @@ public:
     void setPatchCurveColor(CurveId someCurve, glm::vec3 col)
     {
         patches[someCurve.patchId].setCurveSelected(someCurve.curveId, col);
+    }
+    void setUserCurveColor(glm::vec3 col)
+    {
+        if (!userSelectedId.isNull())
+            patches[userSelectedId.patchId].setCurveSelected(userSelectedId.curveId, col);
+    }
+    void updateCurves(std::vector<int> drawLastIdxs)
+    {
+        std::vector<Patch> newPatches = patches;
+        std::partition(newPatches.begin(), newPatches.end(), [&](const Patch &patch)
+                       { return std::find(drawLastIdxs.begin(), drawLastIdxs.end(), patch.getFaceIdx()) == drawLastIdxs.end(); });
+        patchRenderParams.glCurves = getAllPatchGLData(newPatches, &Patch::getCurveData);
+    }
+    bool isCompSelect(ComponentSelectOptions::Type type) const
+    {
+        return componentSelectOptions.type == type;
+    }
+    void resetUserSelectedCurve()
+    {
+        setUserCurveColor(black);
+        patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
     }
 };
