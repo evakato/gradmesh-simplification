@@ -33,6 +33,7 @@ struct DoubleHalfEdge
     int halfEdgeIdx2;
     CurveId curveId1;
     CurveId curveId2;
+    float error;
     DoubleHalfEdge() : halfEdgeIdx1(-1), halfEdgeIdx2(-1), curveId1(CurveId()) {}
     DoubleHalfEdge(int heIdx1, int heIdx2, CurveId curveId1) : halfEdgeIdx1(heIdx1), halfEdgeIdx2(heIdx2), curveId1(curveId1) {};
 
@@ -305,9 +306,13 @@ inline constexpr int GUI_POS{SCR_WIDTH - GUI_WIDTH};
 inline constexpr std::string_view IMAGE_DIR{"img"};
 inline constexpr std::string_view LOGS_DIR{"logs"};
 inline constexpr std::string_view SAVES_DIR{"mesh_saves"};
+inline constexpr std::string_view PREPROCESSING_DIR{"preprocessing"};
 inline const std::string DEFAULT_FIRST_SAVE_DIR{"mesh_saves/save_0.hemesh"};
 inline const char *MERGE_METRIC_IMG{"img/mergedMesh.png"};
-inline const char *ORIG_METRIC_IMG{"img/origMesh.png"};
+inline const char *PREV_METRIC_IMG{"img/prevMesh.png"};
+inline const char *ORIG_IMG{"img/origImage.png"};
+inline const char *CURR_IMG{"img/currImage.png"};
+inline const char *EDGE_MAP_IMG{"img/errorEdgeMap.png"};
 inline constexpr float ERROR_THRESHOLD{0.001f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
 

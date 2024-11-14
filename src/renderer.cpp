@@ -18,6 +18,7 @@ void GmsRenderer::bindBuffers()
 
     // link shaders
     curveShaderId = linkShaders(curveShaders);
+    appState.patchRenderResources.curveShaderId = curveShaderId;
     pointShaderId = linkShaders(pointShaders);
     lineShaderId = linkShaders(lineShaders);
 

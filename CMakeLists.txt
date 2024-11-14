@@ -34,8 +34,10 @@ add_executable(
 
 target_link_libraries(gms glfw OpenGL::GL)
 
-find_package(OpenMP)
+# Enable OpenMP support
+find_package(OpenMP REQUIRED)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(gms OpenMP::OpenMP_CXX)
     target_compile_definitions(gms PRIVATE RMGR_SSIM_USE_OPENMP)  # Define macro for OpenMP usage
+    target_compile_options(gms PRIVATE ${OpenMP_CXX_FLAGS})  # Add OpenMP compile flags
 endif()

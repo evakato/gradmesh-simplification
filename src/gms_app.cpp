@@ -11,7 +11,9 @@ void GmsApp::loadMesh()
     appState.resetMerges();
     appState.mesh = readHemeshFile(appState.filename);
     appState.updateMeshRender();
+    appState.originalGlPatches = appState.patchRenderParams.glPatches;
     merger.startupMesh();
+    appState.preprocessingProgress = -1;
 }
 
 void GmsApp::setupNewMesh()
@@ -33,7 +35,7 @@ void GmsApp::run()
         if (appState.filenameChanged)
             setupNewMesh();
 
-        merger.merge();
+        merger.run();
 
         switch (appState.currentMode)
         {

@@ -74,6 +74,9 @@ bool createListBox(std::vector<const char *> &items, int &item_selected_idx, int
 void setComponentText(const auto &components, int &item_selected_idx, const auto &idxs);
 void compButton(int &item_selected_idx, const auto &idxs, const int findIdx, std::string text);
 
+void renderComparisonWindow(const GmsAppState &appState);
+void showEdgeErrorMap(GmsAppState &appState);
+
 constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S(0,0)",
     "S_v(0,0)",
@@ -138,4 +141,5 @@ constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual G
 static int edge_select_current = DUAL_GRID;
 
 inline constexpr int GUI_IMAGE_SIZE{150};
+inline constexpr int GUI_FINAL_IMAGE_SIZE{600};
 inline constexpr float INPUT_WIDTH{170.0f};

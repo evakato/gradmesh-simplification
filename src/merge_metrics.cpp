@@ -11,7 +11,129 @@ MergeMetrics::MergeMetrics(Params params)
     glGenFramebuffers(1, &mergedFbo);
 }
 
-void MergeMetrics::captureBeforeMerge(int halfEdgeIdx, std::vector<GLfloat> &glPatches)
+void MergeMetrics::setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes)
+{
+    edgeErrorPatches = mesh.generatePatches().value();
+    edgeErrors = dhes;
+    minMaxError.x = std::numeric_limits<float>::max();
+    minMaxError.y = std::numeric_limits<float>::min();
+
+    std::vector<float> halfEdgeErrors(mesh.edges.size(), -1.0f);
+    for (const auto &dhe : dhes)
+    {
+        minMaxError.x = std::min(minMaxError.x, dhe.error);
+        minMaxError.y = std::max(minMaxError.y, dhe.error);
+        halfEdgeErrors[dhe.halfEdgeIdx1] = dhe.error;
+        halfEdgeErrors[dhe.halfEdgeIdx2] = dhe.error;
+    }
+    findMaximumRectangle(halfEdgeErrors);
+}
+
+void MergeMetrics::findMaximumRectangle(std::vector<float> &halfEdgeErrors)
+{
+    auto cornerFaces = mesh.findCornerFace();
+    int currEdgeIdx = cornerFaces[0].first;
+    std::vector<int> hist;
+
+    while (true)
+    {
+        auto currEdge = mesh.edges[currEdgeIdx];
+        if (currEdge.twinIdx == -1)
+            break;
+
+        if (halfEdgeErrors[currEdgeIdx] < mergeSettings.errorThreshold)
+            hist.push_back(1);
+        else
+            hist.push_back(0);
+        currEdgeIdx = mesh.edges[mesh.edges[currEdge.twinIdx].nextIdx].nextIdx;
+    }
+
+    hist.push_back(0);
+    currEdgeIdx = cornerFaces[0].second;
+    bool cols = true;
+    int startGridEdgeIdx = cornerFaces[0].second;
+    while (true)
+    {
+        currEdgeIdx = startGridEdgeIdx;
+        if (mesh.edges[currEdgeIdx].twinIdx == -1)
+            break;
+
+        int end = cols ? hist.size() : hist.size() - 1;
+        for (int i = 0; i < end; i++)
+        {
+            auto currEdge = mesh.edges[currEdgeIdx];
+
+            if (halfEdgeErrors[currEdgeIdx] < mergeSettings.errorThreshold)
+                hist[i] += 1;
+            else
+                hist[i] = 0;
+
+            if (cols)
+                currEdgeIdx = mesh.edges[mesh.edges[currEdge.prevIdx].twinIdx].prevIdx;
+            else
+                currEdgeIdx = mesh.edges[mesh.edges[currEdge.twinIdx].nextIdx].nextIdx;
+        }
+
+        if (cols)
+        {
+            startGridEdgeIdx = mesh.edges[mesh.edges[startGridEdgeIdx].twinIdx].nextIdx;
+        }
+        else
+        {
+            startGridEdgeIdx = mesh.edges[startGridEdgeIdx].nextIdx;
+        }
+        cols = !cols;
+
+        for (int hi : hist)
+            std::cout << hi << ", ";
+        std::cout << "\n";
+    }
+}
+
+void MergeMetrics::generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay)
+{
+    // auto patches = mesh.generatePatches().value();
+    for (const auto &dhe : edgeErrors)
+    {
+        glm::vec3 col;
+        switch (edgeErrorDisplay)
+        {
+        case EdgeErrorDisplay::Binary:
+            col = dhe.error >= mergeSettings.errorThreshold ? glm::vec3{1.0f, 0.0f, 0.0f} : black;
+            break;
+        case EdgeErrorDisplay::Normalized:
+            col = glm::vec3{dhe.error / (minMaxError.y - minMaxError.x), 0.0f, 0.0f};
+            break;
+        case EdgeErrorDisplay::Scaled:
+            col = glm::vec3{dhe.error * 100.0f, 0.0f, 0.0f};
+            break;
+        }
+        edgeErrorPatches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, col);
+        edgeErrorPatches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, col);
+    }
+    for (const auto &be : boundaryEdges)
+    {
+        edgeErrorPatches[be.patchId].setCurveSelected(be.curveId, blue);
+    }
+    auto glCurveData = getAllPatchGLData(edgeErrorPatches, &Patch::getCurveData);
+    int poolRes = 1000;
+    SetupFBOParams params{patchRenderResources.unmergedTexture, unmergedFbo, poolRes};
+    setupFBO(params);
+    drawCurves(glCurveData, patchRenderResources.curveShaderId, globalAABB);
+    // writeToImage(poolRes, EDGE_MAP_IMG);
+    closeFBO();
+}
+
+void MergeMetrics::captureGlobalImage(std::vector<GLfloat> &glPatches, const char *imgPath)
+{
+    SetupFBOParams params{patchRenderResources.unmergedTexture, unmergedFbo, mergeSettings.poolRes};
+    setupFBO(params);
+    drawPatches(glPatches, patchRenderResources.patchShaderId, globalAABB);
+    writeToImage(mergeSettings.poolRes, imgPath);
+    closeFBO();
+}
+
+void MergeMetrics::captureBeforeMerge(std::vector<GLfloat> &glPatches, int halfEdgeIdx)
 {
     AABB aabb;
     switch (mergeSettings.pixelRegion)
@@ -25,44 +147,54 @@ void MergeMetrics::captureBeforeMerge(int halfEdgeIdx, std::vector<GLfloat> &glP
         int twin3 = mesh.getTwinIdx(face2BIdx);
         int twin4 = mesh.getTwinIdx(face2TIdx);
         aabb = mesh.getBoundingBoxOverFaces({halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4});
+        aabb.addPadding(mergeSettings.aabbPadding);
+        aabb.ensureSize(MIN_AABB_SIZE);
+        aabb.resizeToSquare();
         break;
     }
     case PixelRegion::Global:
     {
-        aabb = mesh.getAABB();
+        aabb = globalAABB;
         break;
     }
     }
-    aabb.addPadding(mergeSettings.aabbPadding);
-    aabb.ensureSize(MIN_AABB_SIZE);
-    aabb.resizeToSquare();
 
-    FBOParams params{ORIG_METRIC_IMG, patchRenderResources.unmergedTexture, unmergedFbo, glPatches, patchRenderResources.patchShaderId, aabb, mergeSettings.poolRes};
-    renderFBO(params);
+    SetupFBOParams params{patchRenderResources.unmergedTexture, unmergedFbo, mergeSettings.poolRes};
+    setupFBO(params);
+    drawPatches(glPatches, patchRenderResources.patchShaderId, aabb);
+    writeToImage(mergeSettings.poolRes, PREV_METRIC_IMG);
+    closeFBO();
+
     mergeSettings.aabb = aabb;
 }
 
-bool MergeMetrics::doMerge(const std::vector<GLfloat> &glPatches)
+void MergeMetrics::captureAfterMerge(const std::vector<GLfloat> &glPatches, const char *imgPath)
 {
-    FBOParams params{MERGE_METRIC_IMG, patchRenderResources.mergedTexture, mergedFbo, glPatches, patchRenderResources.patchShaderId, mergeSettings.aabb, mergeSettings.poolRes};
-    // renderFBO(MERGE_METRIC_IMG, patchRenderResources.mergedTexture, mergedFbo, glPatches, patchRenderResources.patchShaderId, mergeSettings.aabb);
-    renderFBO(params);
+    SetupFBOParams params{patchRenderResources.mergedTexture, mergedFbo, mergeSettings.poolRes};
+    setupFBO(params);
+    drawPatches(glPatches, patchRenderResources.patchShaderId, mergeSettings.aabb);
+    writeToImage(mergeSettings.poolRes, imgPath);
+    closeFBO();
+}
+
+float MergeMetrics::getMergeError(const char *compImgPath)
+{
     float error;
     switch (mergeSettings.metricMode)
     {
     case SSIM:
     {
-        error = 1.0f - evaluateSSIM(ORIG_METRIC_IMG, MERGE_METRIC_IMG);
+        error = 1.0f - evaluateSSIM(PREV_METRIC_IMG, compImgPath);
         break;
     }
     case FLIP:
     {
-        error = evaluateFLIP(ORIG_METRIC_IMG, MERGE_METRIC_IMG);
+        error = evaluateFLIP(PREV_METRIC_IMG, compImgPath);
         break;
     }
     }
 
-    return error < mergeSettings.errorThreshold;
+    return error;
 }
 
 float evaluateFLIP(const char *img1Path, const char *img2Path)
@@ -160,40 +292,93 @@ void setAABBProjMat(int shaderId, AABB aabb)
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, &projMat[0][0]);
 }
 
-void renderFBO(const FBOParams &params)
+void closeFBO()
+{
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void setupFBO(const SetupFBOParams &params)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, params.fbo);
-
     glBindTexture(GL_TEXTURE_2D, params.texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, params.resolution, params.resolution, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, params.texture, 0);
 
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cerr << "Framebuffer is not complete!" << std::endl;
 
     glViewport(0, 0, params.resolution, params.resolution);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
 
-    glBufferData(GL_ARRAY_BUFFER, params.glPatches.size() * sizeof(GLfloat), params.glPatches.data(), GL_DYNAMIC_DRAW);
+void writeToImage(int resolution, const char *imgPath)
+{
+    std::vector<uint8_t> pixelsA(resolution * resolution * 3); // 3 channels for RGB
+    glReadPixels(0, 0, resolution, resolution, GL_RGB, GL_UNSIGNED_BYTE, pixelsA.data());
+    int stride_bytes = resolution * 3;
+    stbi_write_png(imgPath, resolution, resolution, 3, pixelsA.data(), stride_bytes);
+}
+
+void drawCurves(const std::vector<GLfloat> &glCurves, int curveShaderId, const AABB &aabb)
+{
+
+    glBufferData(GL_ARRAY_BUFFER, glCurves.size() * sizeof(GLfloat), glCurves.data(), GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, coords));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glUseProgram(curveShaderId);
+    glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
+    setAABBProjMat(curveShaderId, aabb);
+    glDrawArrays(GL_PATCHES, 0, glCurves.size() / 5);
+}
+
+void drawPatches(const std::vector<GLfloat> &glPatches, int patchShaderId, const AABB &aabb)
+{
+    glBufferData(GL_ARRAY_BUFFER, glPatches.size() * sizeof(GLfloat), glPatches.data(), GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, coords));
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
     glEnableVertexAttribArray(1);
 
-    glUseProgram(params.patchShaderId);
-    setAABBProjMat(params.patchShaderId, params.aabb);
-    glLineWidth(1.0f);
+    glUseProgram(patchShaderId);
+    setAABBProjMat(patchShaderId, aabb);
     glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_PATCH);
-    for (int i = 0; i < params.glPatches.size(); i++)
+    for (int i = 0; i < glPatches.size(); i++)
         glDrawArrays(GL_PATCHES, i * VERTS_PER_PATCH, VERTS_PER_PATCH);
+}
 
-    std::vector<uint8_t> pixelsA(params.resolution * params.resolution * 3); // 3 channels for RGB
-    glReadPixels(0, 0, params.resolution, params.resolution, GL_RGB, GL_UNSIGNED_BYTE, pixelsA.data());
-    int stride_bytes = params.resolution * 3;
-    stbi_write_png(params.imgPath, params.resolution, params.resolution, 3, pixelsA.data(), stride_bytes);
+GLuint LoadTextureFromFile(const char *filename)
+{
+    // Load the image using stb_image with RGB format (without alpha channel)
+    int width, height, channels;
+    unsigned char *image_data = stbi_load(filename, &width, &height, &channels, STBI_rgb); // Load as RGB
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    if (!image_data)
+    {
+        std::cerr << "Failed to load image: " << filename << std::endl;
+        return 0;
+    }
+
+    // Generate OpenGL texture
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    // Upload the image data to OpenGL (as RGB)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image_data);
+
+    // Set texture parameters (optional, but recommended)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Free the image data as we no longer need it
+    stbi_image_free(image_data);
+
+    return texture;
 }

@@ -54,10 +54,17 @@ struct ComponentSelectOptions
     };
     bool on = true;
     Type type = Type::Patch;
-    bool showPatchAABB = true;
+    bool showPatchAABB = false;
 
     bool renderPatchAABB() const { return on && type == Type::Patch && showPatchAABB; }
 };
+enum class MergeProcess
+{
+    Preprocessing,
+    ViewEdgeMap,
+    Merging
+};
+
 class GradMesh;
 
 class GmsAppState
@@ -86,6 +93,11 @@ public:
     RenderMode currentMode = {RENDER_PATCHES};
     MergeSelectMode mergeMode = {NONE};
     MergeStatus mergeStatus = {NA};
+    MergeProcess mergeProcess = MergeProcess::Merging;
+    EdgeErrorDisplay edgeErrorDisplay = EdgeErrorDisplay::Binary;
+    float mergeError;
+    int preprocessingProgress{-1};
+    bool usePreprocessing = false;
 
     // Metadata
     std::string filename = "../meshes/order1.hemesh";
@@ -94,6 +106,7 @@ public:
 
     // Mesh and mesh rendering data
     GradMesh mesh;
+    std::vector<GLfloat> originalGlPatches;
     std::vector<Patch> patches;
     PatchRenderer::PatchRenderParams patchRenderParams;
     CurveRenderer::CurveRenderParams curveRenderParams{CurveRenderer::Hermite, {}};
@@ -170,16 +183,12 @@ public:
             curveRenderParams.curves = getRandomCurves(Curve::CurveType::Hermite);
         }
     }
-    void setSelectedAndPrev(int val)
-    {
-        selectedEdgeId = val;
-    }
     void resetMerges()
     {
         numOfMerges = 0;
         loadSave = filenameChanged = false;
         mergeStatus = NA;
-        setSelectedAndPrev(-1);
+        selectedEdgeId = -1;
     }
     void setPatchCurveColor(CurveId someCurve, glm::vec3 col)
     {

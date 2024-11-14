@@ -276,6 +276,7 @@ void setupDirectories()
     createDir(LOGS_DIR);
     createDir(IMAGE_DIR);
     createDir(SAVES_DIR);
+    createDir(PREPROCESSING_DIR);
 }
 
 bool isValidNumber(const std::string &str)

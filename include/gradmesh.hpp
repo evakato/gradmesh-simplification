@@ -80,6 +80,7 @@ public:
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
+    friend class MergeMetrics;
     friend class MergeSelect;
 
 private:

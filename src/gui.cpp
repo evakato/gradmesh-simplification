@@ -2,6 +2,7 @@
 
 ImFont *iconFont;
 ImFont *mainFont;
+static bool showNewWindow = false;
 
 GmsGui::GmsGui(GmsWindow &window, GmsAppState &appState) : gmsWindow(window), appState(appState)
 {
@@ -20,9 +21,82 @@ void GmsGui::render()
     prepareImguiFrame(gmsWindow.getGLFWwindow());
     showRightBar();
     showWindowMenuBar();
+    renderComparisonWindow(appState);
+    showEdgeErrorMap(appState);
+
     processKeyInput(gmsWindow.getGLFWwindow(), appState, fileDialog);
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+void renderComparisonWindow(const GmsAppState &appState)
+{
+    if (showNewWindow && appState.numOfMerges > 0)
+    {
+        // Set position and size for the new window
+        ImGui::SetNextWindowPos(ImVec2(10, 30), ImGuiCond_Once);     // Position of the new window
+        ImGui::SetNextWindowSize(ImVec2(1220, 700), ImGuiCond_Once); // Size of the new window
+
+        if (ImGui::Begin("Image comparison", &showNewWindow))
+        {
+            if (ImGui::BeginTable("ImageTable2", 2, ImGuiTableFlags_SizingFixedFit))
+            {
+                ImGui::TableSetupColumn("Original Image", ImGuiTableColumnFlags_WidthFixed, GUI_FINAL_IMAGE_SIZE);
+                ImGui::TableSetupColumn("Merged Image", ImGuiTableColumnFlags_WidthFixed, GUI_FINAL_IMAGE_SIZE);
+                ImGui::TableHeadersRow();
+                ImGui::TableNextRow(ImGuiTableRowFlags_None, GUI_FINAL_IMAGE_SIZE + 10);
+                ImGui::TableSetColumnIndex(0);
+                GLuint texture = LoadTextureFromFile(ORIG_IMG);
+                ImGui::Image((void *)(intptr_t)texture, ImVec2(GUI_FINAL_IMAGE_SIZE, GUI_FINAL_IMAGE_SIZE)); // Fixed size
+                ImGui::TableSetColumnIndex(1);
+                GLuint texture2 = LoadTextureFromFile(CURR_IMG);
+                ImGui::Image((void *)(intptr_t)texture2, ImVec2(GUI_FINAL_IMAGE_SIZE, GUI_FINAL_IMAGE_SIZE)); // Fixed size
+                ImGui::EndTable();
+            }
+        }
+        ImGui::End(); // End the new window
+    }
+}
+
+void showEdgeErrorMap(GmsAppState &appState)
+{
+    if (appState.mergeProcess == MergeProcess::ViewEdgeMap)
+    {
+        ImGui::SetNextWindowPos(ImVec2(150, 145), ImGuiCond_Once);  // Position of the new window
+        ImGui::SetNextWindowSize(ImVec2(750, 650), ImGuiCond_Once); // Size of the new window
+
+        bool showErrorMap = true;
+        if (ImGui::Begin("Merge edge error map", &showErrorMap))
+        {
+            ImGui::Image((void *)(intptr_t)appState.patchRenderResources.unmergedTexture, ImVec2(GUI_FINAL_IMAGE_SIZE, GUI_FINAL_IMAGE_SIZE));
+            ImGui::SameLine();
+
+            ImGui::BeginGroup();
+            {
+                EdgeErrorDisplay &displayMode = appState.edgeErrorDisplay;
+
+                // Display radio buttons by casting the enum to an integer
+                if (ImGui::RadioButton("Binary", (int *)&displayMode, (int)EdgeErrorDisplay::Binary))
+                {
+                    displayMode = EdgeErrorDisplay::Binary;
+                }
+                if (ImGui::RadioButton("Normalized", (int *)&displayMode, (int)EdgeErrorDisplay::Normalized))
+                {
+                    displayMode = EdgeErrorDisplay::Normalized;
+                }
+                if (ImGui::RadioButton("Scaled", (int *)&displayMode, (int)EdgeErrorDisplay::Scaled))
+                {
+                    displayMode = EdgeErrorDisplay::Scaled;
+                }
+            }
+            ImGui::EndGroup();
+            if (!showErrorMap)
+            {
+                appState.mergeProcess = MergeProcess::Merging;
+            }
+        }
+        ImGui::End();
+    }
 }
 
 void showCurvesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState)
@@ -246,6 +320,23 @@ void GmsGui::showWindowMenuBar()
             }
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu("Edit"))
+        {
+            if (ImGui::MenuItem("Preprocess edges", "", false, appState.preprocessingProgress == -1))
+            {
+                appState.preprocessingProgress = 0;
+                appState.mergeProcess = MergeProcess::Preprocessing;
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("View"))
+        {
+            if (ImGui::MenuItem("View merge error map", "", false, appState.preprocessingProgress == -2))
+            {
+                appState.mergeProcess = MergeProcess::ViewEdgeMap;
+            }
+            ImGui::EndMenu();
+        }
 
         ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize(("test" + appState.filename).c_str()).x);
         ImGui::Text("%s", appState.filename.c_str());
@@ -327,6 +418,14 @@ void showMergingMenu(GmsAppState &appState)
 {
     if (ImGui::CollapsingHeader("Merging", ImGuiTreeNodeFlags_DefaultOpen))
     {
+        if (appState.preprocessingProgress > -1)
+        {
+            ImGui::Spacing();
+            ImGui::Text("Preprocessing edges...");
+            ImGui::ProgressBar(static_cast<float>(appState.preprocessingProgress) / appState.candidateMerges.size(), ImVec2(-1.0f, 0.0f));
+            ImGui::Spacing();
+            return;
+        }
         ImGui::Spacing();
 
         ImGui::Text("Edge select mode");
@@ -436,6 +535,10 @@ void showMergingMenu(GmsAppState &appState)
         }
 
         ImGui::Spacing();
+        ImGui::BeginDisabled(appState.preprocessingProgress == -1);
+        ImGui::Checkbox("Use preprocessing", &appState.usePreprocessing);
+        ImGui::EndDisabled();
+        ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
 
@@ -470,7 +573,7 @@ void showMergingMenu(GmsAppState &appState)
             {
                 ImGui::Spacing();
                 ImGui::Text("AABB: [(%.3f, %.3f), (%.3f, %.3f)]", aabb.min.x, aabb.min.y, aabb.max.x, aabb.max.y);
-                if (ImGui::BeginTable("ImageTable", 2, ImGuiTableFlags_SizingFixedFit))
+                if (ImGui::BeginTable("mergedImageTable", 2, ImGuiTableFlags_SizingFixedFit))
                 {
                     ImGui::TableSetupColumn("Unmerged Image", ImGuiTableColumnFlags_WidthFixed, GUI_IMAGE_SIZE);
                     ImGui::TableSetupColumn("Merged Image", ImGuiTableColumnFlags_WidthFixed, GUI_IMAGE_SIZE);
@@ -503,38 +606,51 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Separator();
         ImGui::Spacing();
 
-        ImGui::Text("Merge iteration: %d", appState.numOfMerges);
-
-        if (ImGui::BeginTable("MergeTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+        if (appState.numOfMerges > 0)
         {
-            ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
-            ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
+            ImGui::Text("Merge iteration: %d", appState.numOfMerges);
 
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-            ImGui::Text("Merge status");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text(toString(appState.mergeStatus));
+            if (ImGui::BeginTable("MergeTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+            {
+                ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+                ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
 
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-            ImGui::Text("Attempted merges");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%d", appState.attemptedMergesIdx);
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Merge status");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text(toString(appState.mergeStatus));
 
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
-            ImGui::Text("Candidate edge merges");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::Text("%d", appState.candidateMerges.size());
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Attempted merges");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%d", appState.attemptedMergesIdx);
 
-            ImGui::EndTable();
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Candidate edge merges");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%d", appState.candidateMerges.size());
+
+                ImGui::EndTable();
+            }
+            ImGui::Spacing();
+            if (ImGui::Button("Compare images"))
+            {
+                showNewWindow = true; // Set the flag to open the new window
+            }
+            ImGui::Spacing();
+            ImGui::Separator();
+        }
+        else
+        {
+            ImGui::Text("Candidate edge merges: %d", appState.candidateMerges.size());
         }
 
-        ImGui::Spacing();
         ImGui::Spacing();
         if (ImGui::Button("Reset mesh"))
         {
@@ -548,6 +664,7 @@ void showMergingMenu(GmsAppState &appState)
         }
         ImGui::SameLine();
         ImGui::Button(ICON_FA_ARROW_ROTATE_RIGHT);
+
         ImGui::Spacing();
     }
 }

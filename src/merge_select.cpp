@@ -2,7 +2,7 @@
 
 MergeSelect::MergeSelect(GmsAppState &state) : state(state) {}
 
-void MergeSelect::findCandidateMerges()
+void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
 {
     auto &candidateMerges = state.candidateMerges;
     candidateMerges.clear();
@@ -33,15 +33,14 @@ void MergeSelect::findCandidateMerges()
                             .curveId2 = CurveId{faceIdx, i};
                     }
                 }
+                else if (boundaryEdges)
+                {
+                    boundaryEdges->push_back(CurveId{faceIdx, i});
+                }
                 currIdx = currEdge.nextIdx;
             }
             faceIdx++;
         }
-    }
-
-    for (auto &doublehe : candidateMerges)
-    {
-        // std::cout << doublehe.halfEdgeIdx1 << ", " << doublehe.halfEdgeIdx2 << "\n";
     }
 }
 
@@ -113,7 +112,7 @@ int MergeSelect::selectGridEdge()
     {
         auto cornerFaces = state.mesh.findCornerFace();
         std::cout << cornerFaces.size() << std::endl;
-        cornerEdges = cornerFaces[7];
+        cornerEdges = cornerFaces[0];
         auto [adj1, adj2] = cornerEdges;
         int adj2Twin = adj2 == -1 ? -1 : state.mesh.getTwinIdx(adj2);
         int nextEdgeIdx = adj2Twin == -1 ? -1 : state.mesh.edges[adj2Twin].nextIdx;

@@ -12,7 +12,7 @@ class MergeSelect
 {
 public:
     MergeSelect(GmsAppState &state);
-    void findCandidateMerges();
+    void findCandidateMerges(std::vector<CurveId> *boundaryEdges = nullptr);
     int selectEdge();
 
     bool validEdgeType(const HalfEdge &edge) const;

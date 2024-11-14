@@ -1,7 +1,24 @@
 #include "merging.hpp"
 #include "gradmesh.hpp"
+#include <omp.h>
 
 GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{appState.mesh, appState.mergeSettings, appState.patchRenderResources}}, select{appState} {}
+
+void GradMeshMerger::run()
+{
+    switch (appState.mergeProcess)
+    {
+    case MergeProcess::Preprocessing:
+        preprocessEdges();
+        break;
+    case MergeProcess::ViewEdgeMap:
+        metrics.generateEdgeErrorMap(appState.edgeErrorDisplay);
+        break;
+    case MergeProcess::Merging:
+        merge();
+        break;
+    }
+}
 
 void GradMeshMerger::merge()
 {
@@ -36,13 +53,63 @@ void GradMeshMerger::merge()
     }
 }
 
+void GradMeshMerger::preprocessEdges()
+{
+    if (appState.preprocessingProgress % 100 == 0 && appState.preprocessingProgress != 0)
+    {
+        int start = appState.preprocessingProgress - 100;
+#pragma omp parallel for
+        for (int i = start; i < appState.preprocessingProgress; ++i)
+        {
+            auto &dhe = appState.candidateMerges[i];
+            std::string imgPath = "preprocessing/e" + std::to_string(i) + ".png";
+            dhe.error = metrics.getMergeError(imgPath.c_str());
+        }
+        createDir(PREPROCESSING_DIR);
+    }
+
+    if (appState.preprocessingProgress >= appState.candidateMerges.size())
+    {
+        int start = appState.preprocessingProgress / 100 * 100;
+#pragma omp parallel for
+        for (int i = start; i < appState.candidateMerges.size(); ++i)
+        {
+            auto &dhe = appState.candidateMerges[i];
+            std::string imgPath = "preprocessing/e" + std::to_string(i) + ".png";
+            dhe.error = metrics.getMergeError(imgPath.c_str());
+        }
+        appState.mergeProcess = MergeProcess::Merging;
+        appState.preprocessingProgress = -2;
+        metrics.setEdgeErrorMap(appState.candidateMerges);
+        return;
+    }
+
+    if (appState.preprocessingProgress == 0)
+    {
+        std::vector<CurveId> boundaryEdges;
+        select.findCandidateMerges(&boundaryEdges);
+        metrics.setBoundaryEdges(boundaryEdges);
+        metrics.captureBeforeMerge(appState.originalGlPatches);
+    }
+
+    auto &dhe = appState.candidateMerges[appState.preprocessingProgress];
+    int selectedHalfEdgeIdx = dhe.halfEdgeIdx1;
+
+    mergePatches(selectedHalfEdgeIdx);
+    auto glPatches = getAllPatchGLData(mesh.generatePatches().value(), &Patch::getControlMatrix);
+    std::string imgPath = "preprocessing/e" + std::to_string(appState.preprocessingProgress) + ".png";
+    metrics.captureAfterMerge(glPatches, imgPath.c_str());
+    appState.mesh = readHemeshFile("mesh_saves/save_0.hemesh");
+    appState.preprocessingProgress++;
+}
+
 MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
 {
     assert(!appState.candidateMerges.empty());
 
     writeLogFile(mesh, "debug1.txt");
 
-    metrics.captureBeforeMerge(halfEdgeIdx, appState.patchRenderParams.glPatches);
+    metrics.captureBeforeMerge(appState.originalGlPatches, halfEdgeIdx);
     GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
 
     auto mergedPatches = mesh.generatePatches();
@@ -55,12 +122,18 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
     }
 
     auto glPatches = getAllPatchGLData(mergedPatches.value(), &Patch::getControlMatrix);
-    if (!appState.useError || metrics.doMerge(glPatches))
+    if (appState.useError)
+    {
+        metrics.captureAfterMerge(glPatches, MERGE_METRIC_IMG);
+        appState.mergeError = metrics.getMergeError();
+    }
+    if (!appState.useError || appState.mergeError < appState.mergeSettings.errorThreshold)
     {
         appState.updateMeshRender(mergedPatches.value(), glPatches);
         appState.mergeStats = stats;
         appState.currentSave = ++appState.numOfMerges;
         writeHemeshFile("mesh_saves/save_" + std::to_string(appState.currentSave) + ".hemesh", mesh);
+        metrics.captureGlobalImage(glPatches, CURR_IMG);
         select.findCandidateMerges();
         return SUCCESS;
     }

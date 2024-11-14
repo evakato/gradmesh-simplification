@@ -182,16 +182,14 @@ CurveId getCurveIdFromEdgeIdx(const std::vector<Patch> &patches, int targetEdgeI
 {
     for (size_t i = 0; i < patches.size(); ++i)
     {
-        std::vector<int> indices;
-        for (int idx : patches[i].getCurves() | std::views::transform([](const Curve &curve)
-                                                                      { return curve.getHalfEdgeIdx(); }))
+        const auto allHalfEdgeIdxs(patches[i].getCurves() //
+                                   | std::views::transform([](const Curve &curve)
+                                                           { return curve.getHalfEdgeIdx(); }));
+
+        auto it = std::ranges::find(allHalfEdgeIdxs, targetEdgeIdx);
+        if (it != allHalfEdgeIdxs.end())
         {
-            indices.push_back(idx);
-        }
-        auto it = std::ranges::find(indices, targetEdgeIdx);
-        if (it != indices.end())
-        {
-            return CurveId{static_cast<int>(i), static_cast<int>(std::distance(indices.begin(), it))};
+            return CurveId{static_cast<int>(i), static_cast<int>(std::distance(allHalfEdgeIdxs.begin(), it))};
         }
     }
     return CurveId{-1, -1};

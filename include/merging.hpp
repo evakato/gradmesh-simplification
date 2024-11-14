@@ -20,16 +20,21 @@ class GradMeshMerger
 {
 public:
     GradMeshMerger(GmsAppState &appState);
+    void run();
     void startupMesh()
     {
         mesh.findULPoints();
         select.reset();
         select.findCandidateMerges();
+        metrics.setAABB();
+        metrics.captureGlobalImage(appState.patchRenderParams.glPatches, ORIG_IMG);
     }
+
+private:
+    void preprocessEdges();
     void merge();
     MergeStatus mergeAtSelectedEdge(int halfEdgeIdx);
 
-private:
     GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
     float splittingFactor(HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign) const;
     float addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
