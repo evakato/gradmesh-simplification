@@ -318,5 +318,6 @@ inline constexpr int MAX_CURVE_DEPTH = 1000;
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 yellow{1.0f, 0.9f, 0.0f};
+inline constexpr glm::vec3 green{0.0f, 0.9f, 0.0f};
 inline constexpr glm::vec3 black{0.0f};
 inline constexpr glm::vec3 white{1.0f};

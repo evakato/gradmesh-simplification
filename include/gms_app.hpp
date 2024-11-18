@@ -5,6 +5,7 @@
 #include "gms_appstate.hpp"
 #include "gui.hpp"
 #include "merging.hpp"
+#include "preprocessing.hpp"
 #include "patch_renderer.hpp"
 #include "renderer.hpp"
 #include "types.hpp"
@@ -29,5 +30,6 @@ private:
     CurveRenderer curveRenderer{gmsWindow, appState};
     PatchRenderer patchRenderer{gmsWindow, appState};
     GradMeshMerger merger{appState};
+    MergePreprocessor preprocessor{merger, appState};
     GmsAppState appState{};
 };

@@ -2,7 +2,7 @@
 
 ImFont *iconFont;
 ImFont *mainFont;
-static bool showNewWindow = false;
+static bool showFinalImages = false;
 
 GmsGui::GmsGui(GmsWindow &window, GmsAppState &appState) : gmsWindow(window), appState(appState)
 {
@@ -31,13 +31,13 @@ void GmsGui::render()
 
 void renderComparisonWindow(const GmsAppState &appState)
 {
-    if (showNewWindow && appState.numOfMerges > 0)
+    if (showFinalImages && appState.numOfMerges > 0)
     {
         // Set position and size for the new window
         ImGui::SetNextWindowPos(ImVec2(10, 30), ImGuiCond_Once);     // Position of the new window
         ImGui::SetNextWindowSize(ImVec2(1220, 700), ImGuiCond_Once); // Size of the new window
 
-        if (ImGui::Begin("Image comparison", &showNewWindow))
+        if (ImGui::Begin("Image comparison", &showFinalImages))
         {
             if (ImGui::BeginTable("ImageTable2", 2, ImGuiTableFlags_SizingFixedFit))
             {
@@ -283,6 +283,9 @@ void showComponentSelect(GmsAppState &appState)
         if (appState.isCompSelect(ComponentSelectOptions::Type::Patch))
         {
             ImGui::Checkbox("Show bounding box", &appState.componentSelectOptions.showPatchAABB);
+            ImGui::BeginDisabled(appState.preprocessProductRegionsProgress == -1);
+            ImGui::Checkbox("Show max product region", &appState.componentSelectOptions.showMaxProductRegion);
+            ImGui::EndDisabled();
             showHermiteMatrixTable(appState);
         }
 
@@ -322,16 +325,20 @@ void GmsGui::showWindowMenuBar()
         }
         if (ImGui::BeginMenu("Edit"))
         {
-            if (ImGui::MenuItem("Preprocess edges", "", false, appState.preprocessingProgress == -1))
+            if (ImGui::MenuItem("Preprocess single edge error", "", false, appState.preprocessSingleMergeProgress == -1))
             {
-                appState.preprocessingProgress = 0;
-                appState.mergeProcess = MergeProcess::Preprocessing;
+                appState.preprocessSingleMergeProgress = 0;
+                appState.mergeProcess = MergeProcess::PreprocessSingleMerge;
+            }
+            if (ImGui::MenuItem("Preprocess product regions", "", false, appState.preprocessProductRegionsProgress == -1))
+            {
+                appState.mergeProcess = MergeProcess::PreprocessProductRegions;
             }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("View"))
         {
-            if (ImGui::MenuItem("View merge error map", "", false, appState.preprocessingProgress == -2))
+            if (ImGui::MenuItem("View merge error map", "", false, appState.preprocessSingleMergeProgress == -2))
             {
                 appState.mergeProcess = MergeProcess::ViewEdgeMap;
             }
@@ -418,11 +425,22 @@ void showMergingMenu(GmsAppState &appState)
 {
     if (ImGui::CollapsingHeader("Merging", ImGuiTreeNodeFlags_DefaultOpen))
     {
-        if (appState.preprocessingProgress > -1)
+        if (appState.preprocessSingleMergeProgress > -1)
         {
             ImGui::Spacing();
             ImGui::Text("Preprocessing edges...");
-            ImGui::ProgressBar(static_cast<float>(appState.preprocessingProgress) / appState.candidateMerges.size(), ImVec2(-1.0f, 0.0f));
+            ImGui::ProgressBar(static_cast<float>(appState.preprocessSingleMergeProgress) / appState.candidateMerges.size(), ImVec2(-1.0f, 0.0f));
+            ImGui::Spacing();
+            return;
+        }
+        else if (appState.preprocessProductRegionsProgress > -1)
+        {
+            ImGui::Spacing();
+            ImGui::Text("Preprocessing edges...");
+            if (appState.edgeRegions.empty())
+                ImGui::ProgressBar(0, ImVec2(-1.0f, 0.0f));
+            else
+                ImGui::ProgressBar(appState.preprocessProductRegionsProgress, ImVec2(-1.0f, 0.0f));
             ImGui::Spacing();
             return;
         }
@@ -535,8 +553,8 @@ void showMergingMenu(GmsAppState &appState)
         }
 
         ImGui::Spacing();
-        ImGui::BeginDisabled(appState.preprocessingProgress == -1);
-        ImGui::Checkbox("Use preprocessing", &appState.usePreprocessing);
+        ImGui::BeginDisabled(appState.preprocessProductRegionsProgress == -1);
+        ImGui::Checkbox("Use product regions preprocessing", &appState.usePreprocessing);
         ImGui::EndDisabled();
         ImGui::Spacing();
         ImGui::Separator();
@@ -625,6 +643,13 @@ void showMergingMenu(GmsAppState &appState)
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Merge error");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%.5f", appState.mergeError);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
                 ImGui::Text("Attempted merges");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%d", appState.attemptedMergesIdx);
@@ -641,7 +666,7 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::Spacing();
             if (ImGui::Button("Compare images"))
             {
-                showNewWindow = true; // Set the flag to open the new window
+                showFinalImages = true; // Set the flag to open the new window
             }
             ImGui::Spacing();
             ImGui::Separator();

@@ -1,23 +1,17 @@
 #include "merging.hpp"
 #include "gradmesh.hpp"
+#include "preprocessing.hpp"
 #include <omp.h>
 
 GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{appState.mesh, appState.mergeSettings, appState.patchRenderResources}}, select{appState} {}
 
-void GradMeshMerger::run()
+bool GradMeshMerger::merge(int halfEdgeIdx, std::string &imgPath)
 {
-    switch (appState.mergeProcess)
-    {
-    case MergeProcess::Preprocessing:
-        preprocessEdges();
-        break;
-    case MergeProcess::ViewEdgeMap:
-        metrics.generateEdgeErrorMap(appState.edgeErrorDisplay);
-        break;
-    case MergeProcess::Merging:
-        merge();
-        break;
-    }
+    mergePatches(halfEdgeIdx);
+    auto glPatches = getAllPatchGLData(mesh.generatePatches().value(), &Patch::getControlMatrix);
+    metrics.captureAfterMerge(glPatches, imgPath.c_str());
+    float mergeError = metrics.getMergeError(imgPath.c_str());
+    return mergeError < appState.mergeSettings.errorThreshold;
 }
 
 void GradMeshMerger::merge()
@@ -33,6 +27,7 @@ void GradMeshMerger::merge()
     {
         appState.mergeStatus = NA;
         appState.mergeMode = NONE;
+        appState.mergeError = metrics.getMergeError(CURR_IMG, ORIG_IMG);
         return;
     }
     appState.mergeStatus = mergeAtSelectedEdge(selectedHalfEdgeIdx);
@@ -51,56 +46,6 @@ void GradMeshMerger::merge()
         if (appState.mergeStatus == SUCCESS)
             appState.userSelectedId = {-1, -1};
     }
-}
-
-void GradMeshMerger::preprocessEdges()
-{
-    if (appState.preprocessingProgress % 100 == 0 && appState.preprocessingProgress != 0)
-    {
-        int start = appState.preprocessingProgress - 100;
-#pragma omp parallel for
-        for (int i = start; i < appState.preprocessingProgress; ++i)
-        {
-            auto &dhe = appState.candidateMerges[i];
-            std::string imgPath = "preprocessing/e" + std::to_string(i) + ".png";
-            dhe.error = metrics.getMergeError(imgPath.c_str());
-        }
-        createDir(PREPROCESSING_DIR);
-    }
-
-    if (appState.preprocessingProgress >= appState.candidateMerges.size())
-    {
-        int start = appState.preprocessingProgress / 100 * 100;
-#pragma omp parallel for
-        for (int i = start; i < appState.candidateMerges.size(); ++i)
-        {
-            auto &dhe = appState.candidateMerges[i];
-            std::string imgPath = "preprocessing/e" + std::to_string(i) + ".png";
-            dhe.error = metrics.getMergeError(imgPath.c_str());
-        }
-        appState.mergeProcess = MergeProcess::Merging;
-        appState.preprocessingProgress = -2;
-        metrics.setEdgeErrorMap(appState.candidateMerges);
-        return;
-    }
-
-    if (appState.preprocessingProgress == 0)
-    {
-        std::vector<CurveId> boundaryEdges;
-        select.findCandidateMerges(&boundaryEdges);
-        metrics.setBoundaryEdges(boundaryEdges);
-        metrics.captureBeforeMerge(appState.originalGlPatches);
-    }
-
-    auto &dhe = appState.candidateMerges[appState.preprocessingProgress];
-    int selectedHalfEdgeIdx = dhe.halfEdgeIdx1;
-
-    mergePatches(selectedHalfEdgeIdx);
-    auto glPatches = getAllPatchGLData(mesh.generatePatches().value(), &Patch::getControlMatrix);
-    std::string imgPath = "preprocessing/e" + std::to_string(appState.preprocessingProgress) + ".png";
-    metrics.captureAfterMerge(glPatches, imgPath.c_str());
-    appState.mesh = readHemeshFile("mesh_saves/save_0.hemesh");
-    appState.preprocessingProgress++;
 }
 
 MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)

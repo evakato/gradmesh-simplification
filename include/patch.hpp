@@ -111,3 +111,13 @@ inline constexpr std::array<int, 4> controlPointIdxs = {0, 3, 15, 12};
 constexpr std::array<std::array<int, 2>, 4>
     findMatchingHandles = {{{0, 2}, {1, 3}, {4, 6}, {5, 7}}};
 inline constexpr std::array<int, 12> cornerAndHandleIndices = {0, 3, 12, 15, 1, 2, 4, 7, 8, 11, 13, 14};
+
+inline const std::vector<GLfloat> getGLAABBData(const AABB &aabb)
+{
+    auto col = green;
+    return {
+        aabb.min.x, aabb.min.y, col[0], col[1], col[2],
+        aabb.min.x, aabb.max.y, col[0], col[1], col[2],
+        aabb.max.x, aabb.max.y, col[0], col[1], col[2],
+        aabb.max.x, aabb.min.y, col[0], col[1], col[2]};
+}

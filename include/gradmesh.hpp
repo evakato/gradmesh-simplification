@@ -18,10 +18,21 @@ class GradMeshMerger;
 
 using EdgeDerivatives = std::optional<std::array<Vertex, 4>>;
 
+struct EdgeRegion
+{
+    std::pair<int, int> gridPair;
+    std::pair<int, int> maxRegion = {0, 0};
+    int faceIdx;
+    AABB maxRegionAABB;
+    int maxChainLength = 0;
+    int getMaxPatches() const { return (maxRegion.first + 1) * (maxRegion.second + 1); }
+};
+
 class GradMesh
 {
 public:
     GradMesh() = default;
+    ~GradMesh() = default;
 
     void addPoint(float x, float y, int idx)
     {
@@ -67,6 +78,11 @@ public:
     {
         return edges[halfEdgeIdx].twinIdx;
     }
+    int getNextRowIdx(int halfEdgeIdx) const
+    {
+        auto &e = edges[halfEdgeIdx];
+        return edges[edges[e.nextIdx].twinIdx].nextIdx;
+    }
 
     void fixEdges();
     std::optional<std::vector<Patch>> generatePatches() const;
@@ -77,15 +93,43 @@ public:
     AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
     AABB getAABB() const;
     std::vector<std::pair<int, int>> findCornerFace() const;
+    std::vector<std::pair<int, int>> getGridEdgeIdxs(int rowIdx, int colIdx) const;
+    bool validEdgeType(const HalfEdge &edge) const
+    {
+        return (edge.hasTwin() && !edge.isBar() && !twinIsParent(edge) && !edge.isParent() && !isULMergeEdge(edge));
+    }
+    int maxDependencyChain() const
+    {
+        int maxChain = 0;
+        for (auto &edge : edges)
+        {
+            if (!edge.isValid() || !edge.isChild())
+                continue;
+
+            int newChain = 0;
+            auto currEdge = edge;
+            while (true)
+            {
+                if (currEdge.parentIdx == -1)
+                    break;
+                newChain++;
+                currEdge = edges[currEdge.parentIdx];
+            }
+            maxChain = std::max(maxChain, newChain);
+        }
+        return maxChain;
+    }
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
     friend class MergeMetrics;
     friend class MergeSelect;
+    friend class MergePreprocessor;
 
 private:
     EdgeDerivatives getCurve(int halfEdgeIdx, int depth = 0) const;
     EdgeDerivatives computeEdgeDerivatives(const HalfEdge &edge, int depth = 0) const;
+    void getMaxProductRegion(EdgeRegion &edgeRegion) const;
 
     void disablePoint(const HalfEdge &e)
     {

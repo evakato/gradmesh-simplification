@@ -13,7 +13,8 @@ void GmsApp::loadMesh()
     appState.updateMeshRender();
     appState.originalGlPatches = appState.patchRenderParams.glPatches;
     merger.startupMesh();
-    appState.preprocessingProgress = -1;
+    appState.preprocessSingleMergeProgress = -1;
+    appState.preprocessProductRegionsProgress = -1;
 }
 
 void GmsApp::setupNewMesh()
@@ -35,7 +36,21 @@ void GmsApp::run()
         if (appState.filenameChanged)
             setupNewMesh();
 
-        merger.run();
+        switch (appState.mergeProcess)
+        {
+        case MergeProcess::PreprocessSingleMerge:
+            preprocessor.preprocessSingleMergeError();
+            break;
+        case MergeProcess::PreprocessProductRegions:
+            preprocessor.preprocessProductRegions();
+            break;
+        case MergeProcess::ViewEdgeMap:
+            merger.metrics.generateEdgeErrorMap(appState.edgeErrorDisplay);
+            break;
+        case MergeProcess::Merging:
+            merger.merge();
+            break;
+        }
 
         switch (appState.currentMode)
         {

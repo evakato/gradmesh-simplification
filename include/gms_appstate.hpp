@@ -55,12 +55,15 @@ struct ComponentSelectOptions
     bool on = true;
     Type type = Type::Patch;
     bool showPatchAABB = false;
+    bool showMaxProductRegion = false;
 
     bool renderPatchAABB() const { return on && type == Type::Patch && showPatchAABB; }
+    bool renderMaxProductRegion() const { return on && type == Type::Patch && showMaxProductRegion; }
 };
 enum class MergeProcess
 {
-    Preprocessing,
+    PreprocessSingleMerge,
+    PreprocessProductRegions,
     ViewEdgeMap,
     Merging
 };
@@ -96,11 +99,14 @@ public:
     MergeProcess mergeProcess = MergeProcess::Merging;
     EdgeErrorDisplay edgeErrorDisplay = EdgeErrorDisplay::Binary;
     float mergeError;
-    int preprocessingProgress{-1};
+    int preprocessSingleMergeProgress{-1};
     bool usePreprocessing = false;
 
+    float preprocessProductRegionsProgress{-1.0f};
+    std::vector<EdgeRegion> edgeRegions = {};
+
     // Metadata
-    std::string filename = "../meshes/order1.hemesh";
+    std::string filename = "../meshes/order4.hemesh";
     bool filenameChanged = false;
     bool loadSave = false;
 

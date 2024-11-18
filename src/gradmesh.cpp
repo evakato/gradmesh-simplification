@@ -195,19 +195,11 @@ AABB GradMesh::getFaceBoundingBox(int halfEdgeIdx) const
     auto edgeIdxs = getFaceEdgeIdxs(halfEdgeIdx);
     for (int edgeIdx : edgeIdxs)
     {
-        while (true)
-        {
-            auto curveVector = getCurve(edgeIdx);
-            assert(curveVector != std::nullopt);
-            auto curve = curveVector.value();
-            Curve newCurve = Curve{curve[0], curve[1], curve[2], curve[3], Curve::CurveType::Bezier};
-            aabb.expand(newCurve.getAABB());
-
-            if (!edges[edgeIdx].isChild())
-                break;
-
-            edgeIdx = edges[edgeIdx].parentIdx;
-        }
+        auto curveVector = getCurve(edgeIdx);
+        assert(curveVector != std::nullopt);
+        auto curve = curveVector.value();
+        Curve newCurve = Curve{curve[0], curve[1], curve[2], curve[3], Curve::CurveType::Hermite};
+        aabb.expand(newCurve.getAABB());
     }
     return aabb;
 }
@@ -332,4 +324,68 @@ int GradMesh::findParentPointIdx(int halfEdgeIdx) const
         currEdge = &edges[currEdge->parentIdx];
     }
     return currEdge->originIdx;
+}
+
+std::vector<std::pair<int, int>> GradMesh::getGridEdgeIdxs(int rowIdx, int colIdx) const
+{
+    std::vector<std::pair<int, int>> gridEdgeIdxs;
+    int currEdgeIdx = rowIdx;
+    int currEdgeIdx2 = colIdx;
+    while (true)
+    {
+        auto currEdge = edges[currEdgeIdx];
+        gridEdgeIdxs.push_back({currEdgeIdx, currEdge.nextIdx});
+        if (currEdge.twinIdx == -1)
+            break;
+        currEdgeIdx = edges[edges[currEdge.twinIdx].nextIdx].nextIdx;
+    }
+    int rowLength = gridEdgeIdxs.size();
+    while (true)
+    {
+        const auto &currIdx2Twin = edges[currEdgeIdx2].twinIdx;
+        if (currIdx2Twin == -1)
+            break;
+
+        currEdgeIdx = edges[currIdx2Twin].nextIdx;
+        currEdgeIdx2 = edges[currEdgeIdx].nextIdx;
+
+        for (int i = 0; i < rowLength; i++)
+        {
+            auto currEdge = edges[currEdgeIdx];
+            gridEdgeIdxs.push_back({currEdgeIdx, currEdge.nextIdx});
+            if (currEdge.twinIdx == -1)
+                break;
+            currEdgeIdx = edges[edges[currEdge.twinIdx].nextIdx].nextIdx;
+        }
+    }
+
+    return gridEdgeIdxs;
+}
+
+void GradMesh::getMaxProductRegion(EdgeRegion &edgeRegion) const
+{
+    AABB aabb;
+    auto gridPair = edgeRegion.gridPair;
+    auto maxRegion = edgeRegion.maxRegion;
+    aabb.expand(getFaceBoundingBox(gridPair.first));
+
+    int currIdx = gridPair.first;
+    int currIdx2 = gridPair.second;
+    for (int j = 0; j <= maxRegion.second; j++)
+    {
+        aabb.expand(getFaceBoundingBox(currIdx2));
+
+        for (int i = 0; i < maxRegion.first; i++)
+        {
+            currIdx = edges[edges[edges[currIdx].twinIdx].nextIdx].nextIdx;
+            aabb.expand(getFaceBoundingBox(currIdx));
+        }
+        const auto &currIdx2Twin = edges[currIdx2].twinIdx;
+        if (currIdx2Twin == -1)
+            break;
+
+        currIdx = edges[currIdx2Twin].nextIdx;
+        currIdx2 = edges[currIdx].nextIdx;
+    }
+    edgeRegion.maxRegionAABB = aabb;
 }

@@ -20,7 +20,6 @@ class GradMeshMerger
 {
 public:
     GradMeshMerger(GmsAppState &appState);
-    void run();
     void startupMesh()
     {
         mesh.findULPoints();
@@ -29,13 +28,15 @@ public:
         metrics.setAABB();
         metrics.captureGlobalImage(appState.patchRenderParams.glPatches, ORIG_IMG);
     }
+    void merge();
+    bool merge(int halfEdgeIdx, std::string &imgPath);
+    GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
+    MergeMetrics metrics;
+    MergeSelect select;
 
 private:
-    void preprocessEdges();
-    void merge();
     MergeStatus mergeAtSelectedEdge(int halfEdgeIdx);
 
-    GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
     float splittingFactor(HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign) const;
     float addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
 
@@ -59,9 +60,6 @@ private:
 
     GradMesh &mesh;
     GmsAppState &appState;
-    MergeMetrics metrics;
-    MergeSelect select;
-    bool firstIteration = true;
 };
 
 inline int getCornerTJunctions(bool topLeftL, bool topLeftT, bool topRightL, bool topRightT, bool isStem)

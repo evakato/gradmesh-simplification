@@ -70,13 +70,14 @@ public:
     void captureBeforeMerge(std::vector<GLfloat> &glPatches, int halfEdgeIdx = -1);
     void captureGlobalImage(std::vector<GLfloat> &glPatches, const char *imgPath);
     void captureAfterMerge(const std::vector<GLfloat> &glPatches, const char *imgPath);
-    float getMergeError(const char *compImgPath = MERGE_METRIC_IMG);
+    float getMergeError(const char *compImgPath = MERGE_METRIC_IMG, const char *compImgPath2 = ORIG_IMG);
     void setAABB()
     {
         globalAABB = mesh.getAABB();
         globalAABB.addPadding(mergeSettings.aabbPadding);
         globalAABB.ensureSize(MIN_AABB_SIZE);
         globalAABB.resizeToSquare();
+        mergeSettings.aabb = globalAABB;
     }
     void setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes);
     void generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay);

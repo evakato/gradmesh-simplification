@@ -50,6 +50,25 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         for (int i = 0; i < aabbData.size() / 5; i++)
             glDrawArrays(GL_LINE_LOOP, i * 4, 4);
     }
+    if (appState.componentSelectOptions.renderMaxProductRegion() && appState.userSelectedId.patchId != -1)
+    {
+        int faceIdx = appState.patches[appState.userSelectedId.patchId].getFaceIdx();
+        auto it = std::ranges::find_if(appState.edgeRegions, [faceIdx](const auto &edgeRegion)
+                                       { return edgeRegion.faceIdx == faceIdx; });
+
+        if (it != appState.edgeRegions.end())
+        {
+            const auto &selectedRegion = *it;
+            auto maxRegionAABB = getGLAABBData(selectedRegion.maxRegionAABB);
+            GmsRenderer::setVertexData(maxRegionAABB);
+            glUseProgram(lineShaderId);
+            setLineColor(lineShaderId, green);
+            glLineWidth(3.0f);
+            setUniformProjectionMatrix(lineShaderId, projectionMatrix);
+            for (int i = 0; i < maxRegionAABB.size() / 5; i++)
+                glDrawArrays(GL_LINE_LOOP, i * 4, 4);
+        }
+    }
 
     if (appState.renderHandles)
     {

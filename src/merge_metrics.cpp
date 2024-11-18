@@ -135,36 +135,26 @@ void MergeMetrics::captureGlobalImage(std::vector<GLfloat> &glPatches, const cha
 
 void MergeMetrics::captureBeforeMerge(std::vector<GLfloat> &glPatches, int halfEdgeIdx)
 {
+    if (mergeSettings.pixelRegion == PixelRegion::Global)
+        return;
+
     AABB aabb;
-    switch (mergeSettings.pixelRegion)
-    {
-    case PixelRegion::Local:
-    {
-        auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = mesh.getFaceEdgeIdxs(halfEdgeIdx);
-        auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = mesh.getFaceEdgeIdxs(mesh.getTwinIdx(halfEdgeIdx));
-        int twin1 = mesh.getTwinIdx(face1BIdx);
-        int twin2 = mesh.getTwinIdx(face1TIdx);
-        int twin3 = mesh.getTwinIdx(face2BIdx);
-        int twin4 = mesh.getTwinIdx(face2TIdx);
-        aabb = mesh.getBoundingBoxOverFaces({halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4});
-        aabb.addPadding(mergeSettings.aabbPadding);
-        aabb.ensureSize(MIN_AABB_SIZE);
-        aabb.resizeToSquare();
-        break;
-    }
-    case PixelRegion::Global:
-    {
-        aabb = globalAABB;
-        break;
-    }
-    }
+    auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = mesh.getFaceEdgeIdxs(halfEdgeIdx);
+    auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = mesh.getFaceEdgeIdxs(mesh.getTwinIdx(halfEdgeIdx));
+    int twin1 = mesh.getTwinIdx(face1BIdx);
+    int twin2 = mesh.getTwinIdx(face1TIdx);
+    int twin3 = mesh.getTwinIdx(face2BIdx);
+    int twin4 = mesh.getTwinIdx(face2TIdx);
+    aabb = mesh.getBoundingBoxOverFaces({halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4});
+    aabb.addPadding(mergeSettings.aabbPadding);
+    aabb.ensureSize(MIN_AABB_SIZE);
+    aabb.resizeToSquare();
 
     SetupFBOParams params{patchRenderResources.unmergedTexture, unmergedFbo, mergeSettings.poolRes};
     setupFBO(params);
     drawPatches(glPatches, patchRenderResources.patchShaderId, aabb);
     writeToImage(mergeSettings.poolRes, PREV_METRIC_IMG);
     closeFBO();
-
     mergeSettings.aabb = aabb;
 }
 
@@ -177,24 +167,16 @@ void MergeMetrics::captureAfterMerge(const std::vector<GLfloat> &glPatches, cons
     closeFBO();
 }
 
-float MergeMetrics::getMergeError(const char *compImgPath)
+float MergeMetrics::getMergeError(const char *compImgPath, const char *compImgPath2)
 {
-    float error;
     switch (mergeSettings.metricMode)
     {
     case SSIM:
-    {
-        error = 1.0f - evaluateSSIM(PREV_METRIC_IMG, compImgPath);
-        break;
-    }
+        return 1.0f - evaluateSSIM(compImgPath2, compImgPath);
     case FLIP:
-    {
-        error = evaluateFLIP(PREV_METRIC_IMG, compImgPath);
-        break;
+        return evaluateFLIP(compImgPath2, compImgPath);
     }
-    }
-
-    return error;
+    return -1;
 }
 
 float evaluateFLIP(const char *img1Path, const char *img2Path)
