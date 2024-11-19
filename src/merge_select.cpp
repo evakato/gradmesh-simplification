@@ -20,7 +20,6 @@ void MergeSelect::reset()
     otherDirIdx = 0;
     verticalDir = false;
     firstRow = true;
-    sortedRegionsIdx = 0;
 }
 
 void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
@@ -37,7 +36,7 @@ void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
             for (int i = 0; i < 4; i++)
             {
                 const auto &currEdge = mesh.edges[currIdx];
-                if (validEdgeType(currEdge))
+                if (mesh.validEdgeType(currEdge))
                 {
                     auto findEdgeIdx = std::find_if(candidateMerges.begin(), candidateMerges.end(), [currIdx](const DoubleHalfEdge &dhe)
                                                     { return dhe.halfEdgeIdx2 == currIdx; });
@@ -65,45 +64,8 @@ void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
     }
 }
 
-void MergeSelect::preprocess()
-{
-    sortedRegions = state.edgeRegions;
-    std::ranges::sort(sortedRegions, std::ranges::greater{}, &EdgeRegion::getMaxPatches);
-    sortedRegionsIdx = 0;
-}
-
 int MergeSelect::selectEdge()
 {
-    if (state.usePreprocessing && selectNewRegion)
-    {
-        auto &selectedRegion = sortedRegions[sortedRegionsIdx++];
-        if (selectedRegion.getMaxPatches() == 1)
-            return -1;
-
-        auto [adj1, adj2] = selectedRegion.gridPair;
-        maxRegion = selectedRegion.maxRegion;
-        int adj2Twin = adj2 == -1 ? -1 : state.mesh.getTwinIdx(adj2);
-        int nextEdgeIdx = adj2Twin == -1 ? -1 : state.mesh.edges[adj2Twin].nextIdx;
-        currAdjPair = {adj1, nextEdgeIdx};
-        otherDirEdges.clear();
-        otherDirEdges.push_back(state.mesh.edges[adj1].nextIdx);
-        selectNewRegion = false;
-        currGridIdxs = {0, 0};
-    }
-    else if (selectNewRegion)
-    {
-        auto [adj1, adj2] = cornerEdges;
-        int adj2Twin = adj2 == -1 ? -1 : state.mesh.getTwinIdx(adj2);
-        int nextEdgeIdx = adj2Twin == -1 ? -1 : state.mesh.edges[adj2Twin].nextIdx;
-        currAdjPair = {adj1, nextEdgeIdx};
-        otherDirEdges.clear();
-        otherDirEdges.push_back(state.mesh.edges[adj1].nextIdx);
-        selectNewRegion = false;
-        currGridIdxs = {0, 0};
-        selectNewRegion = false;
-        maxRegion = {std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
-    }
-
     switch (state.mergeMode)
     {
     case MANUAL:
@@ -153,14 +115,13 @@ int MergeSelect::selectVerticalGridEdge()
     }
 
     const auto *currEdge = &state.mesh.edges[currIdx];
-    while (!currEdge->isValid() || !validEdgeType(*currEdge))
+    while (!currEdge->isValid() || !state.mesh.validEdgeType(*currEdge))
     {
         otherDirIdx++;
         if (otherDirIdx >= otherDirEdges.size())
         {
             otherDirEdges.clear();
             verticalDir = false;
-            selectNewRegion = true;
             return -1;
         }
         currIdx = otherDirEdges[otherDirIdx];
@@ -174,7 +135,6 @@ int MergeSelect::selectGridEdge()
     if (verticalDir)
         return selectVerticalGridEdge();
 
-    currGridIdxs.first++;
     auto [adj1, adj2] = currAdjPair;
     if (state.mergeStatus != SUCCESS && state.mergeStatus != NA)
     {
@@ -186,7 +146,7 @@ int MergeSelect::selectGridEdge()
         }
     }
     const auto &currEdge = state.mesh.edges[adj1];
-    if (!currEdge.hasTwin() || currGridIdxs.first > maxRegion.first)
+    if (!currEdge.hasTwin())
     {
         if (adj2 == -1)
         {
@@ -199,70 +159,9 @@ int MergeSelect::selectGridEdge()
         int nextEdgeIdx = (adj2Twin == -1 || state.mesh.edges[nextAdj2].isBar()) ? -1 : state.mesh.edges[adj2Twin].nextIdx;
         currAdjPair = {adj2, nextEdgeIdx};
         otherDirEdges.push_back(state.mesh.edges[adj2].nextIdx);
-        currGridIdxs.first = 0;
         return adj2;
     }
     return adj1;
-}
-
-bool MergeSelect::validEdgeType(const HalfEdge &edge) const
-{
-    return (edge.hasTwin() && !edge.isBar() && !state.mesh.twinIsParent(edge) && !edge.isParent() && !state.mesh.isULMergeEdge(edge));
-}
-
-bool MergeSelect::checkCycle(int edgeIdx) const
-{
-    auto &edge = state.mesh.edges[edgeIdx];
-    std::cout << "edgeIdx: " << edgeIdx << ", edge origin: " << edge.originIdx << "\n";
-
-    auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = state.mesh.getFaceEdgeIdxs(edgeIdx);
-    std::cout << "face1 edges - R: " << face1RIdx << ", B: " << face1BIdx
-              << ", L: " << face1LIdx << ", T: " << face1TIdx << "\n";
-
-    if (edge.twinIdx == -1)
-    {
-        std::cout << "No twin for edge, returning false.\n";
-        return false;
-    }
-
-    auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = state.mesh.getFaceEdgeIdxs(edge.twinIdx);
-    std::cout << "face2 edges - L: " << face2LIdx << ", T: " << face2TIdx
-              << ", R: " << face2RIdx << ", B: " << face2BIdx << "\n";
-
-    int face1TopTwin = state.mesh.getTwinIdx(face1TIdx);
-    std::cout << "face1 top twin index: " << face1TopTwin << "\n";
-
-    int topLeft = face1TopTwin == -1 ? -1 : state.mesh.getFaceEdgeIdxs(face1TopTwin)[3];
-    std::cout << "topLeft: " << topLeft << "\n";
-
-    int topRight = state.mesh.getTwinIdx(face2TIdx);
-    std::cout << "topRight: " << topRight << "\n";
-
-    int face2BottomTwin = state.mesh.getTwinIdx(face2BIdx);
-    std::cout << "face2 bottom twin index: " << face2BottomTwin << "\n";
-
-    int bottomLeft = state.mesh.getTwinIdx(face1BIdx);
-    std::cout << "bottomLeft: " << bottomLeft << "\n";
-
-    int bottomRight = face2BottomTwin == -1 ? -1 : state.mesh.getFaceEdgeIdxs(face2BottomTwin)[3];
-    std::cout << "bottomRight: " << bottomRight << "\n";
-
-    auto &twinEdge = state.mesh.edges[face2LIdx];
-    std::cout << "twinEdge origin index: " << twinEdge.originIdx << "\n";
-
-    bool result = (bottomRight == -1 ? false : state.mesh.findParentPointIdx(bottomRight) == twinEdge.originIdx //
-                                                   || bottomLeft == -1
-                                               ? false
-                                           : state.mesh.findParentPointIdx(bottomLeft) == twinEdge.originIdx //
-                                                   || topLeft == -1
-                                               ? false
-                                           : state.mesh.findParentPointIdx(topLeft) == edge.originIdx //
-                                                   || topRight == -1
-                                               ? false
-                                               : state.mesh.findParentPointIdx(topRight) == edge.originIdx);
-
-    std::cout << "Final result: " << result << "\n";
-    return result;
 }
 
 int MergeSelect::selectDualGridEdge()
@@ -276,7 +175,7 @@ int MergeSelect::selectDualGridEdge()
         }
 
         const auto *currEdge = &state.mesh.edges[currIdx];
-        while (!currEdge->isValid() || !validEdgeType(*currEdge))
+        while (!currEdge->isValid() || !state.mesh.validEdgeType(*currEdge))
         {
             otherDirIdx++;
             if (otherDirIdx >= otherDirEdges.size())
@@ -287,14 +186,12 @@ int MergeSelect::selectDualGridEdge()
         return currIdx;
     }
 
-    if (cornerEdges == std::make_pair(-1, -1))
+    if (state.numOfMerges == 0 && state.attemptedMergesIdx == 0)
     {
-        auto cornerFaces = state.mesh.findCornerFace();
-        std::cout << cornerFaces.size() << std::endl;
-        cornerEdges = cornerFaces[0];
+        std::cout << "hallo" << std::endl;
+        otherDirEdges.clear();
         auto [adj1, adj2] = cornerEdges;
         currAdjPair = {adj1, adj2};
-        std::cout << "finding corner: " << adj1 << std::endl;
         return adj1;
     }
 

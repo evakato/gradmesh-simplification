@@ -137,7 +137,7 @@ constexpr const char *toString(int cornerFlags)
 
 constexpr const char *renderModeStrings[] = {"Patch", "Curve"};
 constexpr const char *metric_mode_items[] = {"SSIM", "FLIP"};
-constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid"};
+constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid", "Max Region"};
 static int edge_select_current = DUAL_GRID;
 
 inline constexpr int GUI_IMAGE_SIZE{150};

@@ -11,9 +11,8 @@ void GmsApp::loadMesh()
     appState.resetMerges();
     appState.mesh = readHemeshFile(appState.filename);
     appState.updateMeshRender();
-    appState.originalGlPatches = appState.patchRenderParams.glPatches;
+    appState.setUnmergedGlPatches();
     merger.startupMesh();
-    appState.preprocessSingleMergeProgress = -1;
     appState.preprocessProductRegionsProgress = -1;
 }
 

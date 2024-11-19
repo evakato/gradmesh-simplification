@@ -14,11 +14,7 @@ public:
     MergeSelect(GmsAppState &state);
     void findCandidateMerges(std::vector<CurveId> *boundaryEdges = nullptr);
     int selectEdge();
-
-    bool validEdgeType(const HalfEdge &edge) const;
     void reset();
-    bool checkCycle(int edgeIdx) const;
-    void preprocess();
 
 private:
     int selectRandomEdge();
@@ -36,10 +32,4 @@ private:
     int otherDirIdx = 0;
 
     bool firstRow = true;
-
-    std::vector<EdgeRegion> sortedRegions;
-    int sortedRegionsIdx = 0;
-    bool selectNewRegion = true;
-    std::pair<int, int> maxRegion = {std::numeric_limits<int>::max(), std::numeric_limits<int>::max()};
-    std::pair<int, int> currGridIdxs = {0, 0};
 };

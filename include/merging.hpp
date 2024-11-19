@@ -20,14 +20,7 @@ class GradMeshMerger
 {
 public:
     GradMeshMerger(GmsAppState &appState);
-    void startupMesh()
-    {
-        mesh.findULPoints();
-        select.reset();
-        select.findCandidateMerges();
-        metrics.setAABB();
-        metrics.captureGlobalImage(appState.patchRenderParams.glPatches, ORIG_IMG);
-    }
+    void startupMesh();
     void merge();
     bool merge(int halfEdgeIdx, std::string &imgPath);
     GmsAppState::MergeStats mergePatches(int halfEdgeIdx);

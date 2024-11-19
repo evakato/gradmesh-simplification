@@ -5,6 +5,15 @@
 
 GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), appState(appState), metrics{MergeMetrics::Params{appState.mesh, appState.mergeSettings, appState.patchRenderResources}}, select{appState} {}
 
+void GradMeshMerger::startupMesh()
+{
+    mesh.findULPoints();
+    // select.reset();
+    select.findCandidateMerges();
+    metrics.setAABB();
+    metrics.captureGlobalImage(appState.patchRenderParams.glPatches, ORIG_IMG);
+}
+
 bool GradMeshMerger::merge(int halfEdgeIdx, std::string &imgPath)
 {
     mergePatches(halfEdgeIdx);
@@ -30,6 +39,9 @@ void GradMeshMerger::merge()
         appState.mergeError = metrics.getMergeError(CURR_IMG, ORIG_IMG);
         return;
     }
+    auto &edge = mesh.edges[selectedHalfEdgeIdx];
+    assert(edge.isValid());
+
     appState.mergeStatus = mergeAtSelectedEdge(selectedHalfEdgeIdx);
     if (appState.mergeStatus == CYCLE)
     {

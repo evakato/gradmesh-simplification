@@ -447,8 +447,28 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Spacing();
 
         ImGui::Text("Edge select mode");
-        ImGui::SetNextItemWidth(100.0f);
-        ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items));
+        ImGui::SetNextItemWidth(130.0f);
+        // ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items));
+
+        if (ImGui::BeginCombo("##edgeselect", edge_select_items[edge_select_current]))
+        { // Open the dropdown
+            for (int i = 0; i < IM_ARRAYSIZE(edge_select_items); ++i)
+            {
+                if (i == 4)
+                { // Insert separator before the 5th item
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                }
+
+                // Handle selection
+                if (ImGui::Selectable(edge_select_items[i], edge_select_current == i))
+                {
+                    edge_select_current = i; // Update the current selection
+                }
+            }
+            ImGui::EndCombo(); // Close the dropdown
+        }
         ImGui::SameLine();
         appState.manualEdgeSelect = edge_select_current == MANUAL;
         if (appState.manualEdgeSelect)
@@ -552,10 +572,6 @@ void showMergingMenu(GmsAppState &appState)
             break;
         }
 
-        ImGui::Spacing();
-        ImGui::BeginDisabled(appState.preprocessProductRegionsProgress == -1);
-        ImGui::Checkbox("Use product regions preprocessing", &appState.usePreprocessing);
-        ImGui::EndDisabled();
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
@@ -668,14 +684,28 @@ void showMergingMenu(GmsAppState &appState)
             {
                 showFinalImages = true; // Set the flag to open the new window
             }
-            ImGui::Spacing();
-            ImGui::Separator();
         }
         else
         {
-            ImGui::Text("Candidate edge merges: %d", appState.candidateMerges.size());
+            ImGui::Text("No merges applied yet");
+            if (ImGui::BeginTable("MergeTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+            {
+                ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+                ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Candidate edge merges");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%d", appState.candidateMerges.size());
+
+                ImGui::EndTable();
+            }
         }
 
+        ImGui::Spacing();
+        ImGui::Separator();
         ImGui::Spacing();
         if (ImGui::Button("Reset mesh"))
         {

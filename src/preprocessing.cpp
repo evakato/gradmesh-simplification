@@ -156,10 +156,6 @@ void MergePreprocessor::findMaxProductRegion(EdgeRegion &edgeRegion)
         }
     }
 
-    std::cout << "Chain length: " << finalChain << std::endl;
-    std::cout << "Max patches: " << maxPatches << std::endl;
-    std::cout << "Max region: " << maxProductRegion.first << ", " << maxProductRegion.second << std::endl;
-
     edgeRegion.maxChainLength = finalChain;
     edgeRegion.maxRegion = maxProductRegion;
     return;
@@ -203,12 +199,18 @@ void MergePreprocessor::preprocessProductRegions()
         }
 
         mergeEdgeRegion(sortedRegions[0]);
+        sortedRegions.erase(sortedRegions.begin());
         std::erase_if(sortedRegions, [&](const auto &region)
                       {
                           const auto &edge = mesh.edges[region.gridPair.first];
                           return !edge.isValid(); });
+        std::erase_if(sortedRegions, [&](const auto &region)
+                      { return region.getMaxPatches() == 1; });
 
-        std::cout << sortedRegions.size() << std::endl;
+        std::cout << "Size " << sortedRegions.size() << std::endl;
+        if (sortedRegions.size() == 0)
+            std::cout << "Done! " << std::endl;
+
         appState.updateMeshRender();
         writeHemeshFile("mesh_saves/save_" + std::to_string(++productRegionIteration) + ".hemesh", mesh);
 

@@ -95,7 +95,6 @@ public:
     // User modes
     RenderMode currentMode = {RENDER_PATCHES};
     MergeSelectMode mergeMode = {NONE};
-    MergeStatus mergeStatus = {NA};
     MergeProcess mergeProcess = MergeProcess::Merging;
     EdgeErrorDisplay edgeErrorDisplay = EdgeErrorDisplay::Binary;
     float mergeError;
@@ -106,7 +105,7 @@ public:
     std::vector<EdgeRegion> edgeRegions = {};
 
     // Metadata
-    std::string filename = "../meshes/order4.hemesh";
+    std::string filename = "../meshes/global-refinement.hemesh";
     bool filenameChanged = false;
     bool loadSave = false;
 
@@ -136,16 +135,18 @@ public:
     // Merging edge selection
     std::vector<DoubleHalfEdge> candidateMerges{};
     int selectedEdgeId = -1;
+    int numOfMerges = 0;
     int attemptedMergesIdx = 0;
 
-    // Merging stats
+    // Single merge stats
     MergeStats mergeStats;
-    int numOfMerges = 0;
     int currentSave = 0;
 
     // Merging metrics - capturing pixels and error
     bool useError = true;
     MergeMetrics::MergeSettings mergeSettings;
+    MergeStatus mergeStatus = {NA};
+
     MergeMetrics::PatchRenderResources patchRenderResources;
 
     void setSelectedDhe(CurveId selectedCurve)
@@ -220,5 +221,9 @@ public:
     {
         setUserCurveColor(black);
         patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
+    }
+    void setUnmergedGlPatches()
+    {
+        originalGlPatches = patchRenderParams.glPatches;
     }
 };
