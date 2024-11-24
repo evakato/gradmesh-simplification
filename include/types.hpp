@@ -58,6 +58,16 @@ struct AABB
         max = glm::vec2(std::numeric_limits<float>::lowest());
     }
     AABB(glm::vec2 min, glm::vec2 max) : min{min}, max{max} {}
+    float width() const { return max.x - min.x; }
+    float length() const { return max.y - min.y; }
+    float area() const { return width() * length(); }
+
+    std::pair<int, int> getRes(int res) const
+    {
+        if (width() > length())
+            return {res, length() / width() * res};
+        return {width() / length() * res, res};
+    }
 
     void expand(const AABB &other)
     {
@@ -68,6 +78,11 @@ struct AABB
     {
         min = glm::min(min, other);
         max = glm::max(max, other);
+    }
+    void constrain(const AABB &other)
+    {
+        min = glm::max(min, other.min);
+        max = glm::min(max, other.max);
     }
     bool contains(const glm::vec2 &point) const
     {
@@ -313,7 +328,7 @@ inline const char *PREV_METRIC_IMG{"img/prevMesh.png"};
 inline const char *ORIG_IMG{"img/origImage.png"};
 inline const char *CURR_IMG{"img/currImage.png"};
 inline const char *EDGE_MAP_IMG{"img/errorEdgeMap.png"};
-inline constexpr float ERROR_THRESHOLD{0.001f};
+inline constexpr float ERROR_THRESHOLD{0.0015f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};

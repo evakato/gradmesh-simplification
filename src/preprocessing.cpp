@@ -11,7 +11,7 @@ void MergePreprocessor::preprocessSingleMergeError()
         {
             auto &dhe = appState.candidateMerges[i];
             std::string imgPath = "preprocessing/e" + std::to_string(i) + ".png";
-            dhe.error = merger.metrics.getMergeError(imgPath.c_str());
+            dhe.error = merger.metrics.evaluateMetric(imgPath.c_str());
         }
         createDir(PREPROCESSING_DIR);
     }
@@ -24,7 +24,7 @@ void MergePreprocessor::preprocessSingleMergeError()
         {
             auto &dhe = appState.candidateMerges[i];
             std::string imgPath = "preprocessing/e" + std::to_string(i) + ".png";
-            dhe.error = merger.metrics.getMergeError(imgPath.c_str());
+            dhe.error = merger.metrics.evaluateMetric(imgPath.c_str());
         }
         appState.mergeProcess = MergeProcess::Merging;
         appState.preprocessSingleMergeProgress = -2;
@@ -37,34 +37,38 @@ void MergePreprocessor::preprocessSingleMergeError()
         std::vector<CurveId> boundaryEdges;
         merger.select.findCandidateMerges(&boundaryEdges);
         merger.metrics.setBoundaryEdges(boundaryEdges);
-        merger.metrics.captureBeforeMerge(appState.originalGlPatches);
+        // merger.metrics.captureBeforeMerge(appState.originalGlPatches);
     }
 
     auto &dhe = appState.candidateMerges[appState.preprocessSingleMergeProgress];
     int selectedHalfEdgeIdx = dhe.halfEdgeIdx1;
 
     merger.mergePatches(selectedHalfEdgeIdx);
-    auto glPatches = getAllPatchGLData(
-        mesh.generatePatches().value(),
-        &Patch::getControlMatrix);
-    std::string imgPath = "preprocessing/e" +
-                          std::to_string(appState.preprocessSingleMergeProgress) + ".png";
+    auto glPatches = getAllPatchGLData(mesh.generatePatches().value(), &Patch::getControlMatrix);
+    std::string imgPath = "preprocessing/e" + std::to_string(appState.preprocessSingleMergeProgress) + ".png";
     merger.metrics.captureAfterMerge(glPatches, imgPath.c_str());
     mesh = readHemeshFile("mesh_saves/save_0.hemesh");
     appState.preprocessSingleMergeProgress++;
 }
 
-int MergePreprocessor::mergeRow(int currEdgeIdx, int maxLength)
+int MergePreprocessor::mergeRow(int currEdgeIdx, AABB &aabb, int maxLength)
 {
     int length = 0;
     for (length; length < maxLength; length++)
     {
         auto &currEdge = mesh.edges[currEdgeIdx];
-        if (!mesh.validEdgeType(currEdge))
+        if (!mesh.validMergeEdge(currEdge))
             break;
 
-        std::string imgPath = "preprocessing/e" + std::to_string(productRegionIdx) + ".png";
-        if (!merger.merge(currEdgeIdx, imgPath))
+        aabb.expand(mesh.getAffectedMergeAABB(currEdgeIdx));
+        aabb.constrain(appState.mergeSettings.globalAABB);
+        aabb.ensureSize(MIN_AABB_SIZE);
+        float mergeError = merger.attemptMerge(currEdgeIdx, aabb);
+
+        if (appState.mergeSettings.pixelRegion == MergeMetrics::PixelRegion::Local)
+            mergeError *= (aabb.area() / appState.mergeSettings.globalAABB.area());
+
+        if (mergeError > specialThreshold)
             break;
 
         writeHemeshFile("mesh_saves/lastsave.hemesh", mesh);
@@ -80,7 +84,7 @@ int MergePreprocessor::mergeRowWithoutError(int currEdgeIdx, int maxLength)
     for (length; length < maxLength; length++)
     {
         auto &currEdge = mesh.edges[currEdgeIdx];
-        if (!mesh.validEdgeType(currEdge))
+        if (!mesh.validMergeEdge(currEdge))
             break;
 
         merger.mergePatches(currEdgeIdx);
@@ -90,14 +94,14 @@ int MergePreprocessor::mergeRowWithoutError(int currEdgeIdx, int maxLength)
 
 void MergePreprocessor::findMaxProductRegion(EdgeRegion &edgeRegion)
 {
+    AABB errorAABB{};
     auto [rowIdx, colIdx] = edgeRegion.gridPair;
-    edgeRegion.faceIdx = mesh.edges[rowIdx].faceIdx;
 
-    int rowLength = mergeRow(rowIdx);
+    int rowLength = mergeRow(rowIdx, errorAABB);
     int rowChainLength = mesh.maxDependencyChain();
     mesh = readHemeshFile("mesh_saves/save_" + std::to_string(productRegionIteration) + ".hemesh");
 
-    int colLength = mergeRow(colIdx);
+    int colLength = mergeRow(colIdx, errorAABB);
     int colChainLength = mesh.maxDependencyChain();
     mesh = readHemeshFile("mesh_saves/save_" + std::to_string(productRegionIteration) + ".hemesh");
 
@@ -128,19 +132,21 @@ void MergePreprocessor::findMaxProductRegion(EdgeRegion &edgeRegion)
     for (int i = 0; i < colLength; i++)
     {
         currRowIdx = mesh.getNextRowIdx(currRowIdx);
+        if (currRowIdx == -1)
+            break;
         rowIdxs.push_back(currRowIdx);
     }
 
     for (int i = 1; i < rowIdxs.size(); i++)
     {
         int currEdgeIdx = rowIdxs[i];
-        int secondRow = mergeRow(currEdgeIdx, rowLength);
+        int secondRow = mergeRow(currEdgeIdx, errorAABB, rowLength);
         for (int j = 0; j < i; j++)
         {
             mergeRowWithoutError(rowIdxs[j], secondRow);
         }
 
-        int colsMerged = mergeRow(mesh.edges[rowIdxs[0]].nextIdx, i);
+        int colsMerged = mergeRow(mesh.edges[rowIdxs[0]].nextIdx, errorAABB, i);
         int chainLength = mesh.maxDependencyChain();
         mesh = readHemeshFile("mesh_saves/save_" + std::to_string(productRegionIteration) + ".hemesh");
         if (colsMerged < i)
@@ -164,14 +170,10 @@ void MergePreprocessor::findMaxProductRegion(EdgeRegion &edgeRegion)
 void MergePreprocessor::preprocessProductRegions()
 {
     auto &edgeRegions = appState.edgeRegions;
-
-    if (productRegionIdx == 0 && edgeRegions.empty())
-        edgeRegions = getEdgeRegions(mesh);
-
     auto &currEdgeRegion = edgeRegions[productRegionIdx++];
+
     findMaxProductRegion(currEdgeRegion);
-    // currEdgeRegion.faceIdx = mesh.edges[gridPair.first].faceIdx;
-    mesh.getMaxProductRegion(currEdgeRegion);
+    mesh.getProductRegionAABB(currEdgeRegion);
 
     appState.preprocessProductRegionsProgress = static_cast<float>(productRegionIdx) / edgeRegions.size();
     if (productRegionIdx >= edgeRegions.size())
@@ -187,29 +189,17 @@ void MergePreprocessor::preprocessProductRegions()
                               return a.maxChainLength < b.maxChainLength; // Tie-breaker: ascending
                           });
 
-        for (const auto &region : sortedRegions)
-        {
-            if (region.getMaxPatches() > 1)
-            {
-                std::cout << "Grid Pair: (" << region.gridPair.first << ", " << region.gridPair.second << ")\n";
-                std::cout << "Max Region: (" << region.maxRegion.first << ", " << region.maxRegion.second << ")\n";
-                std::cout << "Face Index: " << region.faceIdx << '\n';
-                std::cout << "Max Chain Length: " << region.maxChainLength << '\n';
-            }
-        }
-
         mergeEdgeRegion(sortedRegions[0]);
         sortedRegions.erase(sortedRegions.begin());
         std::erase_if(sortedRegions, [&](const auto &region)
                       {
-                          const auto &edge = mesh.edges[region.gridPair.first];
-                          return !edge.isValid(); });
+                                  const auto &edge1 = mesh.edges[region.gridPair.first];
+                                  const auto &edge2 = mesh.edges[region.gridPair.second];
+                                  return (!mesh.validMergeEdge(edge1) && !mesh.validMergeEdge(edge2)); });
         std::erase_if(sortedRegions, [&](const auto &region)
                       { return region.getMaxPatches() == 1; });
 
-        std::cout << "Size " << sortedRegions.size() << std::endl;
-        if (sortedRegions.size() == 0)
-            std::cout << "Done! " << std::endl;
+        std::cout << "size " << sortedRegions.size() << std::endl;
 
         appState.updateMeshRender();
         writeHemeshFile("mesh_saves/save_" + std::to_string(++productRegionIteration) + ".hemesh", mesh);
@@ -217,7 +207,20 @@ void MergePreprocessor::preprocessProductRegions()
         appState.mergeProcess = MergeProcess::Merging;
         appState.preprocessProductRegionsProgress = -1.0f;
 
+        merger.metrics.captureGlobalImage(appState.patchRenderParams.glPatches, CURR_IMG);
+        float err = merger.metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
+        specialThreshold = 0.0005f + err;
+        std::cout << "Total error: " << err << " new theshold " << specialThreshold << std::endl;
+
         edgeRegions = sortedRegions;
+        if (edgeRegions.empty())
+        {
+            /*
+            ++totalRegionsIdx;
+            if (totalRegionsIdx < meshCornerFaces.size())
+                edgeRegions = getEdgeRegions(appState.mesh, meshCornerFaces[totalRegionsIdx]);
+                */
+        }
         productRegionIdx = 0;
     }
 }
@@ -227,9 +230,16 @@ void MergePreprocessor::mergeEdgeRegion(const EdgeRegion &edgeRegion)
     int rowIdx = edgeRegion.gridPair.first;
     std::vector<int> rowIdxs = {rowIdx};
     int currRowIdx = rowIdx;
+    if (edgeRegion.maxRegion.first == 0)
+    {
+        mergeRowWithoutError(edgeRegion.gridPair.second, edgeRegion.maxRegion.second);
+        return;
+    }
     for (int i = 0; i < edgeRegion.maxRegion.second; i++)
     {
         currRowIdx = mesh.getNextRowIdx(currRowIdx);
+        if (currRowIdx == -1)
+            break;
         rowIdxs.push_back(currRowIdx);
     }
 
@@ -240,14 +250,47 @@ void MergePreprocessor::mergeEdgeRegion(const EdgeRegion &edgeRegion)
     mergeRowWithoutError(mesh.edges[rowIdxs[0]].nextIdx, edgeRegion.maxRegion.second);
 }
 
-std::vector<EdgeRegion> getEdgeRegions(const GradMesh &mesh)
+void MergePreprocessor::setEdgeRegions()
+{
+    meshCornerFaces = mesh.findCornerFaces();
+    // totalRegionsIdx = 2;
+    specialThreshold = appState.mergeSettings.errorThreshold;
+    // assert(meshCornerFaces.size() > totalRegionsIdx);
+    appState.edgeRegions = getEdgeRegions(meshCornerFaces);
+}
+
+std::vector<EdgeRegion> MergePreprocessor::getEdgeRegions(const std::vector<std::pair<int, int>> &startPairs)
 {
     std::vector<EdgeRegion> edgeRegions;
-    auto cornerFaces = mesh.findCornerFace();
-    auto gridIdxs = mesh.getGridEdgeIdxs(cornerFaces[0].first, cornerFaces[0].second);
-    constexpr auto makeEdgeRegion = std::views::transform([](std::pair<int, int> gridIdxs)
-                                                          { return EdgeRegion{gridIdxs, {0, 0}}; });
-    std::ranges::copy(gridIdxs | makeEdgeRegion, std::back_inserter(edgeRegions));
+    for (auto &startPair : startPairs)
+    {
+        if (startPair.first < 0 || startPair.first >= mesh.getEdges().size())
+        {
+            std::cout << "Invalid start pair index: " << startPair.first << std::endl;
+            continue;
+        }
+        int faceIdx = mesh.edges[startPair.first].faceIdx;
+        auto it = std::find_if(edgeRegions.begin(), edgeRegions.end(),
+                               [faceIdx](const EdgeRegion &region)
+                               {
+                                   return region.faceIdx == faceIdx;
+                               });
+        if (it != edgeRegions.end())
+            continue;
+
+        auto gridIdxs = mesh.getGridEdgeIdxs(startPair.first, startPair.second);
+        for (auto &gridIdxPair : gridIdxs)
+        {
+            if (gridIdxPair.first < 0 || gridIdxPair.first >= mesh.getEdges().size())
+            {
+                std::cout << "Invalid grid edge index: " << gridIdxPair.first << std::endl;
+                continue;
+            }
+            int faceIdx = mesh.edges[gridIdxPair.first].faceIdx;
+            edgeRegions.push_back(EdgeRegion{gridIdxPair, {0, 0}, faceIdx});
+        }
+    }
+    std::cout << "size of edge regions" << edgeRegions.size() << std::endl;
 
     return edgeRegions;
 }

@@ -13,20 +13,15 @@ void CurveRenderer::renderCurves()
 {
     auto params = appState.curveRenderParams;
     auto curveData = getAllCurveGLData(params.curves, &Curve::getGLVertexDataCol);
-    // this call is prob inefficient and we might just want to add a member var for this later or only call this if the user is switching between patches and curves
-    GmsRenderer::setVertexData(curveData);
 
     // draw curves
-    glUseProgram(curveShaderId);
     glUniform1i(glGetUniformLocation(curveShaderId, "curve_type"), params.curveMode);
-    glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
     glLineWidth(appState.curveLineWidth);
-    setUniformProjectionMatrix(curveShaderId, projectionMatrix);
-    glDrawArrays(GL_PATCHES, 0, curveData.size() / 5);
+    drawPrimitive(curveData, curveShaderId, projectionMatrix, VERTS_PER_CURVE);
 
     // draw the lines between control point and handle
     auto curvePointData = getAllCurveGLData(params.curves, &Curve::getGLPointData);
-    GmsRenderer::setVertexData(curvePointData);
+    setVertexData(curvePointData);
     glUseProgram(lineShaderId);
     setLineColor(lineShaderId, black);
     glLineWidth(appState.handleLineWidth);
@@ -42,7 +37,7 @@ void CurveRenderer::renderCurves()
     if (appState.showCurveAABB)
     {
         auto aabbData = getAllCurveGLData(params.curves, &Curve::getGLAABBData);
-        GmsRenderer::setVertexData(aabbData);
+        setVertexData(aabbData);
         glUseProgram(lineShaderId);
         setLineColor(lineShaderId, blue);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);

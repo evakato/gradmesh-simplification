@@ -189,7 +189,7 @@ std::array<int, 4> GradMesh::getFaceEdgeIdxs(int edgeIdx) const
     return edgeIdxs;
 }
 
-AABB GradMesh::getFaceBoundingBox(int halfEdgeIdx) const
+AABB GradMesh::getFaceAABB(int halfEdgeIdx) const
 {
     AABB aabb{glm::vec2(std::numeric_limits<float>::max()), glm::vec2(std::numeric_limits<float>::lowest())};
     auto edgeIdxs = getFaceEdgeIdxs(halfEdgeIdx);
@@ -204,31 +204,44 @@ AABB GradMesh::getFaceBoundingBox(int halfEdgeIdx) const
     return aabb;
 }
 
-AABB GradMesh::getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const
+AABB GradMesh::getMeshAABB() const
 {
-    AABB aabb{glm::vec2(std::numeric_limits<float>::max()), glm::vec2(std::numeric_limits<float>::lowest())};
+    AABB aabb{};
+    for (auto &face : faces)
+        if (face.isValid())
+            aabb.expand(getFaceAABB(face.halfEdgeIdx));
+    return aabb;
+}
 
-    for (int halfEdgeIdx : halfEdgeIdxs)
+AABB GradMesh::getAffectedMergeAABB(int halfEdgeIdx) const
+{
+    AABB aabb;
+    auto [face1RIdx, face1BIdx, face1LIdx, face1TIdx] = getFaceEdgeIdxs(halfEdgeIdx);
+    auto [face2LIdx, face2TIdx, face2RIdx, face2BIdx] = getFaceEdgeIdxs(getTwinIdx(halfEdgeIdx));
+    int twin1 = getTwinIdx(face1BIdx);
+    int twin2 = getTwinIdx(face1TIdx);
+    int twin3 = getTwinIdx(face2BIdx);
+    int twin4 = getTwinIdx(face2TIdx);
+    for (int eIdx : {halfEdgeIdx, face2LIdx, twin1, twin2, twin3, twin4})
     {
-        if (halfEdgeIdx != -1 && edges[halfEdgeIdx].isValid())
-            aabb.expand(getFaceBoundingBox(halfEdgeIdx));
+        int currIdx = eIdx;
+        if (eIdx == -1)
+            continue;
+        if (!edges[currIdx].isValid())
+            continue;
+        while (true)
+        {
+            aabb.expand(getFaceAABB(currIdx));
+            auto &e = edges[currIdx];
+            if (!e.isChild())
+                break;
+            currIdx = e.parentIdx;
+        }
     }
     return aabb;
 }
 
-AABB GradMesh::getAABB() const
-{
-    AABB aabb{glm::vec2(std::numeric_limits<float>::max()), glm::vec2(std::numeric_limits<float>::lowest())};
-
-    for (auto &point : points)
-    {
-        if (point.isValid())
-            aabb.expand(point.coords);
-    }
-    return aabb;
-}
-
-std::vector<std::pair<int, int>> GradMesh::findCornerFace() const
+std::vector<std::pair<int, int>> GradMesh::findCornerFaces() const
 {
     std::vector<std::pair<int, int>> cornerFaces;
 
@@ -316,69 +329,60 @@ bool GradMesh::isULMergeEdge(const HalfEdge &edge) const
     return false;
 }
 
-int GradMesh::findParentPointIdx(int halfEdgeIdx) const
-{
-    auto *currEdge = &edges[halfEdgeIdx];
-    while (currEdge->parentIdx != -1)
-    {
-        currEdge = &edges[currEdge->parentIdx];
-    }
-    return currEdge->originIdx;
-}
-
 std::vector<std::pair<int, int>> GradMesh::getGridEdgeIdxs(int rowIdx, int colIdx) const
 {
     std::vector<std::pair<int, int>> gridEdgeIdxs;
-    int currEdgeIdx = rowIdx;
-    int currEdgeIdx2 = colIdx;
-    while (true)
+    int currRowIdx = rowIdx;
+    int currColIdx = colIdx;
+
+    auto getGridIdxsInRow = [&](int startIdx, int rowLength)
     {
-        auto currEdge = edges[currEdgeIdx];
-        gridEdgeIdxs.push_back({currEdgeIdx, currEdge.nextIdx});
-        if (currEdge.twinIdx == -1)
-            break;
-        currEdgeIdx = edges[edges[currEdge.twinIdx].nextIdx].nextIdx;
-    }
+        int currIdx = startIdx;
+        int i = 0;
+        while (i < rowLength)
+        {
+            const auto &currEdge = edges[currIdx];
+            gridEdgeIdxs.push_back({currIdx, currEdge.nextIdx});
+            if (currEdge.twinIdx == -1)
+                return;
+            currIdx = edges[edges[currEdge.twinIdx].nextIdx].nextIdx;
+            ++i;
+        }
+    };
+
+    getGridIdxsInRow(currRowIdx, std::numeric_limits<int>::max());
     int rowLength = gridEdgeIdxs.size();
     while (true)
     {
-        const auto &currIdx2Twin = edges[currEdgeIdx2].twinIdx;
-        if (currIdx2Twin == -1)
+        const auto &colTwinIdx = edges[currColIdx].twinIdx;
+        if (colTwinIdx == -1)
             break;
 
-        currEdgeIdx = edges[currIdx2Twin].nextIdx;
-        currEdgeIdx2 = edges[currEdgeIdx].nextIdx;
-
-        for (int i = 0; i < rowLength; i++)
-        {
-            auto currEdge = edges[currEdgeIdx];
-            gridEdgeIdxs.push_back({currEdgeIdx, currEdge.nextIdx});
-            if (currEdge.twinIdx == -1)
-                break;
-            currEdgeIdx = edges[edges[currEdge.twinIdx].nextIdx].nextIdx;
-        }
+        currRowIdx = edges[colTwinIdx].nextIdx;
+        currColIdx = edges[currRowIdx].nextIdx;
+        getGridIdxsInRow(currRowIdx, rowLength);
     }
 
     return gridEdgeIdxs;
 }
 
-void GradMesh::getMaxProductRegion(EdgeRegion &edgeRegion) const
+void GradMesh::getProductRegionAABB(EdgeRegion &edgeRegion) const
 {
     AABB aabb;
     auto gridPair = edgeRegion.gridPair;
     auto maxRegion = edgeRegion.maxRegion;
-    aabb.expand(getFaceBoundingBox(gridPair.first));
+    aabb.expand(getFaceAABB(gridPair.first));
 
     int currIdx = gridPair.first;
     int currIdx2 = gridPair.second;
     for (int j = 0; j <= maxRegion.second; j++)
     {
-        aabb.expand(getFaceBoundingBox(currIdx2));
+        aabb.expand(getFaceAABB(currIdx2));
 
         for (int i = 0; i < maxRegion.first; i++)
         {
             currIdx = edges[edges[edges[currIdx].twinIdx].nextIdx].nextIdx;
-            aabb.expand(getFaceBoundingBox(currIdx));
+            aabb.expand(getFaceAABB(currIdx));
         }
         const auto &currIdx2Twin = edges[currIdx2].twinIdx;
         if (currIdx2Twin == -1)
@@ -388,4 +392,45 @@ void GradMesh::getMaxProductRegion(EdgeRegion &edgeRegion) const
         currIdx2 = edges[currIdx].nextIdx;
     }
     edgeRegion.maxRegionAABB = aabb;
+}
+
+int GradMesh::maxDependencyChain() const
+{
+    int maxChain = 0;
+    for (auto &edge : edges)
+    {
+        if (!edge.isValid() || !edge.isChild())
+            continue;
+
+        int newChain = 0;
+        auto currEdge = edge;
+        while (true)
+        {
+            if (currEdge.parentIdx == -1)
+                break;
+            newChain++;
+            currEdge = edges[currEdge.parentIdx];
+        }
+        maxChain = std::max(maxChain, newChain);
+    }
+    return maxChain;
+}
+
+int GradMesh::getNextRowIdx(int halfEdgeIdx) const
+{
+    if (halfEdgeIdx == -1)
+        return -1;
+    auto &e = edges[halfEdgeIdx];
+    if (!e.isValid())
+        return -1;
+    auto &nextE = edges[e.nextIdx];
+    if (!nextE.isValid())
+        return -1;
+    int orthoIdx = nextE.twinIdx;
+    if (orthoIdx == -1)
+        return -1;
+    auto &orthoE = edges[orthoIdx];
+    if (!orthoE.isValid())
+        return -1;
+    return orthoE.nextIdx;
 }

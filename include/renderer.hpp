@@ -21,14 +21,12 @@ public:
 protected:
     void setProjectionMatrix();
     void bindBuffers();
-    void setVertexData(std::vector<GLfloat> newData);
     void highlightSelectedPoint(int numOfVerts);
 
     GLuint VAO, VBO, EBO;
     GLuint curveShaderId, pointShaderId, lineShaderId;
 
     glm::mat4 projectionMatrix;
-    std::vector<GLfloat> vertexData;
     GmsAppState &appState;
 
 private:
@@ -38,3 +36,7 @@ private:
 void initializeOpenGL();
 void setUniformProjectionMatrix(GLuint shaderId, glm::mat4 &projectionMatrix);
 void setLineColor(GLuint shaderId, const glm::vec3 &color);
+void setVertexData(const std::vector<GLfloat> vertexData);
+void setProjectionMatrixAABB(int shaderId, AABB aabb);
+void drawPrimitive(const std::vector<GLfloat> &glData, int shaderId, glm::mat4 &projectionMatrix, int vertsPerPrimitive);
+void drawPrimitive(const std::vector<GLfloat> &glData, int shaderId, const AABB &aabb, int vertsPerPrimitive);

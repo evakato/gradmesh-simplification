@@ -22,7 +22,7 @@ public:
     GradMeshMerger(GmsAppState &appState);
     void startupMesh();
     void merge();
-    bool merge(int halfEdgeIdx, std::string &imgPath);
+    float attemptMerge(int halfEdgeIdx, AABB &aabb);
     GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
     MergeMetrics metrics;
     MergeSelect select;

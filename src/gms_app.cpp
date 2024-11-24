@@ -14,6 +14,7 @@ void GmsApp::loadMesh()
     appState.setUnmergedGlPatches();
     merger.startupMesh();
     appState.preprocessProductRegionsProgress = -1;
+    preprocessor.setEdgeRegions();
 }
 
 void GmsApp::setupNewMesh()

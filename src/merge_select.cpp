@@ -5,7 +5,7 @@ MergeSelect::MergeSelect(GmsAppState &state) : state(state) {}
 void MergeSelect::reset()
 {
     otherDirEdges.clear();
-    auto cornerFaces = state.mesh.findCornerFace();
+    auto cornerFaces = state.mesh.findCornerFaces();
     std::cout << "Setting new corner " << cornerFaces.size() << std::endl;
     cornerEdges = cornerFaces[0];
 
@@ -36,7 +36,7 @@ void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
             for (int i = 0; i < 4; i++)
             {
                 const auto &currEdge = mesh.edges[currIdx];
-                if (mesh.validEdgeType(currEdge))
+                if (mesh.validMergeEdge(currEdge))
                 {
                     auto findEdgeIdx = std::find_if(candidateMerges.begin(), candidateMerges.end(), [currIdx](const DoubleHalfEdge &dhe)
                                                     { return dhe.halfEdgeIdx2 == currIdx; });
@@ -115,7 +115,7 @@ int MergeSelect::selectVerticalGridEdge()
     }
 
     const auto *currEdge = &state.mesh.edges[currIdx];
-    while (!currEdge->isValid() || !state.mesh.validEdgeType(*currEdge))
+    while (!currEdge->isValid() || !state.mesh.validMergeEdge(*currEdge))
     {
         otherDirIdx++;
         if (otherDirIdx >= otherDirEdges.size())
@@ -175,7 +175,7 @@ int MergeSelect::selectDualGridEdge()
         }
 
         const auto *currEdge = &state.mesh.edges[currIdx];
-        while (!currEdge->isValid() || !state.mesh.validEdgeType(*currEdge))
+        while (!currEdge->isValid() || !state.mesh.validMergeEdge(*currEdge))
         {
             otherDirIdx++;
             if (otherDirIdx >= otherDirEdges.size())

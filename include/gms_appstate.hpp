@@ -105,7 +105,7 @@ public:
     std::vector<EdgeRegion> edgeRegions = {};
 
     // Metadata
-    std::string filename = "../meshes/global-refinement.hemesh";
+    std::string filename = "../meshes/global_duck.hemesh";
     bool filenameChanged = false;
     bool loadSave = false;
 
@@ -225,5 +225,9 @@ public:
     void setUnmergedGlPatches()
     {
         originalGlPatches = patchRenderParams.glPatches;
+    }
+    bool maxProductRegionsDone()
+    {
+        return edgeRegions.empty();
     }
 };

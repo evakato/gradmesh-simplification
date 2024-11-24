@@ -194,7 +194,7 @@ void writeHemeshFile(const std::string &filename, const GradMesh &mesh)
             << halfEdge.handleIdxs.first << " " << halfEdge.handleIdxs.second << " "                           // handle indices (10,11)
             << halfEdge.twinIdx << " "                                                                         // twin index (12)
             << halfEdge.prevIdx << " " << halfEdge.nextIdx << " " << halfEdge.faceIdx << " "                   // edge relations (13-15)
-            << mesh.getLeftMostChild(halfEdge) << " ";                                                         // placeholder (16)
+            << " merpity ";                                                                                    // placeholder (16)
 
         if (halfEdge.isChild())
         {

@@ -283,9 +283,7 @@ void showComponentSelect(GmsAppState &appState)
         if (appState.isCompSelect(ComponentSelectOptions::Type::Patch))
         {
             ImGui::Checkbox("Show bounding box", &appState.componentSelectOptions.showPatchAABB);
-            ImGui::BeginDisabled(appState.preprocessProductRegionsProgress == -1);
             ImGui::Checkbox("Show max product region", &appState.componentSelectOptions.showMaxProductRegion);
-            ImGui::EndDisabled();
             showHermiteMatrixTable(appState);
         }
 
@@ -329,10 +327,6 @@ void GmsGui::showWindowMenuBar()
             {
                 appState.preprocessSingleMergeProgress = 0;
                 appState.mergeProcess = MergeProcess::PreprocessSingleMerge;
-            }
-            if (ImGui::MenuItem("Preprocess product regions", "", false, appState.preprocessProductRegionsProgress == -1))
-            {
-                appState.mergeProcess = MergeProcess::PreprocessProductRegions;
             }
             ImGui::EndMenu();
         }
@@ -430,17 +424,6 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::Spacing();
             ImGui::Text("Preprocessing edges...");
             ImGui::ProgressBar(static_cast<float>(appState.preprocessSingleMergeProgress) / appState.candidateMerges.size(), ImVec2(-1.0f, 0.0f));
-            ImGui::Spacing();
-            return;
-        }
-        else if (appState.preprocessProductRegionsProgress > -1)
-        {
-            ImGui::Spacing();
-            ImGui::Text("Preprocessing edges...");
-            if (appState.edgeRegions.empty())
-                ImGui::ProgressBar(0, ImVec2(-1.0f, 0.0f));
-            else
-                ImGui::ProgressBar(appState.preprocessProductRegionsProgress, ImVec2(-1.0f, 0.0f));
             ImGui::Spacing();
             return;
         }
@@ -570,6 +553,30 @@ void showMergingMenu(GmsAppState &appState)
                 ImGui::Text("No merges possible");
             }
             break;
+        case 4:
+            if (appState.preprocessProductRegionsProgress > -1)
+            {
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Text("Finding max product region...");
+                if (appState.edgeRegions.empty())
+                    ImGui::ProgressBar(0, ImVec2(-1.0f, 0.0f));
+                else
+                    ImGui::ProgressBar(appState.preprocessProductRegionsProgress, ImVec2(-1.0f, 0.0f));
+                ImGui::Spacing();
+            }
+            else if (!appState.maxProductRegionsDone())
+            {
+                if (ImGui::Button("Start max product region"))
+                {
+                    appState.mergeProcess = MergeProcess::PreprocessProductRegions;
+                }
+            }
+            else
+            {
+                ImGui::Text("No merges possible");
+            }
+            break;
         }
 
         ImGui::Spacing();
@@ -580,7 +587,7 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Checkbox("Use pixel-based error metrics", &appState.useError);
         if (appState.useError)
         {
-            ImGui::BeginDisabled(appState.mergeMode != NONE);
+            ImGui::BeginDisabled(appState.mergeMode != NONE || appState.preprocessProductRegionsProgress > -1);
             ImGui::Spacing();
             ImGui::PushItemWidth(INPUT_WIDTH);
             static int item_current = static_cast<int>(appState.mergeSettings.metricMode);
@@ -595,7 +602,7 @@ void showMergingMenu(GmsAppState &appState)
                 appState.mergeSettings.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
             }
 
-            ImGui::DragFloat("Error threshold", &appState.mergeSettings.errorThreshold, 0.001f, 0.0001f, 0.1f);
+            ImGui::DragFloat("Error threshold", &appState.mergeSettings.errorThreshold, 0.0001f, 0.0001f, 0.1f, "%.4f");
             ImGui::DragInt("Pooling resolution", &appState.mergeSettings.poolRes, 1.0f, 100, 1000);
             ImGui::DragFloat("AABB padding", &appState.mergeSettings.aabbPadding, 0.01f, 0.0f, 0.1f);
             ImGui::PopItemWidth();

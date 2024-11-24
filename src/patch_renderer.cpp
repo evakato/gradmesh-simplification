@@ -20,22 +20,14 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
     if (appState.renderPatches)
     {
         // same with this call
-        GmsRenderer::setVertexData(params.glPatches);
-        glUseProgram(appState.patchRenderResources.patchShaderId);
-        setUniformProjectionMatrix(appState.patchRenderResources.patchShaderId, projectionMatrix);
         glLineWidth(1.0f);
-        glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_PATCH);
-        glDrawArrays(GL_PATCHES, 0, params.glPatches.size() / 5);
+        drawPrimitive(params.glPatches, appState.patchRenderResources.patchShaderId, projectionMatrix, VERTS_PER_PATCH);
     }
 
     if (appState.renderCurves)
     {
-        GmsRenderer::setVertexData(params.glCurves);
-        glUseProgram(curveShaderId);
-        glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
         glLineWidth(appState.curveLineWidth);
-        setUniformProjectionMatrix(curveShaderId, projectionMatrix);
-        glDrawArrays(GL_PATCHES, 0, params.glCurves.size() / 5);
+        drawPrimitive(params.glCurves, curveShaderId, projectionMatrix, VERTS_PER_CURVE);
     }
 
     if (appState.componentSelectOptions.renderPatchAABB() && appState.userSelectedId.patchId != -1)
@@ -43,7 +35,7 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         auto &selectedPatch = appState.patches[appState.userSelectedId.patchId];
         // auto aabbData = getAllCurveGLData(selectedPatch.getCurves(), &Curve::getGLAABBData);
         auto aabbData = selectedPatch.getGLAABBData();
-        GmsRenderer::setVertexData(aabbData);
+        setVertexData(aabbData);
         glUseProgram(lineShaderId);
         setLineColor(lineShaderId, blue);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
@@ -60,7 +52,7 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         {
             const auto &selectedRegion = *it;
             auto maxRegionAABB = getGLAABBData(selectedRegion.maxRegionAABB);
-            GmsRenderer::setVertexData(maxRegionAABB);
+            setVertexData(maxRegionAABB);
             glUseProgram(lineShaderId);
             setLineColor(lineShaderId, green);
             glLineWidth(3.0f);
@@ -73,14 +65,14 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
     if (appState.renderHandles)
     {
         const std::vector<GLfloat> pointHandleData = getAllHandleGLPoints(params.handles);
-        GmsRenderer::setVertexData(pointHandleData);
+        setVertexData(pointHandleData);
         glUseProgram(lineShaderId);
         glLineWidth(appState.handleLineWidth);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         glDrawArrays(GL_LINES, 0, pointHandleData.size() / 2);
 
         const std::vector<GLfloat> allPatchHandleData = getAllHandleGLPoints(params.handles, 1, 2);
-        GmsRenderer::setVertexData(allPatchHandleData);
+        setVertexData(allPatchHandleData);
         glUseProgram(pointShaderId);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
         // GmsRenderer::highlightSelectedPoint(12);
@@ -90,7 +82,7 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
     if (appState.renderControlPoints)
     {
         const std::vector<GLfloat> allPatchPointData = getAllPatchGLControlPointData(params.points, white);
-        GmsRenderer::setVertexData(allPatchPointData);
+        setVertexData(allPatchPointData);
         glUseProgram(pointShaderId);
         //  GmsRenderer::highlightSelectedPoint(12);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);

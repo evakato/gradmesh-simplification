@@ -25,6 +25,17 @@ struct EdgeRegion
     int faceIdx;
     AABB maxRegionAABB;
     int maxChainLength = 0;
+    float error = -1.0f;
+    EdgeRegion(std::pair<int, int> gridPair,
+               std::pair<int, int> maxRegion,
+               int faceIdx,
+               const AABB &aabb = AABB(),
+               int maxChainLength = 0)
+        : gridPair(gridPair),
+          maxRegion(maxRegion),
+          faceIdx(faceIdx),
+          maxRegionAABB(aabb),
+          maxChainLength(maxChainLength) {}
     int getMaxPatches() const { return (maxRegion.first + 1) * (maxRegion.second + 1); }
 };
 
@@ -51,74 +62,33 @@ public:
         edges.push_back(edge);
         return edges.size() - 1;
     }
-    const auto &getEdges() const
-    {
-        return edges;
-    }
-    const auto &getFaces() const
-    {
-        return faces;
-    }
-    const auto &getHandles() const
-    {
-        return handles;
-    }
-    const auto &getPoints() const
-    {
-        return points;
-    }
-    int getLeftMostChild(const HalfEdge &parent) const
-    {
-        for (int childIdx : parent.childrenIdxs)
-            if (edges[childIdx].isLeftMostChild())
-                return childIdx;
-        return -1;
-    }
-    int getTwinIdx(int halfEdgeIdx) const
-    {
-        return edges[halfEdgeIdx].twinIdx;
-    }
-    int getNextRowIdx(int halfEdgeIdx) const
-    {
-        auto &e = edges[halfEdgeIdx];
-        return edges[edges[e.nextIdx].twinIdx].nextIdx;
-    }
+    const auto &getEdges() const { return edges; }
+    const auto &getFaces() const { return faces; }
+    const auto &getHandles() const { return handles; }
+    const auto &getPoints() const { return points; }
+    AABB getMeshAABB() const;
 
-    void fixEdges();
     std::optional<std::vector<Patch>> generatePatches() const;
     std::vector<Vertex> getHandleBars() const;
     std::vector<Vertex> getControlPoints() const;
+    void fixEdges();
 
+    // Returns the twin edge of the given edge
+    int getTwinIdx(int halfEdgeIdx) const { return edges[halfEdgeIdx].twinIdx; }
+    // Returns the index of the edge parallel and directly above the given edge, or -1 if none exists.
+    int getNextRowIdx(int halfEdgeIdx) const;
+    // Returns the 4 incident edges of a face given an edge on the face
     std::array<int, 4> getFaceEdgeIdxs(int edgeIdx) const;
-    AABB getBoundingBoxOverFaces(std::vector<int> halfEdgeIdxs) const;
-    AABB getAABB() const;
-    std::vector<std::pair<int, int>> findCornerFace() const;
-    std::vector<std::pair<int, int>> getGridEdgeIdxs(int rowIdx, int colIdx) const;
-    bool validEdgeType(const HalfEdge &edge) const
-    {
-        return (edge.hasTwin() && !edge.isBar() && !twinIsParent(edge) && !edge.isParent() && !isULMergeEdge(edge));
-    }
-    int maxDependencyChain() const
-    {
-        int maxChain = 0;
-        for (auto &edge : edges)
-        {
-            if (!edge.isValid() || !edge.isChild())
-                continue;
 
-            int newChain = 0;
-            auto currEdge = edge;
-            while (true)
-            {
-                if (currEdge.parentIdx == -1)
-                    break;
-                newChain++;
-                currEdge = edges[currEdge.parentIdx];
-            }
-            maxChain = std::max(maxChain, newChain);
-        }
-        return maxChain;
+    // Grid functions
+    std::vector<std::pair<int, int>> findCornerFaces() const;
+    std::vector<std::pair<int, int>> getGridEdgeIdxs(int rowIdx, int colIdx) const;
+
+    bool validMergeEdge(const HalfEdge &edge) const
+    {
+        return (edge.isValid() && edge.hasTwin() && !edge.isBar() && !twinIsParent(edge) && !edge.isParent() && !isULMergeEdge(edge));
     }
+    int maxDependencyChain() const;
 
     friend std::ostream &operator<<(std::ostream &out, const GradMesh &gradMesh);
     friend class GradMeshMerger;
@@ -129,7 +99,7 @@ public:
 private:
     EdgeDerivatives getCurve(int halfEdgeIdx, int depth = 0) const;
     EdgeDerivatives computeEdgeDerivatives(const HalfEdge &edge, int depth = 0) const;
-    void getMaxProductRegion(EdgeRegion &edgeRegion) const;
+    void getProductRegionAABB(EdgeRegion &edgeRegion) const;
 
     void disablePoint(const HalfEdge &e)
     {
@@ -169,10 +139,12 @@ private:
         else
             return edgeIs(idx, &HalfEdge::isStem);
     }
-    AABB getFaceBoundingBox(int halfEdgeIdx) const;
+    // AABB functions
+    AABB getAffectedMergeAABB(int halfEdgeIdx) const;
+    AABB getFaceAABB(int halfEdgeIdx) const;
+
     void findULPoints();
     bool isULMergeEdge(const HalfEdge &edge) const;
-    int findParentPointIdx(int halfEdgeIdx) const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;

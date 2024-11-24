@@ -8,19 +8,22 @@ GradMeshMerger::GradMeshMerger(GmsAppState &appState) : mesh(appState.mesh), app
 void GradMeshMerger::startupMesh()
 {
     mesh.findULPoints();
-    // select.reset();
+    select.reset();
     select.findCandidateMerges();
     metrics.setAABB();
     metrics.captureGlobalImage(appState.patchRenderParams.glPatches, ORIG_IMG);
 }
 
-bool GradMeshMerger::merge(int halfEdgeIdx, std::string &imgPath)
+float GradMeshMerger::attemptMerge(int halfEdgeIdx, AABB &aabb)
 {
+    metrics.captureBeforeMerge(appState.originalGlPatches, aabb);
     mergePatches(halfEdgeIdx);
-    auto glPatches = getAllPatchGLData(mesh.generatePatches().value(), &Patch::getControlMatrix);
-    metrics.captureAfterMerge(glPatches, imgPath.c_str());
-    float mergeError = metrics.getMergeError(imgPath.c_str());
-    return mergeError < appState.mergeSettings.errorThreshold;
+    auto patches = mesh.generatePatches();
+    if (!patches)
+        return 1.0f;
+
+    auto glPatches = getAllPatchGLData(patches.value(), &Patch::getControlMatrix);
+    return metrics.getMergeError(glPatches, CURR_IMG);
 }
 
 void GradMeshMerger::merge()
@@ -36,7 +39,8 @@ void GradMeshMerger::merge()
     {
         appState.mergeStatus = NA;
         appState.mergeMode = NONE;
-        appState.mergeError = metrics.getMergeError(CURR_IMG, ORIG_IMG);
+        // TODO: fix final merge error
+        // appState.mergeError = metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
         return;
     }
     auto &edge = mesh.edges[selectedHalfEdgeIdx];
@@ -66,7 +70,8 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
 
     writeLogFile(mesh, "debug1.txt");
 
-    metrics.captureBeforeMerge(appState.originalGlPatches, halfEdgeIdx);
+    auto aabb = mesh.getAffectedMergeAABB(halfEdgeIdx);
+    metrics.captureBeforeMerge(appState.originalGlPatches, aabb);
     GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
 
     auto mergedPatches = mesh.generatePatches();
@@ -81,8 +86,7 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
     auto glPatches = getAllPatchGLData(mergedPatches.value(), &Patch::getControlMatrix);
     if (appState.useError)
     {
-        metrics.captureAfterMerge(glPatches, MERGE_METRIC_IMG);
-        appState.mergeError = metrics.getMergeError();
+        appState.mergeError = metrics.getMergeError(glPatches, MERGE_METRIC_IMG);
     }
     if (!appState.useError || appState.mergeError < appState.mergeSettings.errorThreshold)
     {
