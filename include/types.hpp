@@ -328,7 +328,6 @@ inline const char *PREV_METRIC_IMG{"img/prevMesh.png"};
 inline const char *ORIG_IMG{"img/origImage.png"};
 inline const char *CURR_IMG{"img/currImage.png"};
 inline const char *EDGE_MAP_IMG{"img/errorEdgeMap.png"};
-inline constexpr float ERROR_THRESHOLD{0.0015f};
 inline constexpr int MAX_CURVE_DEPTH = 1000;
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};

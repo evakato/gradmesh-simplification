@@ -76,6 +76,7 @@ void compButton(int &item_selected_idx, const auto &idxs, const int findIdx, std
 
 void renderComparisonWindow(const GmsAppState &appState);
 void showEdgeErrorMap(GmsAppState &appState);
+void showConflictGraphStats(GmsAppState &appState);
 
 constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S(0,0)",

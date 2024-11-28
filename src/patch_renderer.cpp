@@ -42,23 +42,23 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         for (int i = 0; i < aabbData.size() / 5; i++)
             glDrawArrays(GL_LINE_LOOP, i * 4, 4);
     }
-    if (appState.componentSelectOptions.renderMaxProductRegion() && appState.userSelectedId.patchId != -1)
+    if (appState.componentSelectOptions.renderMaxProductRegion())
     {
-        int faceIdx = appState.patches[appState.userSelectedId.patchId].getFaceIdx();
-        auto it = std::ranges::find_if(appState.edgeRegions, [faceIdx](const auto &edgeRegion)
-                                       { return edgeRegion.faceIdx == faceIdx; });
-
-        if (it != appState.edgeRegions.end())
+        auto selectedRegion = appState.findSelectedRegion();
+        if (selectedRegion)
         {
-            const auto &selectedRegion = *it;
-            auto maxRegionAABB = getGLAABBData(selectedRegion.maxRegionAABB);
-            setVertexData(maxRegionAABB);
-            glUseProgram(lineShaderId);
-            setLineColor(lineShaderId, green);
-            glLineWidth(3.0f);
-            setUniformProjectionMatrix(lineShaderId, projectionMatrix);
-            for (int i = 0; i < maxRegionAABB.size() / 5; i++)
-                glDrawArrays(GL_LINE_LOOP, i * 4, 4);
+            auto &allRegions = (*selectedRegion).allRegionAttributes;
+            if (appState.selectedTPRIdx < allRegions.size() && appState.selectedTPRIdx >= 0)
+            {
+                auto maxRegionAABB = getGLAABBData(allRegions[appState.selectedTPRIdx].maxRegionAABB);
+                setVertexData(maxRegionAABB);
+                glUseProgram(lineShaderId);
+                setLineColor(lineShaderId, green);
+                glLineWidth(3.0f);
+                setUniformProjectionMatrix(lineShaderId, projectionMatrix);
+                for (int i = 0; i < maxRegionAABB.size() / 5; i++)
+                    glDrawArrays(GL_LINE_LOOP, i * 4, 4);
+            }
         }
     }
 
@@ -117,7 +117,7 @@ void PatchRenderer::updatePatches(std::vector<Patch> &patches)
     glm::vec4 transformedPoint = inverseProjectionMatrix * glm::vec4{GmsWindow::mousePos, 0.0f, 1.0f};
     int prevPatchId = appState.userSelectedId.patchId;
     int newPatchId = getSelectedPatch(patches, transformedPoint);
-    appState.userSelectedId.patchId = newPatchId;
+    appState.setPatchId(newPatchId);
     if (appState.userSelectedId.patchId == -1 || (appState.componentSelectOptions.type == ComponentSelectOptions::Type::Patch && !appState.manualEdgeSelect))
         return; // only selected patch was modified (not curve)
 

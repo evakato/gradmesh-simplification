@@ -17,26 +17,68 @@
 class GradMeshMerger;
 
 using EdgeDerivatives = std::optional<std::array<Vertex, 4>>;
+using Region = std::vector<std::pair<int, int>>;
+
+struct RegionAttributes
+{
+    std::pair<int, int> maxRegion = {0, 0};
+    float error = 1.0f;
+    int maxChainLength = 0;
+    AABB maxRegionAABB;
+    int getMaxPatches() const { return (maxRegion.first + 1) * (maxRegion.second + 1); }
+};
+
+struct TPRNode
+{
+    std::pair<int, int> gridPair;
+    std::pair<int, int> maxRegion = {0, 0};
+    float error = 1.0f;
+    int maxChainLength = 0;
+
+    int id;
+    int degree = 0;
+
+    int getMaxPatches() const { return (maxRegion.first + 1) * (maxRegion.second + 1); }
+    std::partial_ordering operator<=>(const TPRNode &other) const
+    {
+        if (auto cmp = getMaxPatches() <=> other.getMaxPatches(); cmp != 0)
+            return cmp;
+        return other.error <=> error;
+        // return (getMaxPatches() / error) <=> (other.getMaxPatches() / other.error);
+        // return degree <=> other.degree;
+    }
+};
 
 struct EdgeRegion
 {
     std::pair<int, int> gridPair;
-    std::pair<int, int> maxRegion = {0, 0};
     int faceIdx;
-    AABB maxRegionAABB;
-    int maxChainLength = 0;
-    float error = -1.0f;
-    EdgeRegion(std::pair<int, int> gridPair,
-               std::pair<int, int> maxRegion,
-               int faceIdx,
-               const AABB &aabb = AABB(),
-               int maxChainLength = 0)
-        : gridPair(gridPair),
-          maxRegion(maxRegion),
-          faceIdx(faceIdx),
-          maxRegionAABB(aabb),
-          maxChainLength(maxChainLength) {}
-    int getMaxPatches() const { return (maxRegion.first + 1) * (maxRegion.second + 1); }
+    std::vector<RegionAttributes> allRegionAttributes;
+
+    std::partial_ordering operator<=>(const EdgeRegion &other) const
+    {
+        if (allRegionAttributes.empty() || other.allRegionAttributes.empty())
+            return std::partial_ordering::equivalent;
+
+        if (auto cmp = allRegionAttributes[0].getMaxPatches() <=> other.allRegionAttributes[0].getMaxPatches(); cmp != 0)
+            return cmp;
+
+        return other.allRegionAttributes[0].error <=> allRegionAttributes[0].error;
+    }
+    std::vector<TPRNode> generateAllTPRs() const
+    {
+        std::vector<TPRNode> allTPRs;
+        for (auto &attr : allRegionAttributes)
+        {
+            allTPRs.push_back(TPRNode{gridPair, attr.maxRegion, attr.error, attr.maxChainLength});
+        }
+        return allTPRs;
+    }
+    void setAndSortAttributes(std::vector<RegionAttributes> attributes)
+    {
+        allRegionAttributes = attributes;
+        std::ranges::sort(allRegionAttributes, std::greater{}, &RegionAttributes::getMaxPatches);
+    }
 };
 
 class GradMesh
@@ -72,6 +114,7 @@ public:
     std::vector<Vertex> getHandleBars() const;
     std::vector<Vertex> getControlPoints() const;
     void fixEdges();
+    bool isULMergeEdge(const HalfEdge &edge) const;
 
     // Returns the twin edge of the given edge
     int getTwinIdx(int halfEdgeIdx) const { return edges[halfEdgeIdx].twinIdx; }
@@ -99,7 +142,7 @@ public:
 private:
     EdgeDerivatives getCurve(int halfEdgeIdx, int depth = 0) const;
     EdgeDerivatives computeEdgeDerivatives(const HalfEdge &edge, int depth = 0) const;
-    void getProductRegionAABB(EdgeRegion &edgeRegion) const;
+    AABB getProductRegionAABB(const std::pair<int, int> &gridPair, const std::pair<int, int> &maxRegion) const;
 
     void disablePoint(const HalfEdge &e)
     {
@@ -144,7 +187,8 @@ private:
     AABB getFaceAABB(int halfEdgeIdx) const;
 
     void findULPoints();
-    bool isULMergeEdge(const HalfEdge &edge) const;
+    std::vector<int> getIncidentFacesOfRegion(const Region &region) const;
+    bool regionsOverlap(const Region &region1, const Region &region2) const;
 
     std::vector<Point> points;
     std::vector<Handle> handles;

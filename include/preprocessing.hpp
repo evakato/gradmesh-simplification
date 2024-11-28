@@ -1,6 +1,8 @@
 #include <string>
 #include <vector>
 #include <omp.h>
+#include <queue>
+#include <set>
 
 #include "gms_appstate.hpp"
 #include "gradmesh.hpp"
@@ -15,13 +17,17 @@ public:
     void preprocessSingleMergeError();
     void preprocessProductRegions();
     void setEdgeRegions();
+    void mergeTPRs();
 
 private:
-    void findMaxProductRegion(EdgeRegion &edgeRegion);
-    int mergeRow(int currEdgeIdx, AABB &aabb, int maxLength = std::numeric_limits<int>::max());
+    std::vector<RegionAttributes> findMaxProductRegion(EdgeRegion &edgeRegion);
+    std::vector<RegionAttributes> mergeRow(int currEdgeIdx, AABB &aabb, bool isRow = true, int maxLength = std::numeric_limits<int>::max(), int oppLength = 0);
     int mergeRowWithoutError(int currEdgeIdx, int maxLength = std::numeric_limits<int>::max());
-    void mergeEdgeRegion(const EdgeRegion &edgeRegion);
+    void mergeEdgeRegion(const Region &region);
     std::vector<EdgeRegion> getEdgeRegions(const std::vector<std::pair<int, int>> &startPairs);
+    void findAllRegions(const std::vector<int> &rowIdxs, int rowLength, AABB &errorAABB, std::vector<RegionAttributes> &regionAttributes);
+    void createConflictGraph(std::vector<TPRNode> &allTPRs, float eps);
+    void createAdjList();
 
     GradMeshMerger &merger;
     GmsAppState &appState;
@@ -33,4 +39,7 @@ private:
     int totalRegionsIdx = 0;
     std::vector<std::pair<int, int>> meshCornerFaces;
     float specialThreshold;
+
+    std::vector<std::vector<int>> adjList;
+    std::vector<TPRNode> allTPRs;
 };

@@ -64,8 +64,16 @@ enum class MergeProcess
 {
     PreprocessSingleMerge,
     PreprocessProductRegions,
+    MergeTPRs,
     ViewEdgeMap,
+    ViewConflictGraphStats,
     Merging
+};
+
+struct ConflictGraphStats
+{
+    int numOfNodes = 0;
+    float avgDegree = 0.0f;
 };
 
 class GradMesh;
@@ -99,13 +107,16 @@ public:
     EdgeErrorDisplay edgeErrorDisplay = EdgeErrorDisplay::Binary;
     float mergeError;
     int preprocessSingleMergeProgress{-1};
-    bool usePreprocessing = false;
 
     float preprocessProductRegionsProgress{-1.0f};
     std::vector<EdgeRegion> edgeRegions = {};
+    int selectedTPRIdx = 0;
+    float totalRegionsError = 0.005f;
+    int regionsMerged = 0;
+    ConflictGraphStats conflictGraphStats;
 
     // Metadata
-    std::string filename = "../meshes/global_duck.hemesh";
+    std::string filename = "../meshes/order5.hemesh";
     bool filenameChanged = false;
     bool loadSave = false;
 
@@ -193,6 +204,7 @@ public:
     void resetMerges()
     {
         numOfMerges = 0;
+        regionsMerged = 0;
         loadSave = filenameChanged = false;
         mergeStatus = NA;
         selectedEdgeId = -1;
@@ -229,5 +241,23 @@ public:
     bool maxProductRegionsDone()
     {
         return edgeRegions.empty();
+    }
+    std::optional<EdgeRegion> findSelectedRegion()
+    {
+        if (userSelectedId.patchId == -1)
+            return std::nullopt;
+
+        int faceIdx = patches[userSelectedId.patchId].getFaceIdx();
+        auto it = std::ranges::find_if(edgeRegions, [faceIdx](const auto &edgeRegion)
+                                       { return edgeRegion.faceIdx == faceIdx; });
+        if (it != edgeRegions.end())
+            return *it;
+
+        return std::nullopt;
+    }
+    void setPatchId(int newId)
+    {
+        userSelectedId.patchId = newId;
+        selectedTPRIdx = 0;
     }
 };

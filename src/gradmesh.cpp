@@ -149,7 +149,6 @@ void GradMesh::fixEdges()
         {
             // likely a bandaid fix for certain .hemesh files.. ideally i want to get rid of all those annoying parent edges completely, but for now this will do
             HalfEdge &parent = edges[edge.parentIdx];
-            // std::cout << "the child is " << halfEdgeIdx << "and the parent is " << edge.parentIdx << " who belongs to " << parent.faceIdx << "\n";
             parent.childIdxDegenerate = halfEdgeIdx;
             parent.faceIdx = -1;
             edge.originIdx = parent.originIdx;
@@ -366,11 +365,9 @@ std::vector<std::pair<int, int>> GradMesh::getGridEdgeIdxs(int rowIdx, int colId
     return gridEdgeIdxs;
 }
 
-void GradMesh::getProductRegionAABB(EdgeRegion &edgeRegion) const
+AABB GradMesh::getProductRegionAABB(const std::pair<int, int> &gridPair, const std::pair<int, int> &maxRegion) const
 {
     AABB aabb;
-    auto gridPair = edgeRegion.gridPair;
-    auto maxRegion = edgeRegion.maxRegion;
     aabb.expand(getFaceAABB(gridPair.first));
 
     int currIdx = gridPair.first;
@@ -391,7 +388,43 @@ void GradMesh::getProductRegionAABB(EdgeRegion &edgeRegion) const
         currIdx = edges[currIdx2Twin].nextIdx;
         currIdx2 = edges[currIdx].nextIdx;
     }
-    edgeRegion.maxRegionAABB = aabb;
+    return aabb;
+}
+
+std::vector<int> GradMesh::getIncidentFacesOfRegion(const Region &region) const
+{
+    auto gridPair = region[0];
+    auto maxRegion = region[1];
+    std::vector<int> faceIdxs;
+    faceIdxs.push_back(edges[gridPair.first].faceIdx);
+
+    int currIdx = gridPair.first;
+    int currIdx2 = gridPair.second;
+    for (int j = 0; j <= maxRegion.second; j++)
+    {
+        faceIdxs.push_back(edges[currIdx2].faceIdx);
+
+        for (int i = 0; i < maxRegion.first; i++)
+        {
+            currIdx = edges[edges[edges[currIdx].twinIdx].nextIdx].nextIdx;
+            faceIdxs.push_back(edges[currIdx].faceIdx);
+        }
+        const auto &currIdx2Twin = edges[currIdx2].twinIdx;
+        if (currIdx2Twin == -1)
+            break;
+
+        currIdx = edges[currIdx2Twin].nextIdx;
+        currIdx2 = edges[currIdx].nextIdx;
+    }
+    return faceIdxs;
+}
+
+bool GradMesh::regionsOverlap(const Region &region1, const Region &region2) const
+{
+    auto faces1 = getIncidentFacesOfRegion(region1);
+    auto faces2 = getIncidentFacesOfRegion(region2);
+    return std::ranges::any_of(faces1, [&faces2](int val)
+                               { return std::ranges::find(faces2, val) != faces2.end(); });
 }
 
 int GradMesh::maxDependencyChain() const

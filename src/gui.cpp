@@ -23,6 +23,7 @@ void GmsGui::render()
     showWindowMenuBar();
     renderComparisonWindow(appState);
     showEdgeErrorMap(appState);
+    showConflictGraphStats(appState);
 
     processKeyInput(gmsWindow.getGLFWwindow(), appState, fileDialog);
     ImGui::Render();
@@ -31,7 +32,7 @@ void GmsGui::render()
 
 void renderComparisonWindow(const GmsAppState &appState)
 {
-    if (showFinalImages && appState.numOfMerges > 0)
+    if (showFinalImages && (appState.numOfMerges > 0 || appState.regionsMerged > 0))
     {
         // Set position and size for the new window
         ImGui::SetNextWindowPos(ImVec2(10, 30), ImGuiCond_Once);     // Position of the new window
@@ -58,12 +59,32 @@ void renderComparisonWindow(const GmsAppState &appState)
     }
 }
 
+void showConflictGraphStats(GmsAppState &appState)
+{
+    if (appState.mergeProcess == MergeProcess::ViewConflictGraphStats)
+    {
+        ImGui::SetNextWindowPos(ImVec2(150, 145), ImGuiCond_Once);
+        ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_Once);
+        bool showConflictGraphStats = true;
+        if (ImGui::Begin("Conflict graph stats", &showConflictGraphStats))
+        {
+            ImGui::Text("Nodes: %d", appState.conflictGraphStats.numOfNodes);
+            ImGui::Text("Average degree: %d", appState.conflictGraphStats.avgDegree);
+            if (!showConflictGraphStats)
+            {
+                appState.mergeProcess = MergeProcess::Merging;
+            }
+        }
+        ImGui::End();
+    }
+}
+
 void showEdgeErrorMap(GmsAppState &appState)
 {
     if (appState.mergeProcess == MergeProcess::ViewEdgeMap)
     {
-        ImGui::SetNextWindowPos(ImVec2(150, 145), ImGuiCond_Once);  // Position of the new window
-        ImGui::SetNextWindowSize(ImVec2(750, 650), ImGuiCond_Once); // Size of the new window
+        ImGui::SetNextWindowPos(ImVec2(150, 145), ImGuiCond_Once);
+        ImGui::SetNextWindowSize(ImVec2(750, 650), ImGuiCond_Once);
 
         bool showErrorMap = true;
         if (ImGui::Begin("Merge edge error map", &showErrorMap))
@@ -217,46 +238,51 @@ void showHermiteMatrixTable(GmsAppState &appState)
         ImGui::Text("No patch selected");
         return;
     }
-    static int selected_index = -1; // Stores the index of the currently selected item
-
-    ImGui::Text("Hermite control matrix:");
-    auto &selectedPatch = appState.patches[patchId].getControlMatrix();
-    if (ImGui::BeginTable("HermiteTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+    ImGui::Spacing();
+    if (ImGui::TreeNode("Show Hermite control matrix"))
     {
-        for (int i = 0; i < 16; i++)
-        {
-            char label[32];
-            sprintf(label, "%.2f,%.2f", selectedPatch[i].coords.x, selectedPatch[i].coords.y);
-            ImGui::TableNextColumn();
+        static int selected_index = -1; // Stores the index of the currently selected item
 
-            bool is_selected = (selected_index == i);
-            ImGui::PushID(i);
-            if (ImGui::Selectable(label, is_selected))
-            {
-                selected_index = i;
-            }
-            ImGui::PopID();
-        }
-        ImGui::EndTable();
-    }
-
-    if (selected_index != -1)
-    {
         ImGui::Spacing();
-
-        glm::vec3 patchColor = selectedPatch[selected_index].color;
-        ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
-
-        ImGui::Text("Control point at");
-        ImGui::SameLine();
-        ImGui::Text(hermiteControlMatrixLabels[selected_index]);
-        ImGui::SetNextItemWidth(200.0f);
-        if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
+        auto &selectedPatch = appState.patches[patchId].getControlMatrix();
+        if (ImGui::BeginTable("HermiteTable", 4, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
         {
-            patchColor.x = patchPointColor.x;
-            patchColor.y = patchPointColor.y;
-            patchColor.z = patchPointColor.z;
+            for (int i = 0; i < 16; i++)
+            {
+                char label[32];
+                sprintf(label, "%.2f,%.2f", selectedPatch[i].coords.x, selectedPatch[i].coords.y);
+                ImGui::TableNextColumn();
+
+                bool is_selected = (selected_index == i);
+                ImGui::PushID(i);
+                if (ImGui::Selectable(label, is_selected))
+                {
+                    selected_index = i;
+                }
+                ImGui::PopID();
+            }
+            ImGui::EndTable();
         }
+
+        if (selected_index != -1)
+        {
+            ImGui::Spacing();
+
+            glm::vec3 patchColor = selectedPatch[selected_index].color;
+            ImVec4 patchPointColor = ImVec4(patchColor.x, patchColor.y, patchColor.z, 1.00f);
+
+            ImGui::Text("Control point at");
+            ImGui::SameLine();
+            ImGui::Text(hermiteControlMatrixLabels[selected_index]);
+            ImGui::SetNextItemWidth(200.0f);
+            if (ImGui::ColorEdit3("Color", (float *)&patchPointColor, ImGuiColorEditFlags_Float))
+            {
+                patchColor.x = patchPointColor.x;
+                patchColor.y = patchPointColor.y;
+                patchColor.z = patchPointColor.z;
+            }
+        }
+        ImGui::TreePop();
     }
     ImGui::Spacing();
 }
@@ -267,7 +293,10 @@ void showComponentSelect(GmsAppState &appState)
     if (ImGui::CollapsingHeader("Component Select", appState.componentSelectOptions.on ? ImGuiTreeNodeFlags_DefaultOpen : 0))
     {
         appState.componentSelectOptions.on = true;
+
         ImGui::Spacing();
+        ImGui::Text("Select Component:");
+        ImGui::SameLine();
         if (ImGui::RadioButton("Patch", appState.componentSelectOptions.type == ComponentSelectOptions::Type::Patch))
         {
             appState.resetUserSelectedCurve();
@@ -279,16 +308,71 @@ void showComponentSelect(GmsAppState &appState)
             appState.componentSelectOptions.type = ComponentSelectOptions::Type::Curve;
         }
         ImGui::Spacing();
+        showHermiteMatrixTable(appState);
+        ImGui::Separator();
 
         if (appState.isCompSelect(ComponentSelectOptions::Type::Patch))
         {
+            ImGui::Text("Patch Options:");
             ImGui::Checkbox("Show bounding box", &appState.componentSelectOptions.showPatchAABB);
-            ImGui::Checkbox("Show max product region", &appState.componentSelectOptions.showMaxProductRegion);
-            showHermiteMatrixTable(appState);
+            ImGui::Checkbox("Show tensor product region", &appState.componentSelectOptions.showMaxProductRegion);
+            auto selectedRegion = appState.findSelectedRegion();
+            if (selectedRegion)
+            {
+                auto regionAttributes = (*selectedRegion).allRegionAttributes;
+                if (!regionAttributes.empty())
+                {
+                    auto &counter = appState.selectedTPRIdx;
+                    if (counter >= regionAttributes.size())
+                        counter = 0;
+
+                    ImGui ::Spacing();
+                    if (ImGui::BeginTable("RegionTable", 3, ImGuiTableFlags_SizingFixedFit))
+                    {
+                        ImGui::TableNextColumn();
+                        ImGui::Text("Tensor product region %d/%d", counter + 1, regionAttributes.size());
+
+                        ImGui::TableNextColumn();
+                        if (counter > 0)
+                        {
+                            if (ImGui::ArrowButton("##left_arrow", ImGuiDir_Left))
+                                counter--;
+                        }
+                        else
+                        {
+                            ImGui::InvisibleButton("##left_placeholder", ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
+                        }
+
+                        ImGui::TableNextColumn();
+                        if (counter < regionAttributes.size() - 1)
+                        {
+                            if (ImGui::ArrowButton("##right_arrow", ImGuiDir_Right))
+                                counter++;
+                        }
+                        else
+                        {
+                            ImGui::InvisibleButton("##right_placeholder", ImVec2(ImGui::GetFrameHeight(), ImGui::GetFrameHeight()));
+                        }
+
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::Text("Number of patches: %d", regionAttributes[counter].getMaxPatches());
+                        ImGui::Text("Region error: %.4f", regionAttributes[counter].error);
+
+                        ImGui::EndTable();
+                    }
+                }
+                else
+                {
+                    ImGui::Text("Selected region cannot be merged.");
+                }
+            }
         }
 
+        // Spacing for better separation
         ImGui::Spacing();
     }
+
     else if (appState.componentSelectOptions.on)
     {
         appState.resetUserSelectedCurve();
@@ -328,6 +412,10 @@ void GmsGui::showWindowMenuBar()
                 appState.preprocessSingleMergeProgress = 0;
                 appState.mergeProcess = MergeProcess::PreprocessSingleMerge;
             }
+            if (ImGui::MenuItem("Preprocess tensor product regions", "", false, appState.preprocessProductRegionsProgress == -1))
+            {
+                appState.mergeProcess = MergeProcess::PreprocessProductRegions;
+            }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("View"))
@@ -335,6 +423,10 @@ void GmsGui::showWindowMenuBar()
             if (ImGui::MenuItem("View merge error map", "", false, appState.preprocessSingleMergeProgress == -2))
             {
                 appState.mergeProcess = MergeProcess::ViewEdgeMap;
+            }
+            if (ImGui::MenuItem("View conflict graph stats", "", false, appState.preprocessProductRegionsProgress == -2.0f))
+            {
+                appState.mergeProcess = MergeProcess::ViewConflictGraphStats;
             }
             ImGui::EndMenu();
         }
@@ -558,7 +650,7 @@ void showMergingMenu(GmsAppState &appState)
             {
                 ImGui::Spacing();
                 ImGui::Spacing();
-                ImGui::Text("Finding max product region...");
+                ImGui::Text("Finding tensor product regions...");
                 if (appState.edgeRegions.empty())
                     ImGui::ProgressBar(0, ImVec2(-1.0f, 0.0f));
                 else
@@ -567,9 +659,20 @@ void showMergingMenu(GmsAppState &appState)
             }
             else if (!appState.maxProductRegionsDone())
             {
-                if (ImGui::Button("Start max product region"))
+                ImGui::BeginDisabled(appState.preprocessProductRegionsProgress != -2.0f);
+                if (ImGui::Button("Start region merge"))
                 {
-                    appState.mergeProcess = MergeProcess::PreprocessProductRegions;
+                    appState.mergeProcess = MergeProcess::MergeTPRs;
+                }
+                ImGui::EndDisabled();
+
+                ImGui::SameLine();
+                ImGui::TextDisabled("(?)");
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("Before region merge, tensor product regions must be generated through the Edit menu.");
+                    ImGui::EndTooltip();
                 }
             }
             else
@@ -602,6 +705,10 @@ void showMergingMenu(GmsAppState &appState)
                 appState.mergeSettings.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
             }
 
+            if (edge_select_current == 4)
+            {
+                ImGui::DragFloat("Total regions error", &appState.totalRegionsError, 0.0001f, 0.0001f, 0.2f, "%.4f");
+            }
             ImGui::DragFloat("Error threshold", &appState.mergeSettings.errorThreshold, 0.0001f, 0.0001f, 0.1f, "%.4f");
             ImGui::DragInt("Pooling resolution", &appState.mergeSettings.poolRes, 1.0f, 100, 1000);
             ImGui::DragFloat("AABB padding", &appState.mergeSettings.aabbPadding, 0.01f, 0.0f, 0.1f);
@@ -683,6 +790,35 @@ void showMergingMenu(GmsAppState &appState)
                 ImGui::Text("Candidate edge merges");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::Text("%d", appState.candidateMerges.size());
+
+                ImGui::EndTable();
+            }
+            ImGui::Spacing();
+            if (ImGui::Button("Compare images"))
+            {
+                showFinalImages = true; // Set the flag to open the new window
+            }
+        }
+        else if (appState.regionsMerged > 0)
+        {
+            if (ImGui::BeginTable("MergeTable", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+            {
+                ImGui::TableSetupColumn("swagt", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+                ImGui::TableSetupColumn("swag2", ImGuiTableColumnFlags_WidthFixed, 170.0f);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Regions merged");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%d", appState.regionsMerged);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20)); // Red color
+                ImGui::Text("Merge error");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%.5f", appState.mergeError);
 
                 ImGui::EndTable();
             }
@@ -889,7 +1025,7 @@ void showGradMeshInfo(GmsAppState &appState)
             bool selectedFaceChanged = createListBox(items, selectedFaceIdx, item_highlighted_idx);
             if (selectedFaceChanged && selectedFaceIdx != appState.patches[appState.userSelectedId.patchId].getFaceIdx())
             {
-                appState.userSelectedId.patchId = getPatchFromFaceIdx(appState.patches, selectedFaceIdx);
+                appState.setPatchId(getPatchFromFaceIdx(appState.patches, selectedFaceIdx));
             }
             ImGui::SameLine();
             if (selectedFaceIdx != -1)
@@ -942,6 +1078,7 @@ void showGradMeshInfo(GmsAppState &appState)
             ImGui::NextColumn();
             if (selectedHalfEdgeIdx != -1)
                 setHalfEdgeInfo(halfedges, selectedHalfEdgeIdx, edgeIdxs);
+
             ImGui::Columns(1);
 
             ImGui::EndTabItem();

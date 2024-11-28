@@ -19,9 +19,10 @@
 #include "renderer.hpp"
 #include "types.hpp"
 
-inline const int POOLING_LENGTH{920};
+inline const int POOLING_LENGTH{400};
 inline const float AABB_PADDING{0.03f};
 inline const glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
+inline const float ERROR_THRESHOLD{0.0025f};
 
 enum class EdgeErrorDisplay
 {
@@ -54,7 +55,7 @@ public:
     struct MergeSettings
     {
         MetricMode metricMode = MetricMode::SSIM;
-        PixelRegion pixelRegion = PixelRegion::Local;
+        PixelRegion pixelRegion = PixelRegion::Global;
         AABB aabb{};
         std::pair<int, int> aabbRes;
         AABB globalAABB{};

@@ -26,7 +26,7 @@ void MergeMetrics::setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes)
         halfEdgeErrors[dhe.halfEdgeIdx1] = dhe.error;
         halfEdgeErrors[dhe.halfEdgeIdx2] = dhe.error;
     }
-    findMaximumRectangle(halfEdgeErrors);
+    // findMaximumRectangle(halfEdgeErrors);
 }
 
 void MergeMetrics::findMaximumRectangle(std::vector<float> &halfEdgeErrors)
