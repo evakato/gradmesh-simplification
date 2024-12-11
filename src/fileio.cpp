@@ -39,6 +39,44 @@ std::vector<std::string> splitString(const std::string &str)
     return tokens;
 }
 
+/*
+GradMesh readCgmFile(const std::string &filename)
+{
+    std::ifstream inf{filename};
+    if (!inf)
+    {
+        throw std::runtime_error("File could not be opened for reading\n");
+    }
+
+    std::string currLine{};
+    std::vector<std::string> tokens;
+
+    std::getline(inf, currLine);
+    std::getline(inf, currLine);
+    tokens = splitString(currLine);
+
+    if (tokens.size() < 4)
+    {
+        throw std::runtime_error("Expected 4 tokens but got less than 4\n");
+    }
+
+    int numPoints = std::stoi(tokens[1]);
+    int numEdges = std::stoi(tokens[2]);
+    int numPatches = std::stoi(tokens[3]);
+
+    for (size_t i = 0; i < numPoints; ++i)
+    {
+        if (std::getline(inf, currLine))
+        {
+            tokens = splitString(currLine);
+            gradMesh.addPoint(std::stof(tokens[1]), std::stof(tokens[2]), std::stoi(tokens[8]));
+        }
+    }
+
+    GradMesh gradMesh;
+}
+*/
+
 GradMesh readHemeshFile(const std::string &filename)
 {
     // std::cout << "Reading " << filename << std::endl;

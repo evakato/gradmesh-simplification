@@ -32,6 +32,8 @@ void Patch::populateCurveData(std::array<int, 4> halfEdgeIdxs)
 
 void Patch::setCurveSelected(int curveIdx, glm::vec3 color)
 {
+    if (curveIdx < 0 || curveIdx >= 4)
+        return;
     assert(curveIdx >= 0 && curveIdx < 4);
     curves[curveIdx].setColor(color);
 }

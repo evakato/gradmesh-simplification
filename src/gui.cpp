@@ -70,6 +70,7 @@ void showConflictGraphStats(GmsAppState &appState)
         {
             ImGui::Text("Nodes: %d", appState.conflictGraphStats.numOfNodes);
             ImGui::Text("Average degree: %d", appState.conflictGraphStats.avgDegree);
+            ImGui::Text("Number of vertex colors: %d", appState.conflictGraphStats.numColors);
             if (!showConflictGraphStats)
             {
                 appState.mergeProcess = MergeProcess::Merging;
@@ -845,6 +846,23 @@ void showMergingMenu(GmsAppState &appState)
 
                 ImGui::EndTable();
             }
+        }
+
+        ImGui::Spacing();
+        static bool showCandidateMerges = false;
+        static bool prevShowCandidateMerges = showCandidateMerges;
+        ImGui::Checkbox("Show candidate merges", &showCandidateMerges);
+        if (prevShowCandidateMerges != showCandidateMerges)
+        {
+            if (showCandidateMerges)
+            {
+                appState.showAllCandidateEdges(yellow);
+            }
+            else
+            {
+                appState.showAllCandidateEdges(black);
+            }
+            prevShowCandidateMerges = showCandidateMerges;
         }
 
         ImGui::Spacing();

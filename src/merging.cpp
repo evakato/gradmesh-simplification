@@ -73,6 +73,7 @@ MergeStatus GradMeshMerger::mergeAtSelectedEdge(int halfEdgeIdx)
     auto aabb = mesh.getAffectedMergeAABB(halfEdgeIdx);
     metrics.captureBeforeMerge(appState.originalGlPatches, aabb);
     GmsAppState::MergeStats stats = mergePatches(halfEdgeIdx);
+    writeLogFile(mesh, "debug2.txt");
 
     auto mergedPatches = mesh.generatePatches();
     if (!mergedPatches)

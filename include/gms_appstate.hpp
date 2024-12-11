@@ -74,6 +74,7 @@ struct ConflictGraphStats
 {
     int numOfNodes = 0;
     float avgDegree = 0.0f;
+    int numColors = 0;
 };
 
 class GradMesh;
@@ -217,6 +218,17 @@ public:
     {
         if (!userSelectedId.isNull())
             patches[userSelectedId.patchId].setCurveSelected(userSelectedId.curveId, col);
+    }
+    void showAllCandidateEdges(glm::vec3 col)
+    {
+        for (auto &dhe : candidateMerges)
+        {
+            auto &c1 = dhe.curveId1;
+            auto &c2 = dhe.curveId2;
+            patches[c1.patchId].setCurveSelected(c1.curveId, col);
+            patches[c2.patchId].setCurveSelected(c2.curveId, col);
+        }
+        patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
     }
     void updateCurves(std::vector<int> drawLastIdxs)
     {

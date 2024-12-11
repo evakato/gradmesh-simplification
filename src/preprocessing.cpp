@@ -94,9 +94,7 @@ int MergePreprocessor::mergeRowWithoutError(int currEdgeIdx, int maxLength)
     {
         auto &currEdge = mesh.edges[currEdgeIdx];
         if (!mesh.validMergeEdge(currEdge))
-            break;
-
-        merger.mergePatches(currEdgeIdx);
+            merger.mergePatches(currEdgeIdx);
     }
     return length;
 }
@@ -187,6 +185,7 @@ void MergePreprocessor::preprocessProductRegions()
     if (productRegionIdx >= edgeRegions.size())
     {
         createAdjList();
+        vertexColoring();
         appState.mergeProcess = MergeProcess::Merging;
         appState.preprocessProductRegionsProgress = -2.0f;
         productRegionIdx = 0;
@@ -201,6 +200,10 @@ void MergePreprocessor::createAdjList()
     {
         std::ranges::copy(sortedRegion.generateAllTPRs(), std::back_inserter(allTPRs));
     }
+
+    // resort by maxPatches
+    std::sort(allTPRs.begin(), allTPRs.end(), [](const TPRNode &a, const TPRNode &b)
+              { return a.getMaxPatches() > b.getMaxPatches(); });
 
     adjList.resize(allTPRs.size());
     for (int i = 0; i < allTPRs.size(); i++)
@@ -231,7 +234,8 @@ void MergePreprocessor::createAdjList()
 void MergePreprocessor::mergeTPRs()
 {
     appState.mesh = readHemeshFile("mesh_saves/save_0.hemesh");
-    createConflictGraph(allTPRs, appState.totalRegionsError);
+    // createConflictGraph(allTPRs, appState.totalRegionsError);
+    findIndependentSetWithColoring(appState.totalRegionsError);
     appState.updateMeshRender();
     writeHemeshFile("mesh_saves/save_" + std::to_string(++productRegionIteration) + ".hemesh", mesh);
 
@@ -240,7 +244,7 @@ void MergePreprocessor::mergeTPRs()
     appState.mergeProcess = MergeProcess::Merging;
 }
 
-void MergePreprocessor::createConflictGraph(std::vector<TPRNode> &allTPRs, float eps)
+void MergePreprocessor::createConflictGraph(float eps)
 {
     auto cmp = [](const TPRNode &a, const TPRNode &b)
     { return a < b; };
@@ -279,6 +283,108 @@ void MergePreprocessor::createConflictGraph(std::vector<TPRNode> &allTPRs, float
         mergeEdgeRegion({tpr.gridPair, tpr.maxRegion});
     }
     appState.regionsMerged = independentSet.size();
+}
+
+void MergePreprocessor::vertexColoring()
+{
+    int n = allTPRs.size();
+    vertexColors.resize(n);
+    std::fill(vertexColors.begin(), vertexColors.end(), -1);
+    vertexColors[0] = 0;
+
+    for (int u = 1; u < n; ++u)
+    {
+        std::set<int> usedColors;
+
+        for (int v : adjList[u])
+        {
+            if (vertexColors[v] != -1)
+            {
+                usedColors.insert(vertexColors[v]);
+            }
+        }
+
+        int assignedColor = 0;
+        while (usedColors.count(assignedColor))
+        {
+            ++assignedColor;
+        }
+        vertexColors[u] = assignedColor;
+    }
+    std::set<int> uniqueColors(vertexColors.begin(), vertexColors.end());
+    appState.conflictGraphStats.numColors = uniqueColors.size();
+}
+
+void MergePreprocessor::findIndependentSetWithColoring(float eps)
+{
+    const int precision = 10000;
+    std::unordered_map<int, std::vector<int>> colorClasses;
+    for (size_t i = 0; i < vertexColors.size(); ++i)
+    {
+        colorClasses[vertexColors[i]].push_back(i);
+    }
+
+    std::vector<int> bestIS;
+    int mostPatches = 0;
+    int bestSize = std::numeric_limits<int>::max();
+    int scaledThreshold = static_cast<int>(std::round(eps * precision));
+
+    for (const auto &[color, vertices] : colorClasses)
+    {
+        size_t n = vertices.size();
+        std::vector<int> dp(scaledThreshold + 1, 0);
+        std::vector<std::vector<int>> selected(n, std::vector<int>(scaledThreshold + 1, 0));
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            int vertexIndex = vertices[i];
+            int numQuads = allTPRs[vertexIndex].getMaxPatches();
+            float error = allTPRs[vertexIndex].error;
+
+            int scaledError = static_cast<int>(std::round(error * precision));
+
+            for (int j = scaledThreshold; j >= scaledError; --j)
+            {
+                if (dp[j - scaledError] + numQuads > dp[j])
+                {
+                    dp[j] = dp[j - scaledError] + numQuads;
+                    selected[i][j] = 1;
+                }
+            }
+        }
+
+        int maxQuads = dp[scaledThreshold];
+
+        std::vector<int> selectedVertices;
+        int remainingError = scaledThreshold;
+        for (int i = n - 1; i >= 0; --i)
+        {
+            int currError = static_cast<int>(std::round(allTPRs[vertices[i]].error * precision));
+            if (selected[i][remainingError] && remainingError >= currError)
+            {
+                selectedVertices.push_back(vertices[i]);
+                remainingError -= currError;
+            }
+        }
+
+        if (maxQuads > mostPatches || (maxQuads == mostPatches && selectedVertices.size() < bestSize))
+        {
+            mostPatches = maxQuads;
+            bestSize = selectedVertices.size();
+            bestIS = selectedVertices;
+        }
+    }
+
+    float sum = 0;
+    for (int i : bestIS)
+    {
+        auto &tpr = allTPRs[i];
+        sum += tpr.error;
+        std::cout << "Error: " << tpr.error << "\n";
+        mergeEdgeRegion({tpr.gridPair, tpr.maxRegion});
+    }
+    std::cout << "sum: " << sum << std::endl;
+    appState.regionsMerged = bestIS.size();
 }
 
 void MergePreprocessor::mergeEdgeRegion(const Region &region)

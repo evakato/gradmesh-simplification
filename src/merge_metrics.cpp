@@ -158,12 +158,14 @@ void MergeMetrics::captureBeforeMerge(const std::vector<GLfloat> &glPatches, AAB
         return;
 
     aabb.addPadding(mergeSettings.aabbPadding);
-    // aabb.ensureSize(MIN_AABB_SIZE);
-    float wRatio = aabb.width() / mergeSettings.globalPaddedAABB.width();
-    float lRatio = aabb.length() / mergeSettings.globalPaddedAABB.length();
+    aabb.ensureSize(MIN_AABB_SIZE);
     mergeSettings.aabb = aabb;
     // aabb.resizeToSquare();
-    mergeSettings.aabbRes = {mergeSettings.globalAABBRes.first * wRatio, mergeSettings.globalAABBRes.second * lRatio};
+
+    // float wRatio = aabb.width() / mergeSettings.globalPaddedAABB.width();
+    // float lRatio = aabb.length() / mergeSettings.globalPaddedAABB.length();
+    // mergeSettings.aabbRes = {mergeSettings.globalAABBRes.first * wRatio, mergeSettings.globalAABBRes.second * lRatio};
+    mergeSettings.aabbRes = mergeSettings.globalAABBRes;
     FBtoImgParams params = {
         .texture = patchRenderResources.unmergedTexture,
         .fbo = unmergedFbo,
@@ -218,6 +220,35 @@ float MergeMetrics::evaluateMetric(const char *compImgPath, const char *compImgP
     return -1;
 }
 
+void saveErrorMapAsPNG(float *errorMap, int width, int height, const char *filename)
+{
+    // Find the min and max values in the error map to normalize the data
+    float minError = FLT_MAX, maxError = -FLT_MAX;
+    for (int i = 0; i < width * height; ++i)
+    {
+        if (errorMap[i] < minError)
+            minError = errorMap[i];
+        if (errorMap[i] > maxError)
+            maxError = errorMap[i];
+    }
+
+    // Normalize the error map values to [0, 255] range
+    unsigned char *imageData = new unsigned char[width * height]; // Single channel image (grayscale)
+    for (int i = 0; i < width * height; ++i)
+    {
+        float normalizedValue = (errorMap[i] - minError) / (maxError - minError);
+        imageData[i] = static_cast<unsigned char>(normalizedValue * 255.0f);
+    }
+
+    // Save the image using stb_image_write
+    if (!stbi_write_png(filename, width, height, 1, imageData, width))
+    {
+        std::cerr << "Error writing PNG file." << std::endl;
+    }
+
+    delete[] imageData; // Clean up the allocated image data
+}
+
 float evaluateFLIP(const char *img1Path, const char *img2Path)
 {
 
@@ -247,6 +278,7 @@ float evaluateFLIP(const char *img1Path, const char *img2Path)
     float *errorMapFLIPOutput = new float[img1Width * img1Height];
 
     FLIP::evaluate(img1, img2, img1Width, img1Height, false, parameters, false, true, meanFLIPError, &errorMapFLIPOutput);
+    saveErrorMapAsPNG(errorMapFLIPOutput, img1Width, img1Height, "img/errormap.png");
 
     delete[] errorMapFLIPOutput; // If FLIP doesn't manage this internally
     stbi_image_free(img1);

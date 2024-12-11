@@ -21,6 +21,7 @@ class GradMesh;
 std::string extractFileName(const std::string &filepath);
 std::vector<std::string> splitString(const std::string &str);
 GradMesh readHemeshFile(const std::string &filename);
+// GradMesh readCgmFile(const std::string &filename);
 void writeHemeshFile(const std::string &filename, const GradMesh &mesh);
 void writeLogFile(const GradMesh &mesh, const std::string &filename);
 

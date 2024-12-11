@@ -26,8 +26,11 @@ private:
     void mergeEdgeRegion(const Region &region);
     std::vector<EdgeRegion> getEdgeRegions(const std::vector<std::pair<int, int>> &startPairs);
     void findAllRegions(const std::vector<int> &rowIdxs, int rowLength, AABB &errorAABB, std::vector<RegionAttributes> &regionAttributes);
-    void createConflictGraph(std::vector<TPRNode> &allTPRs, float eps);
     void createAdjList();
+    void vertexColoring();
+
+    void createConflictGraph(float eps);
+    void findIndependentSetWithColoring(float eps);
 
     GradMeshMerger &merger;
     GmsAppState &appState;
@@ -42,4 +45,5 @@ private:
 
     std::vector<std::vector<int>> adjList;
     std::vector<TPRNode> allTPRs;
+    std::vector<int> vertexColors;
 };

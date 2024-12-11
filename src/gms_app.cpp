@@ -46,6 +46,7 @@ void GmsApp::run()
             break;
         case MergeProcess::MergeTPRs:
             preprocessor.mergeTPRs();
+            merger.startupMesh();
             break;
         case MergeProcess::ViewEdgeMap:
             merger.metrics.generateEdgeErrorMap(appState.edgeErrorDisplay);
