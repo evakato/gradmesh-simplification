@@ -77,6 +77,7 @@ void compButton(int &item_selected_idx, const auto &idxs, const int findIdx, std
 void renderComparisonWindow(const GmsAppState &appState);
 void showEdgeErrorMap(GmsAppState &appState);
 void showConflictGraphStats(GmsAppState &appState);
+void showDifferentMergingMethods(GmsAppState &appState);
 
 constexpr std::array<const char *, 16> hermiteControlMatrixLabels{
     "S(0,0)",
@@ -138,7 +139,7 @@ constexpr const char *toString(int cornerFlags)
 
 constexpr const char *renderModeStrings[] = {"Patch", "Curve"};
 constexpr const char *metric_mode_items[] = {"SSIM", "FLIP"};
-constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid", "Max Region"};
+constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid", "Max Region", "Greedy Quad-Error"};
 static int edge_select_current = 4;
 
 inline constexpr int GUI_IMAGE_SIZE{150};

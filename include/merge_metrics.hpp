@@ -22,7 +22,7 @@
 inline const int POOLING_LENGTH{400};
 inline const float AABB_PADDING{0.03f};
 inline const glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
-inline const float ERROR_THRESHOLD{0.0025f};
+inline const float ERROR_THRESHOLD{0.0075f};
 
 enum class EdgeErrorDisplay
 {

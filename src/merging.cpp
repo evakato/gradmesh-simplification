@@ -393,8 +393,10 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
     face1R.handleIdxs = face2R.handleIdxs;
     setNextRightL(face2R, face1BIdx);
 
-    int topTwinIdx = addTopT ? addTJunction(*topRightEdge, *topLeftEdge, newTopEdgeIdx, 1.0f - topEdgeT) : -1;
-    int bottomTwinIdx = addBottomT ? addTJunction(*bottomLeftEdge, *bottomRightEdge, newBottomEdgeIdx, bottomEdgeT) : -1;
+    if (addTopT)
+        addTJunction(*topRightEdge, *topLeftEdge, newTopEdgeIdx, 1.0f - topEdgeT);
+    if (addBottomT)
+        addTJunction(*bottomLeftEdge, *bottomRightEdge, newBottomEdgeIdx, bottomEdgeT);
 
     copyEdgeTwin(face1RIdx, face2RIdx);
     removeFace(face2L.faceIdx);
@@ -477,7 +479,7 @@ void GradMeshMerger::scaleUpChildrenByT(HalfEdge &parentEdge, float t)
 }
 
 // I always forget how I wrote this function, bar1 and bar2 are the literal bar1 and bar2 of the new T-junction. That is the order.
-float GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t)
+bool GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t)
 {
     if (!edge1.hasTwin() || !edge2.hasTwin())
         return 0;
@@ -494,69 +496,64 @@ float GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfP
     if (mesh.edges[bar2Idx].isBar())
         bar2Idx = mesh.edges[bar2Idx].parentIdx; // same here
 
-    auto &bar1 = mesh.edges[bar1Idx];
-    auto &bar2 = mesh.edges[bar2Idx];
+    int stemIdx = mesh.edges[bar1Idx].nextIdx;
+    if (mesh.edges[mesh.edges[bar1Idx].nextIdx].isBar())
+        stemIdx = mesh.edges[bar1Idx].nextIdx = mesh.edges[bar1Idx].parentIdx;
 
-    int stemIdx = bar1.nextIdx;
-    if (mesh.edges[stemIdx].isBar())
-        stemIdx = mesh.edges[bar1.nextIdx].parentIdx;
-
-    if (bar2.isParent() && bar1.isParent())
+    if (mesh.edges[bar2Idx].isParent() && mesh.edges[bar1Idx].isParent())
     {
         // strategy: remove the parent of bar2 and update bar1
         parentIdx = bar1Idx;
-        scaleDownChildrenByT(bar1, t);
-        scaleUpChildrenByT(bar2, t);
-        bar1.addChildrenIdxs(bar2.childrenIdxs);
-        setChildrenNewParent(bar2, parentIdx);
-        bar2.disable();
+        scaleDownChildrenByT(mesh.edges[bar1Idx], t);
+        scaleUpChildrenByT(mesh.edges[bar2Idx], t);
+        mesh.edges[bar1Idx].addChildrenIdxs(mesh.edges[bar2Idx].childrenIdxs);
+        setChildrenNewParent(mesh.edges[bar2Idx], parentIdx);
+        mesh.edges[bar2Idx].disable();
     }
-    else if (bar1.isParent())
+    else if (mesh.edges[bar1Idx].isParent())
     {
         parentIdx = bar1Idx;
-        scaleDownChildrenByT(bar1, t);
-        bar1.addChildrenIdxs({bar2Idx});
-        bar2.createBar(parentIdx, {t, 1});
+        scaleDownChildrenByT(mesh.edges[bar1Idx], t);
+        mesh.edges[bar1Idx].addChildrenIdxs({bar2Idx});
+        mesh.edges[bar2Idx].createBar(parentIdx, {t, 1});
     }
-    else if (bar2.isParent())
+    else if (mesh.edges[bar2Idx].isParent())
     {
         parentIdx = bar2Idx;
-        scaleUpChildrenByT(bar2, t);
-        bar2.addChildrenIdxs({bar1Idx});
+        scaleUpChildrenByT(mesh.edges[bar2Idx], t);
+        mesh.edges[bar2Idx].addChildrenIdxs({bar1Idx});
     }
     else
     {
         parentIdx = mesh.addEdge(HalfEdge{});
         mesh.edges[parentIdx].childrenIdxs = {bar1Idx, bar2Idx};
-        bar2.createBar(parentIdx, {t, 1});
+        mesh.edges[bar2Idx].createBar(parentIdx, {t, 1});
     }
 
-    if (!bar1.isParent())
+    if (!mesh.edges[bar1Idx].isParent())
     {
-        if (bar1.isStem())
+        if (mesh.edges[bar1Idx].isStem())
         {
             // 11 --> 40 -- > 23
             transferChildTo(bar1Idx, parentIdx);
-            mesh.edges[parentIdx].handleIdxs = bar1.handleIdxs;
+            mesh.edges[parentIdx].handleIdxs = mesh.edges[bar1Idx].handleIdxs;
         }
-        mesh.edges[parentIdx].copyGeometricData(bar1);
-        bar1.createBar(parentIdx, {0, t});
+        mesh.edges[parentIdx].copyGeometricData(mesh.edges[bar1Idx]);
+        mesh.edges[bar1Idx].createBar(parentIdx, {0, t});
     }
 
     mesh.edges[stemIdx].createStem(parentIdx, {t, t});
-    auto &parent = mesh.edges[parentIdx];
-    parent.handleIdxs = {twinHandles.second, twinHandles.first};
-    parent.twinIdx = twinOfParentIdx;
 
-    parent.nextIdx = bar2.nextIdx;
-
-    parent.addChildrenIdxs({stemIdx});
-    setBarChildrensTwin(parent, twinOfParentIdx);
+    mesh.edges[parentIdx].handleIdxs = {twinHandles.second, twinHandles.first};
+    mesh.edges[parentIdx].twinIdx = twinOfParentIdx;
+    mesh.edges[parentIdx].nextIdx = mesh.edges[bar2Idx].nextIdx;
+    mesh.edges[parentIdx].addChildrenIdxs({stemIdx});
+    setBarChildrensTwin(mesh.edges[parentIdx], twinOfParentIdx);
 
     // mesh.edges[twinOfParentIdx].twinIdx = parentIdx;
     setParentChildrenTwin(mesh.edges[twinOfParentIdx], parentIdx);
 
-    return t;
+    return 1;
 }
 
 void GradMeshMerger::setChildrenNewParent(HalfEdge &parentEdge, int newParentIdx)

@@ -31,7 +31,7 @@ private:
     MergeStatus mergeAtSelectedEdge(int halfEdgeIdx);
 
     float splittingFactor(HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign) const;
-    float addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
+    bool addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfParentIdx, float t);
 
     void leftTUpdateInterval(int parentIdx, float totalCurve);
     void rightTUpdateInterval(int parentIdx, float reparam1, float reparam2);

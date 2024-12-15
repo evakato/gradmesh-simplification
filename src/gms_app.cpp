@@ -44,9 +44,16 @@ void GmsApp::run()
         case MergeProcess::PreprocessProductRegions:
             preprocessor.preprocessProductRegions();
             break;
+        case MergeProcess::LoadProductRegionsPreprocessing:
+            preprocessor.loadProductRegionsPreprocessing();
+            break;
         case MergeProcess::MergeTPRs:
             preprocessor.mergeTPRs();
-            merger.startupMesh();
+            // merger.startupMesh();
+            break;
+        case MergeProcess::MergeGreedyQuadError:
+            preprocessor.mergeGreedyQuadError();
+            // merger.startupMesh();
             break;
         case MergeProcess::ViewEdgeMap:
             merger.metrics.generateEdgeErrorMap(appState.edgeErrorDisplay);

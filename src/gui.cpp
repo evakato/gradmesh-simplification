@@ -3,6 +3,7 @@
 ImFont *iconFont;
 ImFont *mainFont;
 static bool showFinalImages = false;
+static int selectedHalfEdgeIdx = -1;
 
 GmsGui::GmsGui(GmsWindow &window, GmsAppState &appState) : gmsWindow(window), appState(appState)
 {
@@ -63,13 +64,15 @@ void showConflictGraphStats(GmsAppState &appState)
 {
     if (appState.mergeProcess == MergeProcess::ViewConflictGraphStats)
     {
-        ImGui::SetNextWindowPos(ImVec2(150, 145), ImGuiCond_Once);
-        ImGui::SetNextWindowSize(ImVec2(200, 200), ImGuiCond_Once);
+        ImGui::SetNextWindowPos(ImVec2(80, 95), ImGuiCond_Once);
+        ImGui::SetNextWindowSize(ImVec2(250, 165), ImGuiCond_Once);
         bool showConflictGraphStats = true;
         if (ImGui::Begin("Conflict graph stats", &showConflictGraphStats))
         {
             ImGui::Text("Nodes: %d", appState.conflictGraphStats.numOfNodes);
-            ImGui::Text("Average degree: %d", appState.conflictGraphStats.avgDegree);
+            ImGui::Text("Average degree: %.4f", appState.conflictGraphStats.avgDegree);
+            ImGui::Text("Average quads: %.4f", appState.conflictGraphStats.avgQuads);
+            ImGui::Text("Average error: %.4f", appState.conflictGraphStats.avgError);
             ImGui::Text("Number of vertex colors: %d", appState.conflictGraphStats.numColors);
             if (!showConflictGraphStats)
             {
@@ -396,13 +399,17 @@ void GmsGui::showWindowMenuBar()
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Open", "Ctrl+O"))
+            if (ImGui::MenuItem("Open", "O"))
             {
                 fileDialog.Open();
             }
-            if (ImGui::MenuItem("Save", "Ctrl+S"))
+            if (ImGui::MenuItem("Save", "S"))
             {
                 saveImage((std::string{IMAGE_DIR} + "/" + extractFileName(appState.filename) + ".png").c_str(), GL_LENGTH, GL_LENGTH);
+            }
+            if (ImGui::MenuItem("Load preprocessing data"))
+            {
+                appState.mergeProcess = MergeProcess::LoadProductRegionsPreprocessing;
             }
             ImGui::EndMenu();
         }
@@ -508,6 +515,166 @@ void processKeyInput(GLFWwindow *window, GmsAppState &appState, ImGui::FileBrows
     }
 }
 
+void showDifferentMergingMethods(GmsAppState &appState)
+{
+    if (appState.preprocessProductRegionsProgress > -1)
+    {
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Text("Finding tensor product regions...");
+        if (appState.edgeRegions.empty())
+            ImGui::ProgressBar(0, ImVec2(-1.0f, 0.0f));
+        else
+            ImGui::ProgressBar(appState.preprocessProductRegionsProgress, ImVec2(-1.0f, 0.0f));
+        ImGui::Spacing();
+        return;
+    }
+    switch (edge_select_current)
+    {
+    case MANUAL:
+    {
+
+        if (appState.selectedEdgeId == -1 && appState.candidateMerges.size() > 0)
+        {
+            appState.selectedEdgeId = 0;
+        }
+
+        ImGui::SetNextItemWidth(80.0f);
+        if (ImGui::InputInt(" ", &appState.selectedEdgeId))
+        {
+            appState.selectedEdgeId = std::max(0, std::min<int>(appState.selectedEdgeId, static_cast<int>(appState.candidateMerges.size()) - 1));
+        }
+
+        ImGui::SameLine();
+        if (appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Merge edge"))
+            {
+                appState.mergeMode = MANUAL;
+            }
+        }
+        else
+        {
+            ImGui::Text("No merges possible");
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("(?)");
+        if (ImGui::IsItemHovered())
+        {
+            ImGui::BeginTooltip();
+            ImGui::Text("Click on an edge to select it. Press M to perform merge with selected edge.");
+            ImGui::EndTooltip();
+        }
+    }
+    break;
+    case RANDOM:
+    {
+        if (appState.mergeMode == RANDOM && appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Stop selection"))
+                appState.mergeMode = NONE;
+        }
+        else if (appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Start selection"))
+            {
+                appState.mergeStatus = NA;
+                appState.mergeMode = RANDOM;
+            }
+        }
+        else
+        {
+            ImGui::Text("No merges possible");
+        }
+    }
+    break;
+    case GRID:
+        if (appState.mergeMode == GRID && appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Stop selection"))
+                appState.mergeMode = NONE;
+        }
+        else if (appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Start selection"))
+            {
+                appState.mergeMode = GRID;
+            }
+        }
+        else
+        {
+            ImGui::Text("No merges possible");
+        }
+        break;
+    case DUAL_GRID:
+        if (appState.mergeMode == DUAL_GRID && appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Stop selection"))
+                appState.mergeMode = NONE;
+        }
+        else if (appState.candidateMerges.size() > 0)
+        {
+            if (ImGui::Button("Start selection"))
+            {
+                appState.mergeMode = DUAL_GRID;
+            }
+        }
+        else
+        {
+            ImGui::Text("No merges possible");
+        }
+        break;
+    case 4:
+        if (!appState.maxProductRegionsDone())
+        {
+            ImGui::BeginDisabled(appState.preprocessProductRegionsProgress != -2.0f);
+            if (ImGui::Button("Start region merge"))
+            {
+                appState.mergeProcess = MergeProcess::MergeTPRs;
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                ImGui::Text("Before merging process, tensor product regions must be generated through the Edit menu.");
+                ImGui::EndTooltip();
+            }
+        }
+        else
+        {
+            ImGui::Text("No merges possible");
+        }
+        break;
+    case 5:
+        if (!appState.maxProductRegionsDone())
+        {
+            ImGui::BeginDisabled(appState.preprocessProductRegionsProgress != -2.0f);
+            if (ImGui::Button("Start greedy merge"))
+            {
+                appState.mergeProcess = MergeProcess::MergeGreedyQuadError;
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            ImGui::TextDisabled("(?)");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::BeginTooltip();
+                ImGui::Text("Before merging process, tensor product regions must be generated through the Edit menu.");
+                ImGui::EndTooltip();
+            }
+        }
+        else
+        {
+            ImGui::Text("No merges possible");
+        }
+        break;
+    }
+}
+
 void showMergingMenu(GmsAppState &appState)
 {
     if (ImGui::CollapsingHeader("Merging", ImGuiTreeNodeFlags_DefaultOpen))
@@ -523,14 +690,14 @@ void showMergingMenu(GmsAppState &appState)
         ImGui::Spacing();
 
         ImGui::Text("Edge select mode");
-        ImGui::SetNextItemWidth(130.0f);
+        ImGui::SetNextItemWidth(155.0f);
         // ImGui::Combo("##edgeselect", &edge_select_current, edge_select_items, IM_ARRAYSIZE(edge_select_items));
 
         if (ImGui::BeginCombo("##edgeselect", edge_select_items[edge_select_current]))
         { // Open the dropdown
             for (int i = 0; i < IM_ARRAYSIZE(edge_select_items); ++i)
             {
-                if (i == 4)
+                if (i == 4 || i == 1)
                 { // Insert separator before the 5th item
                     ImGui::Spacing();
                     ImGui::Separator();
@@ -551,137 +718,8 @@ void showMergingMenu(GmsAppState &appState)
         {
             appState.componentSelectOptions.on = false;
         }
-        switch (edge_select_current)
-        {
-        case MANUAL:
-        {
 
-            if (appState.selectedEdgeId == -1 && appState.candidateMerges.size() > 0)
-            {
-                appState.selectedEdgeId = 0;
-            }
-
-            ImGui::SetNextItemWidth(80.0f);
-            if (ImGui::InputInt(" ", &appState.selectedEdgeId))
-            {
-                appState.selectedEdgeId = std::max(0, std::min<int>(appState.selectedEdgeId, static_cast<int>(appState.candidateMerges.size()) - 1));
-            }
-
-            ImGui::SameLine();
-            if (appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Merge edge"))
-                {
-                    appState.mergeMode = MANUAL;
-                }
-            }
-            else
-            {
-                ImGui::Text("No merges possible");
-            }
-            ImGui::SameLine();
-            ImGui::TextDisabled("(?)");
-            if (ImGui::IsItemHovered())
-            {
-                ImGui::BeginTooltip();
-                ImGui::Text("Click on an edge to select it. Press M to perform merge with selected edge.");
-                ImGui::EndTooltip();
-            }
-        }
-        break;
-        case RANDOM:
-        {
-            if (appState.mergeMode == RANDOM && appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Stop random selection"))
-                    appState.mergeMode = NONE;
-            }
-            else if (appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Start random selection"))
-                {
-                    appState.mergeStatus = NA;
-                    appState.mergeMode = RANDOM;
-                }
-            }
-            else
-            {
-                ImGui::Text("No merges possible");
-            }
-        }
-        break;
-        case GRID:
-            if (appState.mergeMode == GRID && appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Stop grid selection"))
-                    appState.mergeMode = NONE;
-            }
-            else if (appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Start grid selection"))
-                {
-                    appState.mergeMode = GRID;
-                }
-            }
-            else
-            {
-                ImGui::Text("No merges possible");
-            }
-            break;
-        case DUAL_GRID:
-            if (appState.mergeMode == DUAL_GRID && appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Stop dual grid selection"))
-                    appState.mergeMode = NONE;
-            }
-            else if (appState.candidateMerges.size() > 0)
-            {
-                if (ImGui::Button("Start dual grid selection"))
-                {
-                    appState.mergeMode = DUAL_GRID;
-                }
-            }
-            else
-            {
-                ImGui::Text("No merges possible");
-            }
-            break;
-        case 4:
-            if (appState.preprocessProductRegionsProgress > -1)
-            {
-                ImGui::Spacing();
-                ImGui::Spacing();
-                ImGui::Text("Finding tensor product regions...");
-                if (appState.edgeRegions.empty())
-                    ImGui::ProgressBar(0, ImVec2(-1.0f, 0.0f));
-                else
-                    ImGui::ProgressBar(appState.preprocessProductRegionsProgress, ImVec2(-1.0f, 0.0f));
-                ImGui::Spacing();
-            }
-            else if (!appState.maxProductRegionsDone())
-            {
-                ImGui::BeginDisabled(appState.preprocessProductRegionsProgress != -2.0f);
-                if (ImGui::Button("Start region merge"))
-                {
-                    appState.mergeProcess = MergeProcess::MergeTPRs;
-                }
-                ImGui::EndDisabled();
-
-                ImGui::SameLine();
-                ImGui::TextDisabled("(?)");
-                if (ImGui::IsItemHovered())
-                {
-                    ImGui::BeginTooltip();
-                    ImGui::Text("Before region merge, tensor product regions must be generated through the Edit menu.");
-                    ImGui::EndTooltip();
-                }
-            }
-            else
-            {
-                ImGui::Text("No merges possible");
-            }
-            break;
-        }
+        showDifferentMergingMethods(appState);
 
         ImGui::Spacing();
         ImGui::Separator();
@@ -706,9 +744,17 @@ void showMergingMenu(GmsAppState &appState)
                 appState.mergeSettings.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
             }
 
-            if (edge_select_current == 4)
+            if (edge_select_current == 5)
             {
-                ImGui::DragFloat("Total regions error", &appState.totalRegionsError, 0.0001f, 0.0001f, 0.2f, "%.4f");
+                ImGui::PushItemWidth(INPUT_WIDTH / 2);
+                ImGui::DragFloat("Quads", &appState.quadErrorWeight, 0.01f, 0.0f, 1.0f, "%.2f");
+                ImGui::SameLine();
+                float complementWeight = 1.0f - appState.quadErrorWeight; // Calculate complement
+                if (ImGui::DragFloat("Error Weight", &complementWeight, 0.01f, 0.0f, 1.0f, "%.2f"))
+                {
+                    appState.quadErrorWeight = 1.0f - complementWeight;
+                }
+                ImGui::PopItemWidth();
             }
             ImGui::DragFloat("Error threshold", &appState.mergeSettings.errorThreshold, 0.0001f, 0.0001f, 0.1f, "%.4f");
             ImGui::DragInt("Pooling resolution", &appState.mergeSettings.poolRes, 1.0f, 100, 1000);
@@ -1062,7 +1108,6 @@ void showGradMeshInfo(GmsAppState &appState)
             createListItems(edgeIdxs, dynamicItems, items, "e");
 
             int item_highlighted_idx = -1; // Here we store our highlighted data as an index.
-            int selectedHalfEdgeIdx = -1;
             auto userId = appState.userSelectedId;
             if (!userId.isNull())
             {
@@ -1146,8 +1191,8 @@ void pushColor(ButtonColor color)
 
 void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs)
 {
-    if (item_selected_idx >= idxs.size())
-        item_selected_idx = idxs.size() - 1;
+    // if (item_selected_idx >= idxs.size())
+    // item_selected_idx = idxs.size() - 1;
     auto &selectedEdge = components[idxs[item_selected_idx]];
 
     ImGui::Spacing();

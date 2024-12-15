@@ -11,7 +11,6 @@ include_directories(libs include libs/stb libs/imgui libs/imgui/backends libs/ss
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)
 
-
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(
@@ -32,6 +31,7 @@ add_executable(
     libs/ssim/src/ssim_fma.cpp
 )
 
+link_directories(/usr/lib64)
 target_link_libraries(gms glfw OpenGL::GL)
 
 # Enable OpenMP support

@@ -11,13 +11,15 @@
 class MergePreprocessor
 {
 public:
-    MergePreprocessor(GradMeshMerger &merger, GmsAppState &appState) : merger(merger), appState(appState), mesh(appState.mesh)
+    MergePreprocessor(GradMeshMerger &merger, GmsAppState &appState) : merger(merger), appState(appState), mesh(appState.mesh), edgeRegions(appState.edgeRegions)
     {
     }
     void preprocessSingleMergeError();
     void preprocessProductRegions();
+    void loadProductRegionsPreprocessing();
     void setEdgeRegions();
     void mergeTPRs();
+    void mergeGreedyQuadError();
 
 private:
     std::vector<RegionAttributes> findMaxProductRegion(EdgeRegion &edgeRegion);
@@ -28,22 +30,23 @@ private:
     void findAllRegions(const std::vector<int> &rowIdxs, int rowLength, AABB &errorAABB, std::vector<RegionAttributes> &regionAttributes);
     void createAdjList();
     void vertexColoring();
+    int binarySearch(const std::vector<int> &arr, int left, float eps);
 
     void createConflictGraph(float eps);
     void findIndependentSetWithColoring(float eps);
+    void heuristicBinarySearch(float userError);
+    void greedyQuadErrorTwoStep(float userError);
+    void computeConflictGraphStats();
 
     GradMeshMerger &merger;
     GmsAppState &appState;
     GradMesh &mesh;
+    std::vector<EdgeRegion> &edgeRegions;
 
-    int productRegionIteration = 0;
     int productRegionIdx = 0;
-    std::vector<EdgeRegion> sortedRegions;
-    int totalRegionsIdx = 0;
     std::vector<std::pair<int, int>> meshCornerFaces;
-    float specialThreshold;
 
-    std::vector<std::vector<int>> adjList;
     std::vector<TPRNode> allTPRs;
+    std::vector<std::vector<int>> adjList;
     std::vector<int> vertexColors;
 };

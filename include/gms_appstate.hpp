@@ -64,7 +64,9 @@ enum class MergeProcess
 {
     PreprocessSingleMerge,
     PreprocessProductRegions,
+    LoadProductRegionsPreprocessing,
     MergeTPRs,
+    MergeGreedyQuadError,
     ViewEdgeMap,
     ViewConflictGraphStats,
     Merging
@@ -74,6 +76,8 @@ struct ConflictGraphStats
 {
     int numOfNodes = 0;
     float avgDegree = 0.0f;
+    float avgQuads = 0;
+    float avgError = 0.0f;
     int numColors = 0;
 };
 
@@ -112,12 +116,12 @@ public:
     float preprocessProductRegionsProgress{-1.0f};
     std::vector<EdgeRegion> edgeRegions = {};
     int selectedTPRIdx = 0;
-    float totalRegionsError = 0.005f;
     int regionsMerged = 0;
     ConflictGraphStats conflictGraphStats;
+    float quadErrorWeight = 0.5;
 
     // Metadata
-    std::string filename = "../meshes/order5.hemesh";
+    std::string filename = "../meshes/order1.hemesh";
     bool filenameChanged = false;
     bool loadSave = false;
 

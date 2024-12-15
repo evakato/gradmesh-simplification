@@ -39,44 +39,6 @@ std::vector<std::string> splitString(const std::string &str)
     return tokens;
 }
 
-/*
-GradMesh readCgmFile(const std::string &filename)
-{
-    std::ifstream inf{filename};
-    if (!inf)
-    {
-        throw std::runtime_error("File could not be opened for reading\n");
-    }
-
-    std::string currLine{};
-    std::vector<std::string> tokens;
-
-    std::getline(inf, currLine);
-    std::getline(inf, currLine);
-    tokens = splitString(currLine);
-
-    if (tokens.size() < 4)
-    {
-        throw std::runtime_error("Expected 4 tokens but got less than 4\n");
-    }
-
-    int numPoints = std::stoi(tokens[1]);
-    int numEdges = std::stoi(tokens[2]);
-    int numPatches = std::stoi(tokens[3]);
-
-    for (size_t i = 0; i < numPoints; ++i)
-    {
-        if (std::getline(inf, currLine))
-        {
-            tokens = splitString(currLine);
-            gradMesh.addPoint(std::stof(tokens[1]), std::stof(tokens[2]), std::stoi(tokens[8]));
-        }
-    }
-
-    GradMesh gradMesh;
-}
-*/
-
 GradMesh readHemeshFile(const std::string &filename)
 {
     // std::cout << "Reading " << filename << std::endl;
@@ -367,4 +329,127 @@ int safeStringToInt(const std::string &str)
         number = -number;
     }
     return static_cast<int>(number);
+}
+
+void saveConflictGraphToFile(const std::string &filename, const std::vector<TPRNode> &allTPRs, const std::vector<std::vector<int>> &adjList, const std::vector<EdgeRegion> &sortedRegions)
+{
+    std::ofstream outFile(filename);
+
+    if (!outFile)
+    {
+        std::cerr << "Error opening file for writing: " << filename << std::endl;
+        return;
+    }
+
+    /*
+        // Save allTPRs
+        outFile << allTPRs.size() << "\n";
+        for (const auto &node : allTPRs)
+        {
+            outFile << node.id << " "
+                    << node.gridPair.first << " " << node.gridPair.second << " "
+                    << node.maxRegion.first << " " << node.maxRegion.second << " "
+                    << std::fixed << std::setprecision(10) << node.error << " "
+                    << node.maxChainLength << " "
+                    << node.degree << "\n";
+        }
+
+        // Save adjList
+        outFile << adjList.size() << "\n";
+        for (const auto &adj : adjList)
+        {
+            outFile << adj.size();
+            for (int node : adj)
+            {
+                outFile << " " << node;
+            }
+            outFile << "\n";
+        }
+        */
+
+    // Save sortedRegions
+    outFile << sortedRegions.size() << "\n";
+    for (const auto &edgeRegion : sortedRegions)
+    {
+        outFile << edgeRegion.gridPair.first << " " << edgeRegion.gridPair.second << " "
+                << edgeRegion.faceIdx << "\n";
+        outFile << edgeRegion.allRegionAttributes.size() << "\n";
+        for (const auto &region : edgeRegion.allRegionAttributes)
+        {
+            outFile << region.maxRegion.first << " " << region.maxRegion.second << " "
+                    << region.error << " "
+                    << region.maxChainLength << "\n";
+            outFile << region.maxRegionAABB.min.x << " " << region.maxRegionAABB.min.y << " "
+                    << region.maxRegionAABB.max.x << " " << region.maxRegionAABB.max.y << "\n";
+        }
+    }
+
+    outFile.close();
+    std::cout << "Data saved to " << filename << std::endl;
+}
+
+// Load function to read from file
+
+void loadConflictGraphFromFile(const std::string &filename, std::vector<TPRNode> &allTPRs, std::vector<std::vector<int>> &adjList, std::vector<EdgeRegion> &sortedRegions)
+{
+    std::ifstream inFile(filename);
+
+    if (!inFile)
+    {
+        std::cerr << "Error opening file for reading: " << filename << std::endl;
+        return;
+    }
+
+    /*
+        // Load allTPRs
+        size_t numTPRs;
+        inFile >> numTPRs;
+        allTPRs.resize(numTPRs);
+
+        for (auto &node : allTPRs)
+        {
+            inFile >> node.id >> node.gridPair.first >> node.gridPair.second >> node.maxRegion.first >> node.maxRegion.second >> node.error >> node.maxChainLength >> node.degree;
+        }
+
+        // Load adjList
+        size_t numAdjList;
+        inFile >> numAdjList;
+        adjList.resize(numAdjList);
+
+        for (auto &adj : adjList)
+        {
+            size_t numAdjNodes;
+            inFile >> numAdjNodes;
+            adj.resize(numAdjNodes);
+
+            for (int &node : adj)
+            {
+                inFile >> node;
+            }
+        }
+        */
+
+    // Load sortedRegions
+    size_t numSortedRegions;
+    inFile >> numSortedRegions;
+    sortedRegions.resize(numSortedRegions);
+
+    for (auto &edgeRegion : sortedRegions)
+    {
+        inFile >> edgeRegion.gridPair.first >> edgeRegion.gridPair.second >> edgeRegion.faceIdx;
+
+        size_t numRegionAttributes;
+        inFile >> numRegionAttributes;
+        edgeRegion.allRegionAttributes.resize(numRegionAttributes);
+
+        for (auto &region : edgeRegion.allRegionAttributes)
+        {
+            inFile >> region.maxRegion.first >> region.maxRegion.second >> region.error >> region.maxChainLength;
+
+            inFile >> region.maxRegionAABB.min.x >> region.maxRegionAABB.min.y >> region.maxRegionAABB.max.x >> region.maxRegionAABB.max.y;
+        }
+    }
+
+    inFile.close();
+    std::cout << "Data loaded from " << filename << std::endl;
 }

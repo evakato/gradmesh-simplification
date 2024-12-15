@@ -73,7 +73,11 @@ EdgeDerivatives GradMesh::computeEdgeDerivatives(const HalfEdge &edge, int depth
 
     if (!edge.isChild())
     {
-        assert(edge.originIdx != -1);
+        if (edge.originIdx == -1)
+        {
+            std::cout << edge << std::endl;
+            assert(false);
+        }
         assert(edge.handleIdxs.first != -1 && edge.handleIdxs.second != -1);
 
         edgeDerivatives[0] = Vertex{points[edge.originIdx].coords, edge.color};

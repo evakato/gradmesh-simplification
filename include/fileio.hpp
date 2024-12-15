@@ -33,3 +33,6 @@ void setupDirectories();
 
 bool isValidNumber(const std::string &str);
 int safeStringToInt(const std::string &str);
+
+void saveConflictGraphToFile(const std::string &filename, const std::vector<TPRNode> &allTPRs, const std::vector<std::vector<int>> &adjList, const std::vector<EdgeRegion> &sortedRegions);
+void loadConflictGraphFromFile(const std::string &filename, std::vector<TPRNode> &allTPRs, std::vector<std::vector<int>> &adjList, std::vector<EdgeRegion> &sortedRegions);
