@@ -120,12 +120,16 @@ std::vector<Vertex> GradMesh::getHandleBars() const
         if (edge.faceIdx != -1 && !edge.isBar())
         {
             assert(edge.handleIdxs.first != -1 && edge.handleIdxs.second != -1);
+            auto p0 = computeEdgeDerivatives(edge);
+            auto p1 = computeEdgeDerivatives(edges[edge.nextIdx]);
+            if (!p0 || !p1)
+                continue;
 
-            auto &point = computeEdgeDerivatives(edge).value()[0];
+            auto &point = p0.value()[0];
             auto &tangent = handles[edge.handleIdxs.first];
             pointsAndHandles.push_back(Vertex{point.coords, black});
             pointsAndHandles.push_back(Vertex{hermiteToBezier(point.coords, BCM, tangent.coords), black});
-            auto &m1 = computeEdgeDerivatives(edges[edge.nextIdx]).value()[0];
+            auto &m1 = p1.value()[0];
             auto &m1v = handles[edge.handleIdxs.second];
             pointsAndHandles.push_back(Vertex{m1.coords, black});
             pointsAndHandles.push_back(Vertex{hermiteToBezier(m1.coords, BCM, m1v.coords), black});
@@ -470,4 +474,49 @@ int GradMesh::getNextRowIdx(int halfEdgeIdx) const
     if (!orthoE.isValid())
         return -1;
     return orthoE.nextIdx;
+}
+
+std::vector<int> GradMesh::getRegionBorderIdxs(const std::pair<int, int> &gridPair, const std::pair<int, int> &maxRegion)
+{
+    std::vector<int> borderIdxs;
+    auto [rowIdx, colIdx] = gridPair;
+    int borderIdx = edges[rowIdx].prevIdx;
+    borderIdxs.push_back(borderIdx);
+    if (edges[borderIdx].twinIdx != -1)
+        borderIdxs.push_back(edges[borderIdx].twinIdx);
+    int currIdx = rowIdx;
+    for (int i = 0; i < 2; i++)
+    {
+        for (int i = 0; i < maxRegion.first; i++)
+        {
+            borderIdx = edges[edges[currIdx].twinIdx].nextIdx;
+            currIdx = edges[borderIdx].nextIdx;
+            borderIdxs.push_back(borderIdx);
+            if (edges[borderIdx].twinIdx != -1)
+                borderIdxs.push_back(edges[borderIdx].twinIdx);
+        }
+
+        borderIdx = edges[borderIdx].nextIdx;
+        borderIdxs.push_back(borderIdx);
+        if (edges[borderIdx].twinIdx != -1)
+            borderIdxs.push_back(edges[borderIdx].twinIdx);
+        currIdx = edges[borderIdx].nextIdx;
+
+        for (int i = 0; i < maxRegion.second; i++)
+        {
+            borderIdx = edges[edges[currIdx].twinIdx].nextIdx;
+            currIdx = edges[borderIdx].nextIdx;
+            borderIdxs.push_back(borderIdx);
+            if (edges[borderIdx].twinIdx != -1)
+                borderIdxs.push_back(edges[borderIdx].twinIdx);
+        }
+
+        borderIdx = edges[borderIdx].nextIdx;
+        borderIdxs.push_back(borderIdx);
+        if (edges[borderIdx].twinIdx != -1)
+            borderIdxs.push_back(edges[borderIdx].twinIdx);
+        currIdx = edges[borderIdx].nextIdx;
+    }
+
+    return borderIdxs;
 }

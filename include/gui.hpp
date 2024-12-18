@@ -139,9 +139,11 @@ constexpr const char *toString(int cornerFlags)
 
 constexpr const char *renderModeStrings[] = {"Patch", "Curve"};
 constexpr const char *metric_mode_items[] = {"SSIM", "FLIP"};
-constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid", "Max Region", "Greedy Quad-Error"};
+constexpr const char *edge_select_items[] = {"Manual", "Random", "Grid", "Dual Grid", "Motorcycle", "Greedy", "1-Step Greedy"};
 static int edge_select_current = 4;
 
 inline constexpr int GUI_IMAGE_SIZE{150};
 inline constexpr int GUI_FINAL_IMAGE_SIZE{600};
+inline constexpr int GUI_ERROR_MAP_SIZE{750};
+inline constexpr int GUI_PREVIEW_IMAGE_SIZE{300};
 inline constexpr float INPUT_WIDTH{170.0f};

@@ -22,7 +22,7 @@ void MergeSelect::reset()
     firstRow = true;
 }
 
-void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
+void MergeSelect::findCandidateMerges(std::vector<SingleHalfEdge> *boundaryEdges)
 {
     auto &candidateMerges = state.candidateMerges;
     candidateMerges.clear();
@@ -55,7 +55,7 @@ void MergeSelect::findCandidateMerges(std::vector<CurveId> *boundaryEdges)
                 }
                 else if (boundaryEdges)
                 {
-                    boundaryEdges->push_back(CurveId{faceIdx, i});
+                    boundaryEdges->push_back(SingleHalfEdge{CurveId{faceIdx, i}, currIdx});
                 }
                 currIdx = currEdge.nextIdx;
             }

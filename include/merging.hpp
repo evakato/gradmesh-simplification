@@ -24,6 +24,7 @@ public:
     void merge();
     float attemptMerge(int halfEdgeIdx, AABB &aabb);
     GmsAppState::MergeStats mergePatches(int halfEdgeIdx);
+    void previewMerge();
     MergeMetrics metrics;
     MergeSelect select;
 

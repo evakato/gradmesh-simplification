@@ -12,6 +12,7 @@ void GradMeshMerger::startupMesh()
     select.findCandidateMerges();
     metrics.setAABB();
     metrics.captureGlobalImage(appState.patchRenderParams.glPatches, ORIG_IMG);
+    metrics.setValenceVertices();
 }
 
 float GradMeshMerger::attemptMerge(int halfEdgeIdx, AABB &aabb)
@@ -24,6 +25,15 @@ float GradMeshMerger::attemptMerge(int halfEdgeIdx, AABB &aabb)
 
     auto glPatches = getAllPatchGLData(patches.value(), &Patch::getControlMatrix);
     return metrics.getMergeError(glPatches, CURR_IMG);
+}
+
+void GradMeshMerger::previewMerge()
+{
+    int edgeIdx = appState.candidateMerges[appState.selectedEdgeId].getHalfEdgeIdx();
+    appState.mergePreviewError = attemptMerge(edgeIdx, appState.mergeSettings.aabb);
+    appState.mesh = readHemeshFile("mesh_saves/save_" + std::to_string(appState.numOfMerges) + ".hemesh");
+    appState.updateMeshRender();
+    appState.mergeProcess = MergeProcess::Merging;
 }
 
 void GradMeshMerger::merge()
@@ -411,10 +421,13 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
 
 float GradMeshMerger::splittingFactor(HalfEdge &stem, HalfEdge &bar1, HalfEdge &bar2, int sign) const
 {
-    const auto &leftPv01 = mesh.computeEdgeDerivatives(bar1).value()[2].coords;  // left patch: P_v(0,1)
-    const auto &rightPv00 = mesh.computeEdgeDerivatives(bar2).value()[1].coords; // right patch: P_v(0,0)
-    const auto &leftPuv01 = stem.twist.coords;                                   // left patch: P_uv(0,1)
-    const auto &rightPuv00 = bar2.twist.coords;                                  // right patch: P_uv(0,0)
+    auto left = mesh.computeEdgeDerivatives(bar1);
+    auto right = mesh.computeEdgeDerivatives(bar2);
+    assert(left && right);
+    const auto &leftPv01 = left.value()[2].coords;   // left patch: P_v(0,1)
+    const auto &rightPv00 = right.value()[1].coords; // right patch: P_v(0,0)
+    const auto &leftPuv01 = stem.twist.coords;       // left patch: P_uv(0,1)
+    const auto &rightPuv00 = bar2.twist.coords;      // right patch: P_uv(0,0)
 
     auto sumPv0 = absSum(leftPv01, rightPv00); // P_v(0,1) + P_v(0,0)
 
@@ -498,7 +511,9 @@ bool GradMeshMerger::addTJunction(HalfEdge &edge1, HalfEdge &edge2, int twinOfPa
 
     int stemIdx = mesh.edges[bar1Idx].nextIdx;
     if (mesh.edges[mesh.edges[bar1Idx].nextIdx].isBar())
-        stemIdx = mesh.edges[bar1Idx].nextIdx = mesh.edges[bar1Idx].parentIdx;
+    {
+        stemIdx = mesh.edges[mesh.edges[bar1Idx].nextIdx].parentIdx;
+    }
 
     if (mesh.edges[bar2Idx].isParent() && mesh.edges[bar1Idx].isParent())
     {

@@ -11,6 +11,148 @@ MergeMetrics::MergeMetrics(Params params)
     glGenFramebuffers(1, &mergedFbo);
 }
 
+void MergeMetrics::markTwoHalfEdges(int idx1, int idx2)
+{
+    auto &lookup = lookupValenceVertex[idx1];
+    valenceVertices[lookup.first].setMarked(lookup.second);
+    auto &lookup2 = lookupValenceVertex[idx2];
+    valenceVertices[lookup2.first].setMarked(lookup2.second);
+}
+
+bool MergeMetrics::isMarked(int halfEdgeIdx)
+{
+    auto &lookup = lookupValenceVertex[halfEdgeIdx];
+    return valenceVertices[lookup.first].markedEdges[lookup.second] == 1;
+}
+
+void MergeMetrics::getMergeableRegion(std::vector<int> &alreadyVisited, std::vector<MergeableRegion> &mergeableRegions, int halfEdgeIdx)
+{
+    if (std::find(alreadyVisited.begin(), alreadyVisited.end(), halfEdgeIdx) != alreadyVisited.end())
+        return;
+    alreadyVisited.push_back(halfEdgeIdx);
+    int rowIdx = mesh.edges[halfEdgeIdx].nextIdx;
+    int colIdx = mesh.edges[rowIdx].nextIdx;
+    int currIdx = rowIdx;
+    std::pair<int, int> maxRegion = {0, 0};
+    while (!isMarked(currIdx))
+    {
+        maxRegion.first++;
+        int twin = mesh.edges[currIdx].twinIdx;
+        if (twin == -1)
+            break;
+        currIdx = mesh.edges[mesh.edges[twin].nextIdx].nextIdx;
+    }
+    alreadyVisited.push_back(currIdx);
+    currIdx = mesh.edges[currIdx].nextIdx;
+    while (!isMarked(currIdx))
+    {
+        maxRegion.second++;
+        int twin = mesh.edges[currIdx].twinIdx;
+        if (twin == -1)
+            break;
+        currIdx = mesh.edges[mesh.edges[twin].nextIdx].nextIdx;
+    }
+    alreadyVisited.push_back(currIdx);
+    currIdx = mesh.edges[currIdx].nextIdx;
+    while (!isMarked(currIdx))
+    {
+        int twin = mesh.edges[currIdx].twinIdx;
+        if (twin == -1)
+            break;
+        currIdx = mesh.edges[mesh.edges[twin].nextIdx].nextIdx;
+    }
+    alreadyVisited.push_back(currIdx);
+    mergeableRegions.push_back({{rowIdx, colIdx}, maxRegion});
+}
+
+std::vector<MergeableRegion> MergeMetrics::getMergeableRegions()
+{
+    std::vector<MergeableRegion> mergeableRegions;
+    std::vector<int> alreadyVisited;
+    for (const auto &v : valenceVertices)
+    {
+        if (v.sumMarked() == 4)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                int incidentEdge = v.halfEdgeIdxs[i];
+                getMergeableRegion(alreadyVisited, mergeableRegions, incidentEdge);
+            }
+            continue;
+        }
+        else if (v.isBoundary() && v.sumMarked() == 2)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                if (v.halfEdgeIdxs[i] != -1)
+                {
+                    getMergeableRegion(alreadyVisited, mergeableRegions, v.halfEdgeIdxs[i]);
+                }
+            }
+            continue;
+        }
+        int cornerHalfEdgeIdx = v.isCorner();
+        if (cornerHalfEdgeIdx)
+        {
+            getMergeableRegion(alreadyVisited, mergeableRegions, cornerHalfEdgeIdx);
+        }
+    }
+    return mergeableRegions;
+}
+
+void MergeMetrics::generateMotorcycleGraph()
+{
+    for (auto &v : valenceVertices)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            int edgeIdx = v.halfEdgeIdxs[i];
+            if (halfEdgeErrors[edgeIdx] > mergeSettings.singleMergeErrorThreshold || halfEdgeErrors[edgeIdx] == -2.0f)
+                v.markedEdges[i] = 1;
+            else
+                v.markedEdges[i] = 0;
+        }
+    }
+    motorcycleEdges.clear();
+
+    while (true)
+    {
+        bool didntGrow = true;
+        for (auto &v : valenceVertices)
+        {
+            if (v.isBoundary() || v.sumMarked() == 0 || v.sumMarked() == 3 || v.sumMarked() == 4)
+                continue;
+
+            int valenceOneIdx = v.valenceOne();
+            if (valenceOneIdx != -1)
+            {
+                int valenceOne = v.halfEdgeIdxs[valenceOneIdx];
+                int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceOne);
+                assert(newDheIdx != -1);
+                auto newDhe = edgeErrors[newDheIdx];
+                motorcycleEdges.push_back(newDhe);
+                markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
+                didntGrow = false;
+                continue;
+            }
+            int valenceTwoLIdx = v.valenceTwoL();
+            if (valenceTwoLIdx != -1)
+            {
+                int valenceTwoL = v.halfEdgeIdxs[valenceTwoLIdx];
+                int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceTwoL);
+                assert(newDheIdx != -1);
+                auto newDhe = edgeErrors[newDheIdx];
+                motorcycleEdges.push_back(newDhe);
+                markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
+                didntGrow = false;
+                continue;
+            }
+        }
+        if (didntGrow)
+            break;
+    }
+}
+
 void MergeMetrics::setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes)
 {
     edgeErrorPatches = mesh.generatePatches().value();
@@ -18,7 +160,7 @@ void MergeMetrics::setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes)
     minMaxError.x = std::numeric_limits<float>::max();
     minMaxError.y = std::numeric_limits<float>::min();
 
-    std::vector<float> halfEdgeErrors(mesh.edges.size(), -1.0f);
+    halfEdgeErrors.resize(mesh.edges.size());
     for (const auto &dhe : dhes)
     {
         minMaxError.x = std::min(minMaxError.x, dhe.error);
@@ -26,80 +168,83 @@ void MergeMetrics::setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes)
         halfEdgeErrors[dhe.halfEdgeIdx1] = dhe.error;
         halfEdgeErrors[dhe.halfEdgeIdx2] = dhe.error;
     }
-    // findMaximumRectangle(halfEdgeErrors);
-}
-
-void MergeMetrics::findMaximumRectangle(std::vector<float> &halfEdgeErrors)
-{
-    auto cornerFaces = mesh.findCornerFaces();
-    int currEdgeIdx = cornerFaces[0].first;
-    std::vector<int> hist;
-
-    while (true)
+    for (const auto &be : boundaryEdges)
     {
-        auto currEdge = mesh.edges[currEdgeIdx];
-        if (currEdge.twinIdx == -1)
-            break;
-
-        if (halfEdgeErrors[currEdgeIdx] < mergeSettings.errorThreshold)
-            hist.push_back(1);
-        else
-            hist.push_back(0);
-        currEdgeIdx = mesh.edges[mesh.edges[currEdge.twinIdx].nextIdx].nextIdx;
+        halfEdgeErrors[be.halfEdgeIdx] = -2.0f;
     }
 
-    hist.push_back(0);
-    currEdgeIdx = cornerFaces[0].second;
-    bool cols = true;
-    int startGridEdgeIdx = cornerFaces[0].second;
-    while (true)
+    // mergeSettings.singleMergeErrorThreshold = mergeSettings.errorThreshold / edgeErrors.size();
+    generateMotorcycleGraph();
+}
+
+void MergeMetrics::setValenceVertices()
+{
+    for (const auto &face : mesh.faces)
     {
-        currEdgeIdx = startGridEdgeIdx;
-        if (mesh.edges[currEdgeIdx].twinIdx == -1)
-            break;
-
-        int end = cols ? hist.size() : hist.size() - 1;
-        for (int i = 0; i < end; i++)
+        if (!face.isValid())
+            continue;
+        const auto &edgeIdxs = mesh.getFaceEdgeIdxs(face.halfEdgeIdx);
+        for (int idx : edgeIdxs)
         {
-            auto currEdge = mesh.edges[currEdgeIdx];
-
-            if (halfEdgeErrors[currEdgeIdx] < mergeSettings.errorThreshold)
-                hist[i] += 1;
-            else
-                hist[i] = 0;
-
-            if (cols)
-                currEdgeIdx = mesh.edges[mesh.edges[currEdge.prevIdx].twinIdx].prevIdx;
-            else
-                currEdgeIdx = mesh.edges[mesh.edges[currEdge.twinIdx].nextIdx].nextIdx;
+            const auto &e = mesh.edges[idx];
+            mesh.points[e.originIdx].halfEdgeIdx = idx;
         }
+    }
+    valenceVertices.resize(mesh.points.size());
+    int i = 0;
+    for (const auto &point : mesh.points)
+    {
+        valenceVertices[i].id = i;
+        auto &currEdges = valenceVertices[i].halfEdgeIdxs;
+        currEdges[0] = point.halfEdgeIdx;
+        int twinCcw = mesh.edges[currEdges[0]].twinIdx;
+        currEdges[1] = twinCcw == -1 ? -1 : mesh.edges[twinCcw].nextIdx;
 
-        if (cols)
+        int cw = mesh.edges[mesh.edges[currEdges[0]].prevIdx].twinIdx;
+        currEdges[3] = cw;
+
+        if (currEdges[1] == -1 && currEdges[3] == -1)
+            currEdges[2] = -1;
+        else if (currEdges[1] == -1)
         {
-            startGridEdgeIdx = mesh.edges[mesh.edges[startGridEdgeIdx].twinIdx].nextIdx;
+            int cwAgain = mesh.edges[mesh.edges[currEdges[3]].prevIdx].twinIdx;
+            currEdges[2] = cwAgain;
         }
         else
         {
-            startGridEdgeIdx = mesh.edges[startGridEdgeIdx].nextIdx;
+            int twinCcwAgain = mesh.edges[currEdges[1]].twinIdx;
+            currEdges[2] = twinCcwAgain == -1 ? -1 : mesh.edges[twinCcwAgain].nextIdx;
         }
-        cols = !cols;
 
-        for (int hi : hist)
-            std::cout << hi << ", ";
-        std::cout << "\n";
+        i++;
+    }
+
+    for (auto &v : valenceVertices)
+    {
+        for (int i = 0; i < 4; i++)
+        {
+            int edgeIdx = v.halfEdgeIdxs[i];
+            lookupValenceVertex[edgeIdx] = {v.id, i};
+        }
     }
 }
 
 void MergeMetrics::generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay)
 {
     // auto patches = mesh.generatePatches().value();
+    static float prevThreshold = 0.0f;
+    if (prevThreshold != mergeSettings.singleMergeErrorThreshold)
+    {
+        generateMotorcycleGraph();
+        prevThreshold = mergeSettings.singleMergeErrorThreshold;
+    }
     for (const auto &dhe : edgeErrors)
     {
         glm::vec3 col;
         switch (edgeErrorDisplay)
         {
         case EdgeErrorDisplay::Binary:
-            col = dhe.error >= mergeSettings.errorThreshold ? glm::vec3{1.0f, 0.0f, 0.0f} : black;
+            col = dhe.error >= (mergeSettings.singleMergeErrorThreshold) ? glm::vec3{1.0f, 0.0f, 0.0f} : black;
             break;
         case EdgeErrorDisplay::Normalized:
             col = glm::vec3{dhe.error / (minMaxError.y - minMaxError.x), 0.0f, 0.0f};
@@ -111,13 +256,23 @@ void MergeMetrics::generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay)
         edgeErrorPatches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, col);
         edgeErrorPatches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, col);
     }
+    if (mergeSettings.showMotorcycleEdges)
+    {
+        for (const auto &dhe : motorcycleEdges)
+        {
+            edgeErrorPatches[dhe.curveId1.patchId].setCurveSelected(dhe.curveId1.curveId, green);
+            edgeErrorPatches[dhe.curveId2.patchId].setCurveSelected(dhe.curveId2.curveId, green);
+        }
+    }
     for (const auto &be : boundaryEdges)
     {
-        edgeErrorPatches[be.patchId].setCurveSelected(be.curveId, blue);
+        const auto &id = be.curveId;
+        edgeErrorPatches[id.patchId].setCurveSelected(id.curveId, blue);
     }
     auto glCurveData = getAllPatchGLData(edgeErrorPatches, &Patch::getCurveData);
     int poolRes = 1000;
     setupFBO(patchRenderResources.unmergedTexture, unmergedFbo, poolRes, poolRes);
+    glLineWidth(3.5f);
     drawPrimitive(glCurveData, patchRenderResources.curveShaderId, mergeSettings.globalAABB, VERTS_PER_CURVE);
     // writeToImage(poolRes, EDGE_MAP_IMG);
     closeFBO();

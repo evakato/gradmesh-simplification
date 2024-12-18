@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <unordered_map>
 
 #include <rmgr/ssim.h>
 #include <rmgr/ssim-openmp.h>
@@ -29,6 +30,84 @@ enum class EdgeErrorDisplay
     Binary,
     Normalized,
     Scaled
+};
+
+struct ValenceVertex
+{
+    int id;                          // point idx
+    std::array<int, 4> halfEdgeIdxs; // 4 half edges that stem from it
+    std::array<int, 4> markedEdges;  // 0 for unmarked, 1 for marked
+    int isCorner() const
+    {
+        int count = 0;
+        for (const int edgeIdx : halfEdgeIdxs)
+            if (edgeIdx == -1)
+                count++;
+        if (count < 3)
+            return 0;
+        for (const int edgeIdx : halfEdgeIdxs)
+            if (edgeIdx != -1)
+                return edgeIdx;
+        return 0;
+    }
+    bool isBoundary() const
+    {
+        int count = 0;
+        for (const int edgeIdx : halfEdgeIdxs)
+            if (edgeIdx == -1)
+                count++;
+        return count >= 2;
+    }
+    int sumMarked() const
+    {
+        return markedEdges[0] + markedEdges[1] + markedEdges[2] + markedEdges[3];
+    }
+    int getFirstMarkedEdgeIndex() const
+    {
+        auto it = std::find(markedEdges.begin(), markedEdges.end(), 1);
+        if (it != markedEdges.end())
+        {
+            return static_cast<int>(std::distance(markedEdges.begin(), it));
+        }
+        return -1;
+    }
+    int valenceOne() const
+    {
+        if (sumMarked() != 1)
+            return -1;
+        return (getFirstMarkedEdgeIndex() + 2) % 4;
+        // return halfEdgeIdxs[(getFirstMarkedEdgeIndex() + 2) % 4];
+    }
+    int valenceTwoL() const
+    {
+        if (sumMarked() != 2)
+            return -1;
+        if ((markedEdges[0] && markedEdges[2]) || (markedEdges[1] && markedEdges[3]))
+            return -1;
+        int markedIdx = getFirstMarkedEdgeIndex();
+        if (markedEdges[(markedIdx + 1) % 4] == 1)
+            // return markedIdx == 0 ? halfEdgeIdxs[3] : halfEdgeIdxs[markedIdx - 1];
+            return markedIdx == 0 ? 3 : markedIdx - 1;
+
+        // return halfEdgeIdxs[(markedIdx + 1) % 4];
+        return (markedIdx + 1) % 4;
+    }
+    void setMarked(int i)
+    {
+        markedEdges[i] = 1;
+    }
+};
+
+struct MergeableRegion
+{
+    std::pair<int, int> gridPair;
+    std::pair<int, int> maxRegion;
+};
+
+struct SingleHalfEdge
+{
+    CurveId curveId;
+    int halfEdgeIdx;
 };
 
 // Facilitates the GradMeshMerger class in evaluating pixel-based metrics for a given merge
@@ -64,6 +143,8 @@ public:
         float errorThreshold = ERROR_THRESHOLD;
         int poolRes = POOLING_LENGTH;
         float aabbPadding = AABB_PADDING;
+        float singleMergeErrorThreshold{0.0001f};
+        bool showMotorcycleEdges = true;
     };
     struct Params
     {
@@ -81,11 +162,16 @@ public:
 
     void setEdgeErrorMap(const std::vector<DoubleHalfEdge> &dhes);
     void generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay);
-    void setBoundaryEdges(std::vector<CurveId> &bes) { boundaryEdges = bes; }
+    void setBoundaryEdges(std::vector<SingleHalfEdge> &bes) { boundaryEdges = bes; }
     float evaluateMetric(const char *compImgPath = MERGE_METRIC_IMG, const char *compImgPath2 = ORIG_IMG);
+    void setValenceVertices();
+    std::vector<MergeableRegion> getMergeableRegions();
 
 private:
-    void findMaximumRectangle(std::vector<float> &halfEdgeErrors);
+    void generateMotorcycleGraph();
+    void markTwoHalfEdges(int idx1, int idx2);
+    bool isMarked(int halfEdgeIdx);
+    void getMergeableRegion(std::vector<int> &alreadyVisited, std::vector<MergeableRegion> &mergeableRegions, int halfEdgeIdx);
 
     GLuint unmergedFbo;
     GLuint mergedFbo;
@@ -97,7 +183,12 @@ private:
     std::vector<Patch> edgeErrorPatches;
     std::vector<DoubleHalfEdge> edgeErrors;
     glm::vec2 minMaxError;
-    std::vector<CurveId> boundaryEdges;
+    std::vector<SingleHalfEdge> boundaryEdges;
+    std::vector<ValenceVertex> valenceVertices;
+    std::vector<DoubleHalfEdge> motorcycleEdges;
+    std::vector<float> halfEdgeErrors;
+
+    std::unordered_map<int, std::pair<int, int>> lookupValenceVertex;
 };
 
 struct FBtoImgParams

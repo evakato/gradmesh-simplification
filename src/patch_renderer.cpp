@@ -24,10 +24,46 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         drawPrimitive(params.glPatches, appState.patchRenderResources.patchShaderId, projectionMatrix, VERTS_PER_PATCH);
     }
 
+    if (appState.componentSelectOptions.renderMaxProductRegion())
+    {
+        auto selectedRegion = appState.findSelectedRegion();
+        if (selectedRegion)
+        {
+            auto &allRegions = (*selectedRegion).allRegionAttributes;
+            if (appState.selectedTPRIdx < allRegions.size() && appState.selectedTPRIdx >= 0)
+            {
+                auto selectedTPR = allRegions[appState.selectedTPRIdx];
+                appState.showProductRegion((*selectedRegion).gridPair, selectedTPR.maxRegion);
+            }
+        }
+    }
+
     if (appState.renderCurves)
     {
+        setVertexData(params.glCurves);
         glLineWidth(appState.curveLineWidth);
-        drawPrimitive(params.glCurves, curveShaderId, projectionMatrix, VERTS_PER_CURVE);
+        // drawPrimitive(params.glCurves, curveShaderId, projectionMatrix, VERTS_PER_CURVE);
+        glUseProgram(curveShaderId);
+        setUniformProjectionMatrix(curveShaderId, projectionMatrix);
+
+        glPatchParameteri(GL_PATCH_VERTICES, VERTS_PER_CURVE);
+
+        for (int i = 0; i < params.glCurves.size() / (5); i++) // Divide by total floats per curve
+        {
+            int r = ((i * VERTS_PER_CURVE) * 5) + 2;
+            int g = ((i * VERTS_PER_CURVE) * 5) + 3;
+            int b = ((i * VERTS_PER_CURVE) * 5) + 4;
+            if (params.glCurves[r] >= 0.9f || params.glCurves[g] >= 0.9f || params.glCurves[b] >= 0.9f)
+            {
+                glLineWidth(appState.curveLineWidth * 2);
+            }
+            else
+            {
+                glLineWidth(appState.curveLineWidth);
+            }
+
+            glDrawArrays(GL_PATCHES, i * VERTS_PER_CURVE, VERTS_PER_CURVE);
+        }
     }
 
     if (appState.componentSelectOptions.renderPatchAABB() && appState.userSelectedId.patchId != -1)
@@ -41,25 +77,6 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         for (int i = 0; i < aabbData.size() / 5; i++)
             glDrawArrays(GL_LINE_LOOP, i * 4, 4);
-    }
-    if (appState.componentSelectOptions.renderMaxProductRegion())
-    {
-        auto selectedRegion = appState.findSelectedRegion();
-        if (selectedRegion)
-        {
-            auto &allRegions = (*selectedRegion).allRegionAttributes;
-            if (appState.selectedTPRIdx < allRegions.size() && appState.selectedTPRIdx >= 0)
-            {
-                auto maxRegionAABB = getGLAABBData(allRegions[appState.selectedTPRIdx].maxRegionAABB);
-                setVertexData(maxRegionAABB);
-                glUseProgram(lineShaderId);
-                setLineColor(lineShaderId, green);
-                glLineWidth(3.0f);
-                setUniformProjectionMatrix(lineShaderId, projectionMatrix);
-                for (int i = 0; i < maxRegionAABB.size() / 5; i++)
-                    glDrawArrays(GL_LINE_LOOP, i * 4, 4);
-            }
-        }
     }
 
     if (appState.renderHandles)
@@ -132,7 +149,7 @@ void PatchRenderer::updatePatches(std::vector<Patch> &patches)
     }
     else if (newCurveId != -1)
     {
-        appState.setPatchCurveColor(newUserCurve, yellow);
+        appState.setPatchCurveColor(newUserCurve, blue);
         appState.updateCurves({prevPatchId, newPatchId});
     }
 

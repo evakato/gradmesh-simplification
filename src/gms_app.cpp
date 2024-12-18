@@ -55,8 +55,19 @@ void GmsApp::run()
             preprocessor.mergeGreedyQuadError();
             // merger.startupMesh();
             break;
+        case MergeProcess::MergeMotorcycle:
+            preprocessor.mergeMotorcycle();
+            // merger.startupMesh();
+            break;
+        case MergeProcess::DebugMergeGreedyQuadError:
+            preprocessor.mergeIndependentSet();
+            // merger.startupMesh();
+            break;
         case MergeProcess::ViewEdgeMap:
             merger.metrics.generateEdgeErrorMap(appState.edgeErrorDisplay);
+            break;
+        case MergeProcess::PreviewMerge:
+            merger.previewMerge();
             break;
         case MergeProcess::Merging:
             merger.merge();

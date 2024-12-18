@@ -47,6 +47,18 @@ struct DoubleHalfEdge
     }
 };
 
+inline int findDoubleHalfEdgeIndex(const std::vector<DoubleHalfEdge> &edges, int halfEdgeIdx)
+{
+    auto it = std::find_if(edges.begin(), edges.end(), [halfEdgeIdx](const DoubleHalfEdge &dhe)
+                           { return dhe.halfEdgeIdx1 == halfEdgeIdx || dhe.halfEdgeIdx2 == halfEdgeIdx; });
+
+    if (it != edges.end())
+    {
+        return static_cast<int>(std::distance(edges.begin(), it));
+    }
+    return -1;
+}
+
 struct AABB
 {
     glm::vec2 min;
@@ -308,6 +320,18 @@ inline std::vector<int> getValidCompIndices(const auto &comps)
     return indices;
 }
 
+inline std::string extractFileName(const std::string &filepath)
+{
+    size_t lastSlash = filepath.find_last_of("/\\");
+    size_t start = (lastSlash == std::string::npos) ? 0 : lastSlash + 1;
+    size_t lastDot = filepath.find_last_of('.');
+    if (lastDot == std::string::npos || lastDot < start)
+    {
+        return filepath.substr(start);
+    }
+    return filepath.substr(start, lastDot - start);
+}
+
 using CurveVector = std::array<Vertex, 4>;
 
 inline constexpr float BCM{1.0f / 3.0f}; // bezier conversion multiplier
@@ -322,6 +346,7 @@ inline constexpr std::string_view IMAGE_DIR{"img"};
 inline constexpr std::string_view LOGS_DIR{"logs"};
 inline constexpr std::string_view SAVES_DIR{"mesh_saves"};
 inline constexpr std::string_view PREPROCESSING_DIR{"preprocessing"};
+inline constexpr std::string_view TPR_PREPROCESSING_DIR{"tprs"};
 inline const std::string DEFAULT_FIRST_SAVE_DIR{"mesh_saves/save_0.hemesh"};
 inline const char *MERGE_METRIC_IMG{"img/mergedMesh.png"};
 inline const char *PREV_METRIC_IMG{"img/prevMesh.png"};
@@ -332,6 +357,6 @@ inline constexpr int MAX_CURVE_DEPTH = 1000;
 
 inline constexpr glm::vec3 blue{0.0f, 0.478f, 1.0f};
 inline constexpr glm::vec3 yellow{1.0f, 0.9f, 0.0f};
-inline constexpr glm::vec3 green{0.0f, 0.9f, 0.0f};
+inline constexpr glm::vec3 green{0.137f, 0.87f, 0.0f};
 inline constexpr glm::vec3 black{0.0f};
 inline constexpr glm::vec3 white{1.0f};

@@ -1,17 +1,5 @@
 #include "fileio.hpp"
 
-std::string extractFileName(const std::string &filepath)
-{
-    size_t lastSlash = filepath.find_last_of("/\\");
-    size_t start = (lastSlash == std::string::npos) ? 0 : lastSlash + 1;
-    size_t lastDot = filepath.find_last_of('.');
-    if (lastDot == std::string::npos || lastDot < start)
-    {
-        return filepath.substr(start);
-    }
-    return filepath.substr(start, lastDot - start);
-}
-
 std::vector<std::string> splitString(const std::string &str)
 {
     std::vector<std::string> tokens;
@@ -277,6 +265,11 @@ void setupDirectories()
     createDir(IMAGE_DIR);
     createDir(SAVES_DIR);
     createDir(PREPROCESSING_DIR);
+    if (!std::filesystem::exists(TPR_PREPROCESSING_DIR))
+    {
+        if (!std::filesystem::create_directory(TPR_PREPROCESSING_DIR))
+            std::cout << "Failed to create directory!" << std::endl;
+    }
 }
 
 bool isValidNumber(const std::string &str)
@@ -341,31 +334,29 @@ void saveConflictGraphToFile(const std::string &filename, const std::vector<TPRN
         return;
     }
 
-    /*
-        // Save allTPRs
-        outFile << allTPRs.size() << "\n";
-        for (const auto &node : allTPRs)
-        {
-            outFile << node.id << " "
-                    << node.gridPair.first << " " << node.gridPair.second << " "
-                    << node.maxRegion.first << " " << node.maxRegion.second << " "
-                    << std::fixed << std::setprecision(10) << node.error << " "
-                    << node.maxChainLength << " "
-                    << node.degree << "\n";
-        }
+    // Save allTPRs
+    outFile << allTPRs.size() << "\n";
+    for (const auto &node : allTPRs)
+    {
+        outFile << node.id << " "
+                << node.gridPair.first << " " << node.gridPair.second << " "
+                << node.maxRegion.first << " " << node.maxRegion.second << " "
+                << std::fixed << std::setprecision(10) << node.error << " "
+                << node.maxChainLength << " "
+                << node.degree << "\n";
+    }
 
-        // Save adjList
-        outFile << adjList.size() << "\n";
-        for (const auto &adj : adjList)
+    // Save adjList
+    outFile << adjList.size() << "\n";
+    for (const auto &adj : adjList)
+    {
+        outFile << adj.size();
+        for (int node : adj)
         {
-            outFile << adj.size();
-            for (int node : adj)
-            {
-                outFile << " " << node;
-            }
-            outFile << "\n";
+            outFile << " " << node;
         }
-        */
+        outFile << "\n";
+    }
 
     // Save sortedRegions
     outFile << sortedRegions.size() << "\n";
@@ -400,34 +391,32 @@ void loadConflictGraphFromFile(const std::string &filename, std::vector<TPRNode>
         return;
     }
 
-    /*
-        // Load allTPRs
-        size_t numTPRs;
-        inFile >> numTPRs;
-        allTPRs.resize(numTPRs);
+    // Load allTPRs
+    size_t numTPRs;
+    inFile >> numTPRs;
+    allTPRs.resize(numTPRs);
 
-        for (auto &node : allTPRs)
+    for (auto &node : allTPRs)
+    {
+        inFile >> node.id >> node.gridPair.first >> node.gridPair.second >> node.maxRegion.first >> node.maxRegion.second >> node.error >> node.maxChainLength >> node.degree;
+    }
+
+    // Load adjList
+    size_t numAdjList;
+    inFile >> numAdjList;
+    adjList.resize(numAdjList);
+
+    for (auto &adj : adjList)
+    {
+        size_t numAdjNodes;
+        inFile >> numAdjNodes;
+        adj.resize(numAdjNodes);
+
+        for (int &node : adj)
         {
-            inFile >> node.id >> node.gridPair.first >> node.gridPair.second >> node.maxRegion.first >> node.maxRegion.second >> node.error >> node.maxChainLength >> node.degree;
+            inFile >> node;
         }
-
-        // Load adjList
-        size_t numAdjList;
-        inFile >> numAdjList;
-        adjList.resize(numAdjList);
-
-        for (auto &adj : adjList)
-        {
-            size_t numAdjNodes;
-            inFile >> numAdjNodes;
-            adj.resize(numAdjNodes);
-
-            for (int &node : adj)
-            {
-                inFile >> node;
-            }
-        }
-        */
+    }
 
     // Load sortedRegions
     size_t numSortedRegions;

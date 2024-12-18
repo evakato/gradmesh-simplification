@@ -18,7 +18,6 @@
 
 class GradMesh;
 
-std::string extractFileName(const std::string &filepath);
 std::vector<std::string> splitString(const std::string &str);
 GradMesh readHemeshFile(const std::string &filename);
 // GradMesh readCgmFile(const std::string &filename);

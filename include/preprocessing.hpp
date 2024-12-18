@@ -3,6 +3,7 @@
 #include <omp.h>
 #include <queue>
 #include <set>
+#include <iterator>
 
 #include "gms_appstate.hpp"
 #include "gradmesh.hpp"
@@ -10,6 +11,13 @@
 
 class MergePreprocessor
 {
+    struct TPRNodePair
+    {
+        int i;
+        int j;
+        float score;
+    };
+
 public:
     MergePreprocessor(GradMeshMerger &merger, GmsAppState &appState) : merger(merger), appState(appState), mesh(appState.mesh), edgeRegions(appState.edgeRegions)
     {
@@ -20,6 +28,8 @@ public:
     void setEdgeRegions();
     void mergeTPRs();
     void mergeGreedyQuadError();
+    void mergeIndependentSet();
+    void mergeMotorcycle();
 
 private:
     std::vector<RegionAttributes> findMaxProductRegion(EdgeRegion &edgeRegion);
@@ -29,12 +39,10 @@ private:
     std::vector<EdgeRegion> getEdgeRegions(const std::vector<std::pair<int, int>> &startPairs);
     void findAllRegions(const std::vector<int> &rowIdxs, int rowLength, AABB &errorAABB, std::vector<RegionAttributes> &regionAttributes);
     void createAdjList();
-    void vertexColoring();
+    bool canInclude(int idx);
     int binarySearch(const std::vector<int> &arr, int left, float eps);
 
-    void createConflictGraph(float eps);
-    void findIndependentSetWithColoring(float eps);
-    void heuristicBinarySearch(float userError);
+    void greedyQuadErrorHeuristic(float eps);
     void greedyQuadErrorTwoStep(float userError);
     void computeConflictGraphStats();
 
@@ -48,5 +56,6 @@ private:
 
     std::vector<TPRNode> allTPRs;
     std::vector<std::vector<int>> adjList;
-    std::vector<int> vertexColors;
+    std::set<int> currIndependentSet;
+    std::set<int>::iterator currIndependentSetIterator;
 };

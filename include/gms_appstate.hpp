@@ -67,8 +67,11 @@ enum class MergeProcess
     LoadProductRegionsPreprocessing,
     MergeTPRs,
     MergeGreedyQuadError,
+    MergeMotorcycle,
+    DebugMergeGreedyQuadError,
     ViewEdgeMap,
     ViewConflictGraphStats,
+    PreviewMerge,
     Merging
 };
 
@@ -78,7 +81,6 @@ struct ConflictGraphStats
     float avgDegree = 0.0f;
     float avgQuads = 0;
     float avgError = 0.0f;
-    int numColors = 0;
 };
 
 class GradMesh;
@@ -119,9 +121,12 @@ public:
     int regionsMerged = 0;
     ConflictGraphStats conflictGraphStats;
     float quadErrorWeight = 0.5;
+    std::string loadPreprocessingFilename;
+    float oneStepQuadErrorProgress{-1.0f};
 
     // Metadata
-    std::string filename = "../meshes/order1.hemesh";
+    std::string filename = "../meshes/global_duck.hemesh";
+    std::string meshname;
     bool filenameChanged = false;
     bool loadSave = false;
 
@@ -162,8 +167,10 @@ public:
     bool useError = true;
     MergeMetrics::MergeSettings mergeSettings;
     MergeStatus mergeStatus = {NA};
+    float mergePreviewError;
 
     MergeMetrics::PatchRenderResources patchRenderResources;
+    std::vector<int> selectedProductRegionIdxs;
 
     void setSelectedDhe(CurveId selectedCurve)
     {
@@ -213,6 +220,8 @@ public:
         loadSave = filenameChanged = false;
         mergeStatus = NA;
         selectedEdgeId = -1;
+        meshname = extractFileName(filename);
+        loadPreprocessingFilename = std::string{TPR_PREPROCESSING_DIR} + "/" + meshname + ".txt";
     }
     void setPatchCurveColor(CurveId someCurve, glm::vec3 col)
     {
@@ -231,6 +240,23 @@ public:
             auto &c2 = dhe.curveId2;
             patches[c1.patchId].setCurveSelected(c1.curveId, col);
             patches[c2.patchId].setCurveSelected(c2.curveId, col);
+        }
+        patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
+    }
+    void showProductRegion(std::pair<int, int> gridPair, std::pair<int, int> maxRegion)
+    {
+        auto edgeIdxs = mesh.getRegionBorderIdxs(gridPair, maxRegion);
+        for (int idx : selectedProductRegionIdxs)
+        {
+            auto curve = getCurveIdFromEdgeIdx(patches, idx);
+            patches[curve.patchId].setCurveSelected(curve.curveId, black);
+        }
+        selectedProductRegionIdxs.clear();
+        for (int edgeIdx : edgeIdxs)
+        {
+            auto curve = getCurveIdFromEdgeIdx(patches, edgeIdx);
+            patches[curve.patchId].setCurveSelected(curve.curveId, green);
+            selectedProductRegionIdxs.push_back(edgeIdx);
         }
         patchRenderParams.glCurves = getAllPatchGLData(patches, &Patch::getCurveData);
     }
