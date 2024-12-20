@@ -63,12 +63,18 @@ void MergePreprocessor::mergeMotorcycle()
 {
     mesh = readHemeshFile("mesh_saves/save_0.hemesh");
     auto mergeableRegions = merger.metrics.getMergeableRegions();
+    for (auto &mr : mergeableRegions)
+    {
+        merger.metrics.findSumOfErrors(mr);
+        std::cout << mr.sumOfErrors << std::endl;
+    }
     std::sort(mergeableRegions.begin(), mergeableRegions.end(),
               [](const MergeableRegion &a, const MergeableRegion &b)
               {
-                  int productA = (a.maxRegion.first + 1) * (a.maxRegion.second + 1);
-                  int productB = (b.maxRegion.first + 1) * (b.maxRegion.second + 1);
-                  return productA > productB;
+                  // int productA = (a.maxRegion.first + 1) * (a.maxRegion.second + 1);
+                  // int productB = (b.maxRegion.first + 1) * (b.maxRegion.second + 1);
+                  // return productA > productB;
+                  return a.sumOfErrors < b.sumOfErrors;
               });
     for (auto &region : mergeableRegions)
     {
@@ -76,7 +82,7 @@ void MergePreprocessor::mergeMotorcycle()
             continue;
 
         writeHemeshFile("mesh_saves/lastsave.hemesh", mesh);
-        mergeEdgeRegion({region.gridPair, region.maxRegion});
+        mergeEdgeRegionWithError({region.gridPair, region.maxRegion});
         if (!mesh.generatePatches())
         {
             mesh = readHemeshFile("mesh_saves/lastsave.hemesh");
@@ -590,6 +596,93 @@ int MergePreprocessor::binarySearch(const std::vector<int> &arr, int left, float
     mesh = readHemeshFile("mesh_saves/lastsave.hemesh");
 
     return bestMerge;
+}
+
+void MergePreprocessor::mergeEdgeRegionWithError(const Region &region)
+{
+    auto [adj1, adj2] = region[0];
+    auto maxRegion = region[1];
+
+    std::vector<int> rowIdxs = {adj1};
+    int currRowIdx = adj1;
+
+    if (maxRegion.first == 0)
+    {
+        int currEdgeIdx = adj2;
+        for (int i = 0; i < maxRegion.second; i++)
+        {
+            auto &currEdge = mesh.edges[currEdgeIdx];
+            if (!mesh.validMergeEdge(currEdge))
+                break;
+
+            writeHemeshFile("mesh_saves/lastsave.hemesh", mesh);
+            AABB aabb;
+            float mergeError = merger.attemptMerge(currEdgeIdx, aabb);
+            if (mergeError > appState.mergeSettings.errorThreshold)
+            {
+                mesh = readHemeshFile("mesh_saves/lastsave.hemesh");
+                int twinIdx = mesh.edges[currEdgeIdx].twinIdx;
+                if (twinIdx != -1)
+                    currEdgeIdx = mesh.getFaceEdgeIdxs(twinIdx)[2];
+            }
+        }
+        if (!mesh.generatePatches())
+        {
+            mesh = readHemeshFile("mesh_saves/lastsave.hemesh");
+        }
+        return;
+    }
+    for (int i = 0; i < maxRegion.second; i++)
+    {
+        currRowIdx = mesh.getNextRowIdx(currRowIdx);
+        if (currRowIdx == -1)
+            break;
+        rowIdxs.push_back(currRowIdx);
+    }
+    std::vector<int> verticalEdgeIdxs;
+    for (int firstRowIdx : rowIdxs)
+    {
+        int currEdgeIdx = firstRowIdx;
+        for (int i = 0; i < maxRegion.first; i++)
+        {
+            auto &currEdge = mesh.edges[currEdgeIdx];
+            if (!mesh.validMergeEdge(currEdge))
+                break;
+
+            writeHemeshFile("mesh_saves/lastsave.hemesh", mesh);
+            AABB aabb;
+            float mergeError = merger.attemptMerge(currEdgeIdx, aabb);
+            if (mergeError > appState.mergeSettings.errorThreshold)
+            {
+                mesh = readHemeshFile("mesh_saves/lastsave.hemesh");
+                verticalEdgeIdxs.push_back(mesh.edges[currEdgeIdx].prevIdx);
+                int twinIdx = mesh.edges[currEdgeIdx].twinIdx;
+                if (twinIdx != -1)
+                    currEdgeIdx = mesh.getFaceEdgeIdxs(twinIdx)[2];
+            }
+        }
+    }
+    if (maxRegion.second == 0)
+        return;
+
+    for (int verticalEdgeIdx : verticalEdgeIdxs)
+    {
+        for (int i = 0; i < maxRegion.second; i++)
+        {
+            auto &currEdge = mesh.edges[verticalEdgeIdx];
+            if (!mesh.validMergeEdge(currEdge))
+                break;
+
+            writeHemeshFile("mesh_saves/lastsave.hemesh", mesh);
+            AABB aabb;
+            float mergeError = merger.attemptMerge(verticalEdgeIdx, aabb);
+            if (mergeError > appState.mergeSettings.errorThreshold)
+            {
+                mesh = readHemeshFile("mesh_saves/lastsave.hemesh");
+                break;
+            }
+        }
+    }
 }
 
 void MergePreprocessor::mergeEdgeRegion(const Region &region)

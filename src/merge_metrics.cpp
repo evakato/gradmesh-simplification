@@ -25,6 +25,67 @@ bool MergeMetrics::isMarked(int halfEdgeIdx)
     return valenceVertices[lookup.first].markedEdges[lookup.second] == 1;
 }
 
+void MergeMetrics::findSumOfErrors(MergeableRegion &mr)
+{
+    auto [rowIdx, colIdx] = mr.gridPair;
+    auto [width, length] = mr.maxRegion;
+    if (width == 0 && length == 0)
+    {
+        mr.sumOfErrors = 0;
+        return;
+    }
+    float sum = 0.0f;
+    if (width == 0)
+    {
+        int currIdx = colIdx;
+        for (int i = 0; i < length; i++)
+        {
+            assert(halfEdgeErrors[currIdx] != -2.0f);
+            sum += halfEdgeErrors[currIdx];
+            currIdx = mesh.getFaceEdgeIdxs(mesh.edges[currIdx].twinIdx)[2];
+        }
+        mr.sumOfErrors = sum;
+        return;
+    }
+    if (length == 0)
+    {
+        int currIdx = rowIdx;
+        for (int i = 0; i < width; i++)
+        {
+            assert(halfEdgeErrors[currIdx] != -2.0f);
+            sum += halfEdgeErrors[currIdx];
+            currIdx = mesh.getFaceEdgeIdxs(mesh.edges[currIdx].twinIdx)[2];
+        }
+        mr.sumOfErrors = sum;
+        return;
+    }
+    int currIdx = rowIdx;
+    for (int j = 0; j < length + 1; j++)
+    {
+        int nextIdx = mesh.getNextRowIdx(currIdx);
+        for (int i = 0; i < width; i++)
+        {
+            assert(halfEdgeErrors[currIdx] != -2.0f);
+            sum += halfEdgeErrors[currIdx];
+            currIdx = mesh.getFaceEdgeIdxs(mesh.edges[currIdx].twinIdx)[2];
+        }
+        currIdx = nextIdx;
+    }
+    currIdx = colIdx;
+    for (int j = 0; j < length; j++)
+    {
+        int nextIdx = mesh.getFaceEdgeIdxs(mesh.edges[currIdx].twinIdx)[2];
+        for (int i = 0; i < width + 1; i++)
+        {
+            assert(halfEdgeErrors[currIdx] != -2.0f);
+            sum += halfEdgeErrors[currIdx];
+            currIdx = mesh.edges[mesh.edges[mesh.edges[currIdx].prevIdx].twinIdx].prevIdx;
+        }
+        currIdx = nextIdx;
+    }
+    mr.sumOfErrors = sum;
+}
+
 void MergeMetrics::getMergeableRegion(std::vector<int> &alreadyVisited, std::vector<MergeableRegion> &mergeableRegions, int halfEdgeIdx)
 {
     if (std::find(alreadyVisited.begin(), alreadyVisited.end(), halfEdgeIdx) != alreadyVisited.end())
@@ -273,8 +334,8 @@ void MergeMetrics::generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay)
     int poolRes = 1000;
     setupFBO(patchRenderResources.unmergedTexture, unmergedFbo, poolRes, poolRes);
     glLineWidth(3.5f);
-    drawPrimitive(glCurveData, patchRenderResources.curveShaderId, mergeSettings.globalAABB, VERTS_PER_CURVE);
-    // writeToImage(poolRes, EDGE_MAP_IMG);
+    drawPrimitive(glCurveData, patchRenderResources.curveShaderId, mergeSettings.globalPaddedAABB, VERTS_PER_CURVE);
+    writeToImage(poolRes, EDGE_MAP_IMG);
     closeFBO();
 }
 

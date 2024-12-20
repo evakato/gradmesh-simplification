@@ -102,6 +102,7 @@ struct MergeableRegion
 {
     std::pair<int, int> gridPair;
     std::pair<int, int> maxRegion;
+    float sumOfErrors;
 };
 
 struct SingleHalfEdge
@@ -166,6 +167,7 @@ public:
     float evaluateMetric(const char *compImgPath = MERGE_METRIC_IMG, const char *compImgPath2 = ORIG_IMG);
     void setValenceVertices();
     std::vector<MergeableRegion> getMergeableRegions();
+    void findSumOfErrors(MergeableRegion &mr);
 
 private:
     void generateMotorcycleGraph();

@@ -36,6 +36,7 @@ private:
     std::vector<RegionAttributes> mergeRow(int currEdgeIdx, AABB &aabb, bool isRow = true, int maxLength = std::numeric_limits<int>::max(), int oppLength = 0);
     int mergeRowWithoutError(int currEdgeIdx, int maxLength = std::numeric_limits<int>::max());
     void mergeEdgeRegion(const Region &region);
+    void mergeEdgeRegionWithError(const Region &region);
     std::vector<EdgeRegion> getEdgeRegions(const std::vector<std::pair<int, int>> &startPairs);
     void findAllRegions(const std::vector<int> &rowIdxs, int rowLength, AABB &errorAABB, std::vector<RegionAttributes> &regionAttributes);
     void createAdjList();

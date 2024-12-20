@@ -40,6 +40,9 @@ void GradMeshMerger::merge()
 {
     if (appState.candidateMerges.size() <= 0 || appState.mergeMode == NONE)
     {
+        appState.updateMeshRender();
+        metrics.captureGlobalImage(appState.patchRenderParams.glPatches, CURR_IMG);
+        appState.mergeError = metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
         appState.mergeMode = NONE;
         return;
     }
