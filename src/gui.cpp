@@ -52,10 +52,11 @@ void renderComparisonWindow(const GmsAppState &appState)
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, GUI_FINAL_IMAGE_SIZE + 10);
                 ImGui::TableSetColumnIndex(0);
                 GLuint texture = LoadTextureFromFile(ORIG_IMG);
-                ImGui::Image((void *)(intptr_t)texture, ImVec2(GUI_FINAL_IMAGE_SIZE, GUI_FINAL_IMAGE_SIZE)); // Fixed size
+                auto [w, h] = appState.mergeSettings.globalPaddedAABB.getRes(GUI_FINAL_IMAGE_SIZE);
+                ImGui::Image((void *)(intptr_t)texture, ImVec2(w, h)); // Fixed size
                 ImGui::TableSetColumnIndex(1);
                 GLuint texture2 = LoadTextureFromFile(CURR_IMG);
-                ImGui::Image((void *)(intptr_t)texture2, ImVec2(GUI_FINAL_IMAGE_SIZE, GUI_FINAL_IMAGE_SIZE)); // Fixed size
+                ImGui::Image((void *)(intptr_t)texture2, ImVec2(w, h)); // Fixed size
                 ImGui::EndTable();
             }
         }
