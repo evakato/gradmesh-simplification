@@ -233,18 +233,49 @@ void writeLogFile(const GradMesh &mesh, const std::string &filename)
     }
 }
 
+bool fileExists(const std::string &filename)
+{
+    std::ifstream file(filename);
+    return file.good();
+}
+
 void saveImage(const char *filename, int width, int height)
 {
     unsigned char *pixels = new unsigned char[width * height * 4];
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
+    // Flip the image vertically
     for (int y = 0; y < height / 2; ++y)
         for (int x = 0; x < width * 4; ++x)
             std::swap(pixels[y * width * 4 + x], pixels[(height - 1 - y) * width * 4 + x]);
 
     int stride_in_bytes = width * 4;
-    if (!stbi_write_png(filename, width, height, 4, pixels, stride_in_bytes))
+
+    // Check if the file already exists, if so, modify the filename
+    std::string filepath = filename;
+    std::string new_filepath = filepath;
+    size_t extension_pos = filepath.find_last_of('.');
+    if (extension_pos != std::string::npos)
+    {
+        std::string extension = filepath.substr(extension_pos);
+        std::string base_filename = filepath.substr(0, extension_pos);
+
+        int count = 1;
+        while (fileExists(new_filepath))
+        {
+            new_filepath = base_filename + std::to_string(count++) + extension;
+        }
+    }
+
+    // Save the image
+    if (!stbi_write_png(new_filepath.c_str(), width, height, 4, pixels, stride_in_bytes))
+    {
         std::cout << "Failed to save image!" << std::endl;
+    }
+    else
+    {
+        std::cout << "Image saved as " << new_filepath << std::endl;
+    }
 
     delete[] pixels;
 }

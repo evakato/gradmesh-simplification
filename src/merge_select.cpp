@@ -1,22 +1,77 @@
 #include "merge_select.hpp"
+#include <random>
 
 MergeSelect::MergeSelect(GmsAppState &state) : state(state) {}
+
+int randomCorner(int N)
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distrib(0, N);
+    return distrib(gen);
+}
+
+int MergeSelect::validCorners()
+{
+    std::vector<int> validCorners;
+    for (int i = 0; i < cornerFaces.size(); i++)
+    {
+        if (std::find(seenCorners.begin(), seenCorners.end(), i) != seenCorners.end())
+        {
+            continue;
+        }
+        auto &cornerPairs = cornerFaces[i];
+        if (state.mesh.validMergeEdge(cornerPairs.first) && cornerPairs.second == -1)
+        {
+            validCorners.push_back(i);
+        }
+        else if (state.mesh.validMergeEdge(cornerPairs.first) && state.mesh.validMergeEdge(cornerPairs.second))
+        {
+            validCorners.push_back(i);
+        }
+    }
+    std::cout << "hello? " << validCorners.size() << std::endl;
+    if (validCorners.size() <= 3 || seenCorners.size() > 3)
+        return -1;
+    int rCorner = randomCorner(validCorners.size() - 1);
+    seenCorners.push_back(validCorners[rCorner]);
+    return validCorners[rCorner];
+}
+
+void MergeSelect::setCornerEdges()
+{
+    int idx = validCorners();
+    if (idx == -1)
+        return;
+    cornerEdges = cornerFaces[idx];
+    int secondEdge = cornerEdges.second;
+    if (secondEdge == -1)
+        return;
+    if (state.mesh.edges[secondEdge].nextIdx == cornerEdges.first)
+    {
+        cornerEdges.second = cornerEdges.first;
+        cornerEdges.first = secondEdge;
+    }
+}
+
+void MergeSelect::setCurrAdjPair()
+{
+    auto [adj1, adj2] = cornerEdges;
+    int adj2Twin = adj2 == -1 ? -1 : state.mesh.getTwinIdx(adj2);
+    int nextEdgeIdx = adj2Twin == -1 ? -1 : state.mesh.edges[adj2Twin].nextIdx;
+    currAdjPair = {adj1, nextEdgeIdx};
+    otherDirEdges.push_back(state.mesh.edges[adj1].nextIdx);
+}
 
 void MergeSelect::reset()
 {
     otherDirEdges.clear();
-    auto cornerFaces = state.mesh.findCornerFaces();
-    std::cout << "Setting new corner " << cornerFaces.size() << std::endl;
-    cornerEdges = cornerFaces[0];
+    seenFailedEdges.clear();
+    cornerFaces = state.mesh.findCornerFaces();
 
-    auto [adj1, adj2] = cornerEdges;
-    int adj2Twin = adj2 == -1 ? -1 : state.mesh.getTwinIdx(adj2);
-    int nextEdgeIdx = adj2Twin == -1 ? -1 : state.mesh.edges[adj2Twin].nextIdx;
-    std::cout << "Curr adj pair: " << adj1 << ", " << nextEdgeIdx << std::endl;
-    currAdjPair = {adj1, nextEdgeIdx};
-    otherDirEdges.push_back(state.mesh.edges[adj1].nextIdx);
+    setCornerEdges();
+    setCurrAdjPair();
 
-    // currAdjPair = {-1, -1};
     otherDirIdx = 0;
     verticalDir = false;
     firstRow = true;
@@ -122,7 +177,14 @@ int MergeSelect::selectVerticalGridEdge()
         {
             otherDirEdges.clear();
             verticalDir = false;
-            return -1;
+            otherDirIdx = 0;
+
+            if (validCorners() == -1)
+                return -1;
+
+            setCornerEdges();
+            setCurrAdjPair();
+            return currAdjPair.first;
         }
         currIdx = otherDirEdges[otherDirIdx];
         currEdge = &state.mesh.edges[currIdx];
@@ -138,6 +200,12 @@ int MergeSelect::selectGridEdge()
     auto [adj1, adj2] = currAdjPair;
     if (state.mergeStatus != SUCCESS && state.mergeStatus != NA)
     {
+        if (std::find(seenFailedEdges.begin(), seenFailedEdges.end(), adj1) != seenFailedEdges.end())
+        {
+            verticalDir = true;
+            return selectVerticalGridEdge();
+        }
+        seenFailedEdges.push_back(adj1);
         if (state.mesh.getTwinIdx(adj1) != -1)
         {
             adj1 = state.mesh.getFaceEdgeIdxs(state.mesh.getTwinIdx(adj1))[2];
@@ -150,7 +218,6 @@ int MergeSelect::selectGridEdge()
     {
         if (adj2 == -1)
         {
-            // change grid to other direction
             verticalDir = true;
             return selectVerticalGridEdge();
         }
@@ -166,34 +233,16 @@ int MergeSelect::selectGridEdge()
 
 int MergeSelect::selectDualGridEdge()
 {
-    if (verticalDir)
-    {
-        int currIdx = otherDirEdges[otherDirIdx];
-        if (state.mergeStatus != SUCCESS && state.mergeStatus != NA)
-        {
-            otherDirIdx++;
-        }
-
-        const auto *currEdge = &state.mesh.edges[currIdx];
-        while (!currEdge->isValid() || !state.mesh.validMergeEdge(*currEdge))
-        {
-            otherDirIdx++;
-            if (otherDirIdx >= otherDirEdges.size())
-                return -1;
-            currIdx = otherDirEdges[otherDirIdx];
-            currEdge = &state.mesh.edges[currIdx];
-        }
-        return currIdx;
-    }
-
     if (state.numOfMerges == 0 && state.attemptedMergesIdx == 0)
     {
-        std::cout << "hallo" << std::endl;
         otherDirEdges.clear();
         auto [adj1, adj2] = cornerEdges;
         currAdjPair = {adj1, adj2};
+        state.attemptedMergesIdx++;
         return adj1;
     }
+    if (verticalDir)
+        return selectVerticalGridEdge();
 
     auto [adj1, adj2] = currAdjPair;
 
@@ -228,6 +277,12 @@ int MergeSelect::selectDualGridEdge()
     }
     else if (state.mergeStatus == METRIC_ERROR || state.mergeStatus == CYCLE)
     {
+        if (std::find(seenFailedEdges.begin(), seenFailedEdges.end(), adj1) != seenFailedEdges.end())
+        {
+            verticalDir = true;
+            return selectVerticalGridEdge();
+        }
+        seenFailedEdges.push_back(adj1);
         if (firstRow)
         {
             int twinMergeEdge = state.mesh.getTwinIdx(adj1);
@@ -259,7 +314,7 @@ int MergeSelect::selectDualGridEdge()
     if (state.mesh.getTwinIdx(adj2) == -1)
     {
         verticalDir = true;
-        return -1;
+        return selectVerticalGridEdge();
     }
     firstRow = true;
     otherDirEdges.push_back(state.mesh.edges[adj2].nextIdx);

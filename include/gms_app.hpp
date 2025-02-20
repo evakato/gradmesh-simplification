@@ -23,7 +23,7 @@ public:
 private:
     void loadMesh();
     void setupNewMesh();
-    void startPreprocessing();
+    void runTest(MergeSelectMode mode);
 
     GmsWindow gmsWindow{SCR_WIDTH, SCR_HEIGHT, "gms"};
     GmsGui gui{gmsWindow, appState};

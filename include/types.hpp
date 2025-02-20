@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <chrono>
 #include <iostream>
+#include <numeric>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -330,6 +333,24 @@ inline std::string extractFileName(const std::string &filepath)
         return filepath.substr(start);
     }
     return filepath.substr(start, lastDot - start);
+}
+
+template <typename T>
+inline double calculateAverage(const std::vector<T> &vec)
+{
+    if (vec.empty())
+        return T(0); // Avoid division by zero, return default value for the type
+
+    T sum = std::accumulate(vec.begin(), vec.end(), T(0));
+    return sum / static_cast<double>(vec.size());
+}
+
+inline void printElapsedTime(std::optional<std::chrono::high_resolution_clock::time_point> &startTime)
+{
+    auto end = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsed = end - startTime.value();
+    std::cout << "time: " << elapsed.count() << std::endl;
+    startTime.reset();
 }
 
 using CurveVector = std::array<Vertex, 4>;

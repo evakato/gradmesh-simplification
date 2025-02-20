@@ -1,0 +1,21 @@
+[submodule "libs/imgui"]
+	path = libs/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "libs/imgui-filebrowser"]
+	path = libs/imgui-filebrowser
+	url = https://github.com/AirGuanZ/imgui-filebrowser
+[submodule "libs/stb"]
+	path = libs/stb
+	url = https://github.com/nothings/stb
+[submodule "libs/glm"]
+	path = libs/glm
+	url = https://github.com/g-truc/glm
+[submodule "libs/flip"]
+	path = libs/flip
+	url = https://github.com/NVlabs/flip
+[submodule "ssim"]
+	path = ssim
+	url = https://github.com/romigrou/ssim
+[submodule "libs/ssim"]
+	path = libs/ssim
+	url = https://github.com/romigrou/ssim.git

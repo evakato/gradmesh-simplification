@@ -131,6 +131,11 @@ public:
     {
         return (edge.isValid() && edge.hasTwin() && !edge.isBar() && !twinIsParent(edge) && !edge.isParent() && !isULMergeEdge(edge));
     }
+    bool validMergeEdge(int edgeIdx) const
+    {
+        const auto &edge = edges[edgeIdx];
+        return (edge.isValid() && edge.hasTwin() && !edge.isBar() && !twinIsParent(edge) && !edge.isParent() && !isULMergeEdge(edge));
+    }
     int maxDependencyChain() const;
     std::vector<int> getRegionBorderIdxs(const std::pair<int, int> &gridPair, const std::pair<int, int> &maxRegion);
 

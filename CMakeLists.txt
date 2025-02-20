@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-include_directories(libs include libs/stb libs/imgui libs/imgui/backends libs/ssim/include libs/flip)
+include_directories(libs include libs/stb libs/imgui libs/imgui/backends libs/ssim/include libs/flip/src/cpp libs/glm)
 
 find_package(OpenGL REQUIRED)
 find_package(glfw3 REQUIRED)

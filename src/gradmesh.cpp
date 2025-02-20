@@ -43,9 +43,9 @@ EdgeDerivatives GradMesh::getCurve(int halfEdgeIdx, int depth) const
     if (!edges[halfEdgeIdx].isValid())
     {
         std::cerr << "half edge idx not valid: " << halfEdgeIdx << std::endl;
-        assert(false);
+        // assert(false);
     }
-    assert(edges[edge.nextIdx].isValid());
+    // assert(edges[edge.nextIdx].isValid());
 
     auto edgeDerivatives = computeEdgeDerivatives(edge, ++depth);
     if (!edgeDerivatives)
@@ -73,12 +73,13 @@ EdgeDerivatives GradMesh::computeEdgeDerivatives(const HalfEdge &edge, int depth
 
     if (!edge.isChild())
     {
-        if (edge.originIdx == -1)
+        if (edge.originIdx == -1 || edge.handleIdxs.first == -1 || edge.handleIdxs.second == -1)
         {
             std::cout << edge << std::endl;
-            assert(false);
+            // assert(false);
+            return std::nullopt;
         }
-        assert(edge.handleIdxs.first != -1 && edge.handleIdxs.second != -1);
+        // assert(edge.handleIdxs.first != -1 && edge.handleIdxs.second != -1);
 
         edgeDerivatives[0] = Vertex{points[edge.originIdx].coords, edge.color};
         edgeDerivatives[1] = Vertex{handles[edge.handleIdxs.first]};

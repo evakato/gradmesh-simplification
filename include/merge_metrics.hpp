@@ -20,10 +20,10 @@
 #include "renderer.hpp"
 #include "types.hpp"
 
-inline const int POOLING_LENGTH{400};
+inline const int POOLING_LENGTH{700};
 inline const float AABB_PADDING{0.03f};
 inline const glm::vec2 MIN_AABB_SIZE{0.1f, 0.1f};
-inline const float ERROR_THRESHOLD{0.0075f};
+inline const float ERROR_THRESHOLD{0.005f};
 
 enum class EdgeErrorDisplay
 {
@@ -62,6 +62,14 @@ struct ValenceVertex
     {
         return markedEdges[0] + markedEdges[1] + markedEdges[2] + markedEdges[3];
     }
+    bool noGrow() const
+    {
+        return (isBoundary() || sumMarked() == 0 || sumMarked() == 3 || sumMarked() == 4);
+    }
+    bool isDone() const
+    {
+        return (isBoundary() || (sumMarked() != 1 && valenceTwoL().first == -1));
+    }
     int getFirstMarkedEdgeIndex() const
     {
         auto it = std::find(markedEdges.begin(), markedEdges.end(), 1);
@@ -75,26 +83,35 @@ struct ValenceVertex
     {
         if (sumMarked() != 1)
             return -1;
+        if (halfEdgeIdxs[(getFirstMarkedEdgeIndex() + 2) % 4] == -1)
+            return -1;
         return (getFirstMarkedEdgeIndex() + 2) % 4;
         // return halfEdgeIdxs[(getFirstMarkedEdgeIndex() + 2) % 4];
     }
-    int valenceTwoL() const
+    std::pair<int, int> valenceTwoL() const
     {
         if (sumMarked() != 2)
-            return -1;
+            return {-1, -1};
         if ((markedEdges[0] && markedEdges[2]) || (markedEdges[1] && markedEdges[3]))
-            return -1;
-        int markedIdx = getFirstMarkedEdgeIndex();
-        if (markedEdges[(markedIdx + 1) % 4] == 1)
-            // return markedIdx == 0 ? halfEdgeIdxs[3] : halfEdgeIdxs[markedIdx - 1];
-            return markedIdx == 0 ? 3 : markedIdx - 1;
+            return {-1, -1};
 
-        // return halfEdgeIdxs[(markedIdx + 1) % 4];
-        return (markedIdx + 1) % 4;
+        if (markedEdges[0] && markedEdges[1])
+            return {2, 3};
+        if (markedEdges[1] && markedEdges[2])
+            return {0, 3};
+        if (markedEdges[2] && markedEdges[3])
+            return {0, 1};
+        if (markedEdges[0] && markedEdges[3])
+            return {1, 2};
+        return {-1, -1};
     }
     void setMarked(int i)
     {
         markedEdges[i] = 1;
+    }
+    void unmark(int i)
+    {
+        markedEdges[i] = 0;
     }
 };
 
@@ -172,6 +189,7 @@ public:
 private:
     void generateMotorcycleGraph();
     void markTwoHalfEdges(int idx1, int idx2);
+    void unmarkTwoHalfEdges(int idx1, int idx2);
     bool isMarked(int halfEdgeIdx);
     void getMergeableRegion(std::vector<int> &alreadyVisited, std::vector<MergeableRegion> &mergeableRegions, int halfEdgeIdx);
 

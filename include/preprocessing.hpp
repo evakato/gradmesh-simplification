@@ -26,7 +26,7 @@ public:
     void preprocessProductRegions();
     void loadProductRegionsPreprocessing();
     void setEdgeRegions();
-    void mergeTPRs();
+    void mergeGreedyQuadErrorOneStep();
     void mergeGreedyQuadError();
     void mergeIndependentSet();
     void mergeMotorcycle();
@@ -44,7 +44,7 @@ private:
     int binarySearch(const std::vector<int> &arr, int left, float eps);
 
     void greedyQuadErrorHeuristic(float eps);
-    void greedyQuadErrorTwoStep(float userError);
+    void greedyQuadErrorOneStep(float userError);
     void computeConflictGraphStats();
 
     GradMeshMerger &merger;

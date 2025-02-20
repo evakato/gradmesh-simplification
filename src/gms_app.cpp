@@ -1,5 +1,7 @@
 #include "gms_app.hpp"
 
+int numTests = 6;
+
 GmsApp::GmsApp()
 {
     setupDirectories();
@@ -48,7 +50,7 @@ void GmsApp::run()
             preprocessor.loadProductRegionsPreprocessing();
             break;
         case MergeProcess::MergeTPRs:
-            preprocessor.mergeTPRs();
+            preprocessor.mergeGreedyQuadErrorOneStep();
             // merger.startupMesh();
             break;
         case MergeProcess::MergeGreedyQuadError:
@@ -69,6 +71,15 @@ void GmsApp::run()
         case MergeProcess::PreviewMerge:
             merger.previewMerge();
             break;
+        case MergeProcess::RandomTest:
+            runTest(RANDOM);
+            break;
+        case MergeProcess::GridTest:
+            runTest(GRID);
+            break;
+        case MergeProcess::DualGridTest:
+            runTest(DUAL_GRID);
+            break;
         case MergeProcess::Merging:
             merger.merge();
             break;
@@ -86,5 +97,50 @@ void GmsApp::run()
 
         gui.render();
         gmsWindow.swapBuffers();
+    }
+}
+
+void GmsApp::runTest(MergeSelectMode mode)
+{
+    static int randomTestCount = 0;
+    static std::vector<int> faceCounts;
+    static std::vector<double> times;
+    static std::vector<float> errors;
+    static std::chrono::high_resolution_clock::time_point start;
+    if (randomTestCount == numTests)
+    {
+        std::cout << faceCounts.size() << std::endl;
+        std::cout << "face counts: " << calculateAverage(faceCounts) << std::endl;
+        std::cout << "times: " << calculateAverage(times) << std::endl;
+        for (float err : errors)
+            std::cout << err << " ";
+        std::cout << std::endl;
+        appState.mergeProcess = MergeProcess::Merging;
+    }
+    merger.merge();
+    if (appState.mergeMode == NONE && randomTestCount == 0)
+    {
+        start = std::chrono::high_resolution_clock::now();
+    }
+    if (appState.mergeMode == NONE)
+    {
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
+        if (elapsed.count() > 0.1)
+        {
+            merger.metrics.captureGlobalImage(appState.patchRenderParams.glPatches, CURR_IMG);
+            appState.mergeError = merger.metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
+            std::vector<int> faceIdxs = getValidCompIndices(appState.mesh.getFaces());
+            std::cout << randomTestCount << " " << faceIdxs.size() << " " << appState.mergeError << " " << elapsed.count() << std::endl;
+            faceCounts.push_back(faceIdxs.size());
+            times.push_back(elapsed.count());
+            errors.push_back(appState.mergeError);
+        }
+
+        randomTestCount++;
+        setupNewMesh();
+        appState.mergeStatus = NA;
+        appState.mergeMode = mode;
+        start = end;
     }
 }

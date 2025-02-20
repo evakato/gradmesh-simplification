@@ -5,6 +5,7 @@ layout (location = 1) in vec3 vertexCol;
 
 uniform mat4 projection;
 uniform int selectedIndex;
+uniform float pointSize;
 
 out vec3 fragColor;
 out vec3 borderColor;
@@ -12,7 +13,7 @@ out vec3 borderColor;
 void main()
 {
     gl_Position = projection * vec4(vertexPos, 0.0, 1.0);
-    gl_PointSize = 15.0;
+    gl_PointSize = pointSize;
 
     //vec3 color = vec3(1.0, 1.0, 1.0);
     fragColor = vertexCol;

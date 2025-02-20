@@ -22,6 +22,10 @@ private:
     int selectDualGridEdge();
     int selectVerticalGridEdge();
 
+    void setCornerEdges();
+    void setCurrAdjPair();
+    int validCorners();
+
     GmsAppState &state;
     std::vector<int> selectedEdgePool; // for random selection
 
@@ -32,4 +36,9 @@ private:
     int otherDirIdx = 0;
 
     bool firstRow = true;
+
+    std::vector<std::pair<int, int>> cornerFaces;
+    std::vector<int> seenCorners;
+
+    std::vector<int> seenFailedEdges;
 };

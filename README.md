@@ -4,7 +4,7 @@ This is a tool to test gradient mesh simplification driven by pixel-based (image
 ![img](assets/output.gif)
 
 #### Building
-This application requires C++20 and OpenGL 4.3, as well as some external libraries. In the root directory, create a folder called `libs`. Within this folder, create separate folders for each library: 
+This application requires C++20, OpenGL 4.3, and GLFW. There are also several external libraries used and added as git submodules, including:
 - `glad`: for [Glad](https://glad.dav1d.de/)
 - `glm`: for the [OpenGL Mathematics library](https://github.com/g-truc/glm/tree/master/glm)
 - `imgui`: for the [Dear ImGui library](https://github.com/ocornut/imgui), as well as [imgui-filebrowser](https://github.com/AirGuanZ/imgui-filebrowser) (just a header file stored in the root of `imgui`)

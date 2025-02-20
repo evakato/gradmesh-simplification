@@ -40,31 +40,36 @@ void GradMeshMerger::merge()
 {
     if (appState.candidateMerges.size() <= 0 || appState.mergeMode == NONE)
     {
-        appState.updateMeshRender();
-        metrics.captureGlobalImage(appState.patchRenderParams.glPatches, CURR_IMG);
-        appState.mergeError = metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
+        if (appState.startTime.has_value())
+        {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - appState.startTime.value();
+            std::cout << "time: " << elapsed.count() << std::endl;
+            appState.startTime.reset();
+        }
         appState.mergeMode = NONE;
         return;
     }
 
     int selectedHalfEdgeIdx = select.selectEdge();
+
     if (selectedHalfEdgeIdx == -1)
     {
         appState.mergeStatus = NA;
         appState.mergeMode = NONE;
-        // TODO: fix final merge error
-        // appState.mergeError = metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
+        metrics.captureGlobalImage(appState.patchRenderParams.glPatches, CURR_IMG);
+        appState.mergeError = metrics.evaluateMetric(CURR_IMG, ORIG_IMG);
+        return;
+    }
+    if (!mesh.validMergeEdge(selectedHalfEdgeIdx))
+    {
+        appState.mergeStatus = CYCLE;
         return;
     }
     auto &edge = mesh.edges[selectedHalfEdgeIdx];
     assert(edge.isValid());
 
     appState.mergeStatus = mergeAtSelectedEdge(selectedHalfEdgeIdx);
-    if (appState.mergeStatus == CYCLE)
-    {
-        std::cout << "problematic " << selectedHalfEdgeIdx << std::endl;
-        // appState.mergeMode = NONE;
-    }
 
     if (appState.mergeMode == MANUAL)
     {
@@ -373,34 +378,43 @@ GmsAppState::MergeStats GradMeshMerger::mergePatches(int mergeEdgeIdx)
 
     if (scaleTopHandles)
     {
-        assert(topLeftEdge->handleIdxs.first != -1 && topLeftEdge->handleIdxs.second != -1);
-        if (topRightEdge->handleIdxs.second == -1)
+        // assert(topLeftEdge->handleIdxs.first != -1 && topLeftEdge->handleIdxs.second != -1);
+        if (topLeftEdge->handleIdxs.first == -1 || topLeftEdge->handleIdxs.second == -1 || topRightEdge->handleIdxs.second == -1)
         {
-            std::cout << stats.topEdgeCase << std::endl;
-            assert(topRightEdge->handleIdxs.second != -1);
+            std::cout << "fail" << stats.topEdgeCase << std::endl;
+            // assert(topRightEdge->handleIdxs.second != -1);
         }
+        else
+        {
 
-        float topLeftScale = 1.0f / topEdgeT;
-        float topRightScale = 1.0f / (1.0f - topEdgeT);
-        auto &topLeftHandle = mesh.handles[topLeftEdge->handleIdxs.first];
-        auto &topRightHandle = mesh.handles[topLeftEdge->handleIdxs.second];
-        topLeftHandle *= topLeftScale;
-        topRightHandle = mesh.handles[topRightEdge->handleIdxs.second] * topRightScale;
-        face1R.copyGeometricData(face2R);
+            float topLeftScale = 1.0f / topEdgeT;
+            float topRightScale = 1.0f / (1.0f - topEdgeT);
+            auto &topLeftHandle = mesh.handles[topLeftEdge->handleIdxs.first];
+            auto &topRightHandle = mesh.handles[topLeftEdge->handleIdxs.second];
+            topLeftHandle *= topLeftScale;
+            topRightHandle = mesh.handles[topRightEdge->handleIdxs.second] * topRightScale;
+            face1R.copyGeometricData(face2R);
+        }
     }
 
     if (scaleBottomHandles)
     {
-        assert(bottomLeftEdge->handleIdxs.first != -1 && bottomLeftEdge->handleIdxs.second != -1);
-        assert(bottomRightEdge->handleIdxs.first != -1);
+        // assert(bottomLeftEdge->handleIdxs.first != -1 && bottomLeftEdge->handleIdxs.second != -1);
+        if (bottomLeftEdge->handleIdxs.first == -1 || bottomLeftEdge->handleIdxs.second == -1 || bottomRightEdge->handleIdxs.second == -1)
+        {
+            std::cout << "fail2" << std::endl;
+        }
+        else
+        {
 
-        float bottomLeftScale = 1.0f / bottomEdgeT;
-        float bottomRightScale = 1.0f / (1.0f - bottomEdgeT);
-        auto &bottomLeftHandle = mesh.handles[bottomLeftEdge->handleIdxs.second];
-        auto &bottomRightHandle = mesh.handles[bottomLeftEdge->handleIdxs.first];
-        bottomLeftHandle *= bottomLeftScale;
-        bottomRightHandle = mesh.handles[bottomRightEdge->handleIdxs.first] * bottomRightScale;
-        bottomLeftEdge->copyGeometricData(*bottomRightEdge);
+            float bottomLeftScale = 1.0f / bottomEdgeT;
+            float bottomRightScale = 1.0f / (1.0f - bottomEdgeT);
+            auto &bottomLeftHandle = mesh.handles[bottomLeftEdge->handleIdxs.second];
+            auto &bottomRightHandle = mesh.handles[bottomLeftEdge->handleIdxs.first];
+            bottomLeftHandle *= bottomLeftScale;
+            bottomRightHandle = mesh.handles[bottomRightEdge->handleIdxs.first] * bottomRightScale;
+            bottomLeftEdge->copyGeometricData(*bottomRightEdge);
+        }
     }
 
     face1R.handleIdxs = face2R.handleIdxs;

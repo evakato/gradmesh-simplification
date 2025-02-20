@@ -53,10 +53,11 @@ void renderComparisonWindow(const GmsAppState &appState)
                 ImGui::TableSetColumnIndex(0);
                 GLuint texture = LoadTextureFromFile(ORIG_IMG);
                 auto [w, h] = appState.mergeSettings.globalPaddedAABB.getRes(GUI_FINAL_IMAGE_SIZE);
-                ImGui::Image((void *)(intptr_t)texture, ImVec2(w, h)); // Fixed size
+                ImGui::Image((ImTextureID)texture, ImVec2(w, h));
+
                 ImGui::TableSetColumnIndex(1);
                 GLuint texture2 = LoadTextureFromFile(CURR_IMG);
-                ImGui::Image((void *)(intptr_t)texture2, ImVec2(w, h)); // Fixed size
+                ImGui::Image((ImTextureID)texture2, ImVec2(w, h));
                 ImGui::EndTable();
             }
         }
@@ -96,7 +97,10 @@ void showEdgeErrorMap(GmsAppState &appState)
         bool showErrorMap = true;
         if (ImGui::Begin("Merge edge error map", &showErrorMap))
         {
-            ImGui::Image((void *)(intptr_t)appState.patchRenderResources.unmergedTexture, ImVec2(GUI_ERROR_MAP_SIZE, GUI_ERROR_MAP_SIZE));
+            auto [w, h] = appState.mergeSettings.globalPaddedAABB.getRes(GUI_ERROR_MAP_SIZE);
+            // ImGui::Image((void *)(intptr_t)appState.patchRenderResources.unmergedTexture, ImVec2(w, h));
+            ImGui::Image((ImTextureID)appState.patchRenderResources.unmergedTexture, ImVec2(w, h));
+
             ImGui::SameLine();
 
             ImGui::BeginGroup();
@@ -136,7 +140,7 @@ void showCurvesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState)
     {
         appState.currentMode = {RENDER_CURVES};
 
-        ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
+        ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 20.0f);
         ImGui::Checkbox("Show AABB", &appState.showCurveAABB);
 
         if (ImGui::RadioButton("Bézier", appState.curveRenderParams.curveMode == CurveRenderer::Bezier))
@@ -188,6 +192,7 @@ void showPatchesTab(bool isRenderCurves, bool firstRender, GmsAppState &appState
     {
         appState.currentMode = {RENDER_PATCHES};
         showRenderSettings(appState);
+        showTestingMenu(appState);
         showMergingMenu(appState);
         showDebuggingMenu(appState);
         showComponentSelect(appState);
@@ -234,7 +239,7 @@ void showRenderSettings(GmsAppState &appState)
         {
             ImGui::SameLine();
             ImGui::SetNextItemWidth(100.0f);
-            ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 10.0f);
+            ImGui::SliderFloat("Curve width", &appState.curveLineWidth, 0.0f, 20.0f);
         }
         ImGui::Checkbox("Draw patches", &appState.renderPatches);
         ImGui::Spacing();
@@ -414,7 +419,11 @@ void GmsGui::showWindowMenuBar()
             {
                 saveImage((std::string{IMAGE_DIR} + "/" + appState.meshname + ".png").c_str(), GL_LENGTH, GL_LENGTH);
             }
-            else if (ImGui::MenuItem("Load preprocessing data", "l"))
+            else if (ImGui::MenuItem("Load motorcycle graph data", "m"))
+            {
+                appState.mergeProcess = MergeProcess::LoadProductRegionsPreprocessing;
+            }
+            else if (ImGui::MenuItem("Load tensor product regions data", "l"))
             {
                 appState.mergeProcess = MergeProcess::LoadProductRegionsPreprocessing;
             }
@@ -627,10 +636,11 @@ void showDifferentMergingMethods(GmsAppState &appState)
                 ImGui::TableNextRow(ImGuiTableRowFlags_None, GUI_PREVIEW_IMAGE_SIZE + 10);
                 ImGui::TableSetColumnIndex(0);
                 GLuint texture = LoadTextureFromFile(ORIG_IMG);
-                ImGui::Image((void *)(intptr_t)texture, ImVec2(GUI_PREVIEW_IMAGE_SIZE, GUI_PREVIEW_IMAGE_SIZE)); // Fixed size
+                ImGui::Image((ImTextureID)texture, ImVec2(GUI_PREVIEW_IMAGE_SIZE, GUI_PREVIEW_IMAGE_SIZE));
                 ImGui::TableSetColumnIndex(1);
                 GLuint texture2 = LoadTextureFromFile(CURR_IMG);
-                ImGui::Image((void *)(intptr_t)texture2, ImVec2(GUI_PREVIEW_IMAGE_SIZE, GUI_PREVIEW_IMAGE_SIZE)); // Fixed size
+                ImGui::Image((ImTextureID)texture2, ImVec2(GUI_PREVIEW_IMAGE_SIZE, GUI_PREVIEW_IMAGE_SIZE));
+
                 ImGui::EndTable();
             }
 
@@ -670,6 +680,7 @@ void showDifferentMergingMethods(GmsAppState &appState)
             if (ImGui::Button("Start selection"))
             {
                 appState.mergeMode = GRID;
+                appState.startTime = std::chrono::high_resolution_clock::now();
             }
         }
         else
@@ -688,6 +699,7 @@ void showDifferentMergingMethods(GmsAppState &appState)
             if (ImGui::Button("Start selection"))
             {
                 appState.mergeMode = DUAL_GRID;
+                appState.startTime = std::chrono::high_resolution_clock::now();
             }
         }
         else
@@ -850,12 +862,14 @@ void showMergingMenu(GmsAppState &appState)
             }
             static int item_image_region = static_cast<int>(appState.mergeSettings.pixelRegion);
             const char *image_region_items[] = {"Global", "Local"};
+            /*
             if (ImGui::Combo("Pixel region AABB", &item_image_region, image_region_items, IM_ARRAYSIZE(image_region_items)))
             {
                 appState.mergeSettings.pixelRegion = static_cast<MergeMetrics::PixelRegion>(item_image_region);
             }
+            */
 
-            if (edge_select_current == 5)
+            if (edge_select_current == 5 || edge_select_current == 6)
             {
                 ImGui::PushItemWidth(INPUT_WIDTH / 2);
                 ImGui::DragFloat("Quads", &appState.quadErrorWeight, 0.01f, 0.0f, 1.0f, "%.2f");
@@ -875,6 +889,7 @@ void showMergingMenu(GmsAppState &appState)
             ImGui::EndDisabled();
 
             ImGui::Spacing();
+            /*
             if (ImGui::TreeNode("Show pixel metric images"))
             {
                 ImGui::Spacing();
@@ -906,6 +921,7 @@ void showMergingMenu(GmsAppState &appState)
 
                 ImGui::TreePop();
             }
+            */
         }
 
         ImGui::Spacing();
@@ -1053,6 +1069,32 @@ void showDebuggingMenu(GmsAppState &appState)
     }
 }
 
+void showTestingMenu(GmsAppState &appState)
+{
+    if (ImGui::CollapsingHeader("Testing", ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        ImGui::Spacing();
+        ImGui::BeginDisabled(appState.mergeProcess == MergeProcess::RandomTest || appState.mergeProcess == MergeProcess::GridTest || appState.mergeProcess == MergeProcess::DualGridTest);
+        if (ImGui::Button("Random test"))
+        {
+            appState.mergeMode = NONE;
+            appState.mergeProcess = MergeProcess::RandomTest;
+        }
+        if (ImGui::Button("Grid test"))
+        {
+            appState.mergeMode = NONE;
+            appState.mergeProcess = MergeProcess::GridTest;
+        }
+        if (ImGui::Button("Dual grid test"))
+        {
+            appState.mergeMode = NONE;
+            appState.mergeProcess = MergeProcess::DualGridTest;
+        }
+        ImGui::EndDisabled();
+        ImGui::Spacing();
+    }
+}
+
 void showDCELInfo(GmsAppState &appState)
 {
     if (ImGui::CollapsingHeader("Mesh Info", ImGuiTreeNodeFlags_DefaultOpen))
@@ -1197,17 +1239,22 @@ void showGradMeshInfo(GmsAppState &appState)
                 selectedFaceIdx = appState.patches[appState.userSelectedId.patchId].getFaceIdx();
             }
             ImGui::Spacing();
+            ImGui::Columns(2, nullptr, true);
+            ImGui::SetColumnWidth(0, 100);
             bool selectedFaceChanged = createListBox(items, selectedFaceIdx, item_highlighted_idx);
             if (selectedFaceChanged && selectedFaceIdx != appState.patches[appState.userSelectedId.patchId].getFaceIdx())
             {
                 appState.setPatchId(getPatchFromFaceIdx(appState.patches, selectedFaceIdx));
             }
-            ImGui::SameLine();
-            if (selectedFaceIdx != -1)
-                setComponentText(mesh.getFaces(), selectedFaceIdx, faceIdxs);
-
             ImGui::Spacing();
             ImGui::Text("%d faces", faceIdxs.size());
+
+            ImGui::NextColumn();
+
+            if (selectedFaceIdx != -1)
+                setFaceInfo(mesh.getFaces(), selectedFaceIdx, faceIdxs);
+            ImGui::Columns(1);
+
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Half-edges", nullptr, setDefaultTab ? ImGuiTabItemFlags_SetSelected : 0))
@@ -1298,6 +1345,35 @@ void pushColor(ButtonColor color)
     ImGui::PushStyleColor(ImGuiCol_Button, baseColor);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(baseColor.x * 0.9f, baseColor.y * 0.9f, baseColor.z * 0.9f, baseColor.w));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(baseColor.x * 0.8f, baseColor.y * 0.8f, baseColor.z * 0.8f, baseColor.w));
+}
+
+void setFaceInfo(const auto &components, int &item_selected_idx, const auto &idxs)
+{
+    // if (item_selected_idx >= idxs.size())
+    // item_selected_idx = idxs.size() - 1;
+    auto &selectedEdge = components[idxs[item_selected_idx]];
+
+    ImGui::Spacing();
+    ImGui::Text(" f%d", idxs[item_selected_idx]);
+    ImGui::Spacing();
+
+    if (ImGui::BeginTable("Faces", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders))
+    {
+        ImGui::TableSetupColumn("FirstColumn", ImGuiTableColumnFlags_WidthFixed, 65.0f);
+
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::TableSetBgColor(ImGuiTableBgTarget_CellBg, IM_COL32(0, 0, 100, 20));
+        ImGui::Text("Half-edge");
+        ImGui::TableSetColumnIndex(1);
+        pushColor(ButtonColor::PrevNext);
+        compButton(item_selected_idx, idxs, selectedEdge.halfEdgeIdx, "e");
+        ImGui::PopStyleColor(3);
+
+        ImGui::EndTable();
+    }
+
+    ImGui::Spacing();
 }
 
 void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs)

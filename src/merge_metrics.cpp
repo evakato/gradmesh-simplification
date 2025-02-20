@@ -19,6 +19,14 @@ void MergeMetrics::markTwoHalfEdges(int idx1, int idx2)
     valenceVertices[lookup2.first].setMarked(lookup2.second);
 }
 
+void MergeMetrics::unmarkTwoHalfEdges(int idx1, int idx2)
+{
+    auto &lookup = lookupValenceVertex[idx1];
+    valenceVertices[lookup.first].unmark(lookup.second);
+    auto &lookup2 = lookupValenceVertex[idx2];
+    valenceVertices[lookup2.first].unmark(lookup2.second);
+}
+
 bool MergeMetrics::isMarked(int halfEdgeIdx)
 {
     auto &lookup = lookupValenceVertex[halfEdgeIdx];
@@ -163,6 +171,7 @@ std::vector<MergeableRegion> MergeMetrics::getMergeableRegions()
 
 void MergeMetrics::generateMotorcycleGraph()
 {
+    mergeSettings.singleMergeErrorThreshold = 0.05 * mergeSettings.errorThreshold;
     for (auto &v : valenceVertices)
     {
         for (int i = 0; i < 4; i++)
@@ -176,41 +185,199 @@ void MergeMetrics::generateMotorcycleGraph()
     }
     motorcycleEdges.clear();
 
-    while (true)
+    for (auto &v : valenceVertices)
     {
-        bool didntGrow = true;
-        for (auto &v : valenceVertices)
-        {
-            if (v.isBoundary() || v.sumMarked() == 0 || v.sumMarked() == 3 || v.sumMarked() == 4)
-                continue;
+        if (v.noGrow())
+            continue;
 
-            int valenceOneIdx = v.valenceOne();
-            if (valenceOneIdx != -1)
+        // L CASE
+        auto [valenceTwoLIdx, valenceTwoLIdx2] = v.valenceTwoL();
+        if (valenceTwoLIdx != -1)
+        {
+            std::vector<DoubleHalfEdge> path1;
+            std::vector<DoubleHalfEdge> path2;
+
+            int pathLength1 = 0;
+            int valenceTwoL = v.halfEdgeIdxs[valenceTwoLIdx];
+            while (true)
             {
-                int valenceOne = v.halfEdgeIdxs[valenceOneIdx];
-                int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceOne);
-                assert(newDheIdx != -1);
-                auto newDhe = edgeErrors[newDheIdx];
-                motorcycleEdges.push_back(newDhe);
-                markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
-                didntGrow = false;
-                continue;
-            }
-            int valenceTwoLIdx = v.valenceTwoL();
-            if (valenceTwoLIdx != -1)
-            {
-                int valenceTwoL = v.halfEdgeIdxs[valenceTwoLIdx];
                 int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceTwoL);
                 assert(newDheIdx != -1);
-                auto newDhe = edgeErrors[newDheIdx];
-                motorcycleEdges.push_back(newDhe);
+                auto newDhe = edgeErrors[newDheIdx]; // get double half edge of L grower
+
                 markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
-                didntGrow = false;
-                continue;
+                path1.push_back(newDhe);
+                pathLength1++;
+                int nextEdgeIdx = mesh.edges[valenceTwoL].nextIdx;
+                int nextPtIdx = mesh.edges[nextEdgeIdx].originIdx;
+                auto &v2 = valenceVertices[nextPtIdx];
+                if (v2.isDone())
+                {
+                    break;
+                }
+                else
+                {
+                    valenceTwoL = mesh.edges[mesh.edges[nextEdgeIdx].twinIdx].nextIdx;
+                }
+            }
+
+            for (const auto &dhe : path1)
+                unmarkTwoHalfEdges(dhe.halfEdgeIdx1, dhe.halfEdgeIdx2);
+
+            int pathLength2 = 0;
+            valenceTwoL = v.halfEdgeIdxs[valenceTwoLIdx2];
+            while (true)
+            {
+                int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceTwoL);
+                assert(newDheIdx != -1);
+                auto newDhe = edgeErrors[newDheIdx]; // get double half edge of L grower
+
+                markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
+                path2.push_back(newDhe);
+                pathLength2++;
+                int nextEdgeIdx = mesh.edges[valenceTwoL].nextIdx;
+                int nextPtIdx = mesh.edges[nextEdgeIdx].originIdx;
+                auto &v2 = valenceVertices[nextPtIdx];
+                if (v2.isDone())
+                {
+                    break;
+                }
+                else
+                {
+                    valenceTwoL = mesh.edges[mesh.edges[nextEdgeIdx].twinIdx].nextIdx;
+                }
+            }
+
+            if (pathLength1 < pathLength2)
+            {
+                for (const auto &dhe : path2)
+                    unmarkTwoHalfEdges(dhe.halfEdgeIdx1, dhe.halfEdgeIdx2);
+                for (const auto &dhe : path1)
+                {
+                    markTwoHalfEdges(dhe.halfEdgeIdx1, dhe.halfEdgeIdx2);
+                    motorcycleEdges.push_back(dhe);
+                }
+            }
+            else
+            {
+                for (const auto &dhe : path2)
+                    motorcycleEdges.push_back(dhe);
             }
         }
-        if (didntGrow)
+    }
+
+    for (auto &v : valenceVertices)
+    {
+        int valenceOneIdx = v.valenceOne();
+        if (valenceOneIdx == -1)
+            continue;
+
+        int pathLength1 = 0;
+        std::vector<DoubleHalfEdge> path1;
+        int valenceOne = v.halfEdgeIdxs[valenceOneIdx];
+        while (true)
+        {
+            int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceOne);
+            assert(newDheIdx != -1);
+            auto newDhe = edgeErrors[newDheIdx]; // get double half edge of L grower
+
+            markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
+            path1.push_back(newDhe);
+            pathLength1++;
+            int nextEdgeIdx = mesh.edges[valenceOne].nextIdx;
+            int nextPtIdx = mesh.edges[nextEdgeIdx].originIdx;
+            auto &v2 = valenceVertices[nextPtIdx];
+            if (v2.isDone())
+            {
+                break;
+            }
+            else
+            {
+                valenceOne = mesh.edges[mesh.edges[nextEdgeIdx].twinIdx].nextIdx;
+            }
+        }
+
+        for (const auto &dhe : path1)
+            unmarkTwoHalfEdges(dhe.halfEdgeIdx1, dhe.halfEdgeIdx2);
+
+        std::pair<int, int> path2EdgeIdxs;
+        switch (valenceOneIdx)
+        {
+        case 0:
+            path2EdgeIdxs = {3, 1};
             break;
+        case 1:
+            path2EdgeIdxs = {0, 2};
+            break;
+        case 2:
+            path2EdgeIdxs = {1, 3};
+            break;
+        case 3:
+            path2EdgeIdxs = {2, 0};
+            break;
+        }
+
+        int pathLength2 = 0;
+        std::vector<DoubleHalfEdge> path2;
+        valenceOne = v.halfEdgeIdxs[path2EdgeIdxs.first];
+        while (true)
+        {
+            int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceOne);
+            auto newDhe = edgeErrors[newDheIdx]; // get double half edge of L grower
+
+            markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
+            path2.push_back(newDhe);
+            pathLength2++;
+            int nextEdgeIdx = mesh.edges[valenceOne].nextIdx;
+            int nextPtIdx = mesh.edges[nextEdgeIdx].originIdx;
+            auto &v2 = valenceVertices[nextPtIdx];
+            if (v2.isDone())
+            {
+                break;
+            }
+            else
+            {
+                valenceOne = mesh.edges[mesh.edges[nextEdgeIdx].twinIdx].nextIdx;
+            }
+        }
+        valenceOne = v.halfEdgeIdxs[path2EdgeIdxs.second];
+        while (true)
+        {
+            int newDheIdx = findDoubleHalfEdgeIndex(edgeErrors, valenceOne);
+            assert(newDheIdx != -1);
+            auto newDhe = edgeErrors[newDheIdx]; // get double half edge of L grower
+
+            markTwoHalfEdges(newDhe.halfEdgeIdx1, newDhe.halfEdgeIdx2);
+            path2.push_back(newDhe);
+            pathLength2++;
+            int nextEdgeIdx = mesh.edges[valenceOne].nextIdx;
+            int nextPtIdx = mesh.edges[nextEdgeIdx].originIdx;
+            auto &v2 = valenceVertices[nextPtIdx];
+            if (v2.isDone())
+            {
+                break;
+            }
+            else
+            {
+                valenceOne = mesh.edges[mesh.edges[nextEdgeIdx].twinIdx].nextIdx;
+            }
+        }
+
+        if (pathLength1 < pathLength2)
+        {
+            for (const auto &dhe : path2)
+                unmarkTwoHalfEdges(dhe.halfEdgeIdx1, dhe.halfEdgeIdx2);
+            for (const auto &dhe : path1)
+            {
+                markTwoHalfEdges(dhe.halfEdgeIdx1, dhe.halfEdgeIdx2);
+                motorcycleEdges.push_back(dhe);
+            }
+        }
+        else
+        {
+            for (const auto &dhe : path2)
+                motorcycleEdges.push_back(dhe);
+        }
     }
 }
 
@@ -331,11 +498,11 @@ void MergeMetrics::generateEdgeErrorMap(EdgeErrorDisplay edgeErrorDisplay)
         edgeErrorPatches[id.patchId].setCurveSelected(id.curveId, blue);
     }
     auto glCurveData = getAllPatchGLData(edgeErrorPatches, &Patch::getCurveData);
-    int poolRes = 1000;
-    setupFBO(patchRenderResources.unmergedTexture, unmergedFbo, poolRes, poolRes);
-    glLineWidth(3.5f);
+    auto [w, h] = mergeSettings.aabb.getRes(1000);
+    setupFBO(patchRenderResources.unmergedTexture, unmergedFbo, w, h);
+    glLineWidth(10.0f);
     drawPrimitive(glCurveData, patchRenderResources.curveShaderId, mergeSettings.globalPaddedAABB, VERTS_PER_CURVE);
-    writeToImage(poolRes, EDGE_MAP_IMG);
+    writeToImage(1000, EDGE_MAP_IMG);
     closeFBO();
 }
 
@@ -442,6 +609,7 @@ void saveErrorMapAsPNG(float *errorMap, int width, int height, const char *filen
     float minError = FLT_MAX, maxError = -FLT_MAX;
     for (int i = 0; i < width * height; ++i)
     {
+        errorMap[i] = 1 - errorMap[i];
         if (errorMap[i] < minError)
             minError = errorMap[i];
         if (errorMap[i] > maxError)
@@ -532,22 +700,30 @@ float evaluateSSIM(const char *img1Path, const char *img2Path)
     memset(&params, 0, sizeof(params));
     params.width = img1Width;
     params.height = img1Height;
+    float *ssimMap = new float[img1Width * img1Height];
+    params.ssimMap = ssimMap;
+    params.ssimStep = 1; // Horizontal step for SSIM map in `float`s
+    params.ssimStride = img1Width;
+
     float totalSSIM = 0;
     for (int channelNum = 0; channelNum < img1ChannelCount; ++channelNum)
     {
         params.imgA.init_interleaved(img1, img1Width * img1ChannelCount, img1ChannelCount, channelNum);
         params.imgB.init_interleaved(img2, img2Width * img2ChannelCount, img2ChannelCount, channelNum);
-#if RMGR_SSIM_USE_OPENMP
-        const float ssim = rmgr::ssim::compute_ssim_openmp(params);
-#else
+        // #if RMGR_SSIM_USE_OPENMP
+        //        const float ssim = rmgr::ssim::compute_ssim_openmp(params);
+        // #else
         const float ssim = rmgr::ssim::compute_ssim(params);
-#endif
+        // #endif
         if (rmgr::ssim::get_errno(ssim) != 0)
             fprintf(stderr, "Failed to compute SSIM of channel %d\n", channelNum + 1);
+
         totalSSIM += ssim;
     }
 
-    // Clean up
+    saveErrorMapAsPNG(ssimMap, img1Width, img1Height, "img/errormap.png");
+    //  Clean up
+    delete[] ssimMap;
     stbi_image_free(img2);
     stbi_image_free(img1);
     return totalSSIM * (1.0f / img1ChannelCount);
@@ -617,6 +793,8 @@ GLuint LoadTextureFromFile(const char *filename)
         std::cerr << "Failed to load image: " << filename << std::endl;
         return -1;
     }
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     GLuint texture;
     glGenTextures(1, &texture);

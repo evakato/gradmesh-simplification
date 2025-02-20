@@ -18,7 +18,7 @@
 #include "../assets/fonts/IconsFontAwesome6.h"
 #include <GLFW/glfw3.h>
 
-#include "imfilebrowser.h"
+#include "imgui-filebrowser/imfilebrowser.h"
 
 class GmsAppState;
 
@@ -60,6 +60,7 @@ void prepareImguiFrame(GLFWwindow *window);
 void processKeyInput(GLFWwindow *window, GmsAppState &appState, ImGui::FileBrowser &fileDialog);
 void showMergingMenu(GmsAppState &appState);
 void showDebuggingMenu(GmsAppState &appState);
+void showTestingMenu(GmsAppState &appState);
 void showDCELInfo(GmsAppState &appState);
 
 void showComponentSelect(GmsAppState &appState);
@@ -67,6 +68,7 @@ void showHermiteMatrixTable(GmsAppState &appState);
 void showPreviousMergeInfo(GmsAppState::MergeStats &stats);
 void showGradMeshInfo(GmsAppState &appState);
 void setHalfEdgeInfo(const auto &components, int &item_selected_idx, const auto &idxs);
+void setFaceInfo(const auto &components, int &item_selected_idx, const auto &idxs);
 void pushColor(ButtonColor color);
 
 void createListItems(std::vector<int> &idxs, std::vector<std::string> &dynamicItems, std::vector<const char *> &items, std::string ctype);

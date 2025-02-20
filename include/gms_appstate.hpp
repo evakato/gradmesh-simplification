@@ -72,6 +72,9 @@ enum class MergeProcess
     ViewEdgeMap,
     ViewConflictGraphStats,
     PreviewMerge,
+    RandomTest,
+    GridTest,
+    DualGridTest,
     Merging
 };
 
@@ -114,18 +117,19 @@ public:
     EdgeErrorDisplay edgeErrorDisplay = EdgeErrorDisplay::Binary;
     float mergeError;
     int preprocessSingleMergeProgress{-1};
+    std::optional<std::chrono::high_resolution_clock::time_point> startTime;
 
     float preprocessProductRegionsProgress{-1.0f};
     std::vector<EdgeRegion> edgeRegions = {};
     int selectedTPRIdx = 0;
     int regionsMerged = 0;
     ConflictGraphStats conflictGraphStats;
-    float quadErrorWeight = 0.5;
+    float quadErrorWeight = 0.75;
     std::string loadPreprocessingFilename;
     float oneStepQuadErrorProgress{-1.0f};
 
     // Metadata
-    std::string filename = "../meshes/global_duck.hemesh";
+    std::string filename = "../meshes/global-tulips.hemesh";
     std::string meshname;
     bool filenameChanged = false;
     bool loadSave = false;
@@ -146,7 +150,7 @@ public:
     bool renderPatches = true;
     bool showCurveAABB = false;
     float handleLineWidth = 2.0f;
-    float curveLineWidth = 2.0f;
+    float curveLineWidth = 3.0f;
     ComponentSelectOptions componentSelectOptions;
 
     // Patch selection data
@@ -217,7 +221,8 @@ public:
     {
         numOfMerges = 0;
         regionsMerged = 0;
-        loadSave = filenameChanged = false;
+        loadSave = false;
+        filenameChanged = false;
         mergeStatus = NA;
         selectedEdgeId = -1;
         meshname = extractFileName(filename);

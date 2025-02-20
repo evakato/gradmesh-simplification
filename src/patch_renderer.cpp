@@ -73,7 +73,7 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         auto aabbData = selectedPatch.getGLAABBData();
         setVertexData(aabbData);
         glUseProgram(lineShaderId);
-        setLineColor(lineShaderId, blue);
+        setLineColor(lineShaderId, yellow);
         setUniformProjectionMatrix(lineShaderId, projectionMatrix);
         for (int i = 0; i < aabbData.size() / 5; i++)
             glDrawArrays(GL_LINE_LOOP, i * 4, 4);
@@ -92,6 +92,8 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         setVertexData(allPatchHandleData);
         glUseProgram(pointShaderId);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
+        GLint pointSizeLocation = glGetUniformLocation(pointShaderId, "pointSize");
+        glUniform1f(pointSizeLocation, 10.0f);
         // GmsRenderer::highlightSelectedPoint(12);
         glDrawArrays(GL_POINTS, 0, allPatchHandleData.size() / 5);
     }
@@ -103,6 +105,9 @@ void PatchRenderer::renderPatches(PatchRenderParams &params)
         glUseProgram(pointShaderId);
         //  GmsRenderer::highlightSelectedPoint(12);
         setUniformProjectionMatrix(pointShaderId, projectionMatrix);
+
+        GLint pointSizeLocation = glGetUniformLocation(pointShaderId, "pointSize");
+        glUniform1f(pointSizeLocation, 20.0f);
 
         glDrawArrays(GL_POINTS, 0, allPatchPointData.size() / 5);
     }
