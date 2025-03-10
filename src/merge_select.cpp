@@ -1,57 +1,25 @@
 #include "merge_select.hpp"
 #include <random>
+#include <ctime>
+#include <chrono>
 
 MergeSelect::MergeSelect(GmsAppState &state) : state(state) {}
 
+// Proper seeding using multiple entropy sources
+std::mt19937 createRandomGenerator()
+{
+    auto timeSeed = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    std::random_device rd;
+    std::seed_seq seedSeq{static_cast<unsigned>(timeSeed), rd(), rd(), rd(), rd()};
+    return std::mt19937(seedSeq);
+}
+
+std::mt19937 gen = createRandomGenerator(); // Global RNG
+
 int randomCorner(int N)
 {
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distrib(0, N);
+    std::uniform_int_distribution<> distrib(0, N - 1);
     return distrib(gen);
-}
-
-int MergeSelect::validCorners()
-{
-    std::vector<int> validCorners;
-    for (int i = 0; i < cornerFaces.size(); i++)
-    {
-        if (std::find(seenCorners.begin(), seenCorners.end(), i) != seenCorners.end())
-        {
-            continue;
-        }
-        auto &cornerPairs = cornerFaces[i];
-        if (state.mesh.validMergeEdge(cornerPairs.first) && cornerPairs.second == -1)
-        {
-            validCorners.push_back(i);
-        }
-        else if (state.mesh.validMergeEdge(cornerPairs.first) && state.mesh.validMergeEdge(cornerPairs.second))
-        {
-            validCorners.push_back(i);
-        }
-    }
-    std::cout << "hello? " << validCorners.size() << std::endl;
-    if (validCorners.size() <= 3 || seenCorners.size() > 3)
-        return -1;
-    int rCorner = randomCorner(validCorners.size() - 1);
-    seenCorners.push_back(validCorners[rCorner]);
-    return validCorners[rCorner];
-}
-
-void MergeSelect::setCornerEdges()
-{
-    int idx = validCorners();
-    if (idx == -1)
-        return;
-    cornerEdges = cornerFaces[idx];
-    int secondEdge = cornerEdges.second;
-    if (secondEdge == -1)
-        return;
-    if (state.mesh.edges[secondEdge].nextIdx == cornerEdges.first)
-    {
-        cornerEdges.second = cornerEdges.first;
-        cornerEdges.first = secondEdge;
-    }
 }
 
 void MergeSelect::setCurrAdjPair()
@@ -67,14 +35,102 @@ void MergeSelect::reset()
 {
     otherDirEdges.clear();
     seenFailedEdges.clear();
-    cornerFaces = state.mesh.findCornerFaces();
+    seenCornerFaces.clear();
+    cornerFaces.clear();
 
-    setCornerEdges();
+    cornerFaces = state.mesh.findCornerFaces();
+    for (auto &cornerFace : cornerFaces)
+    {
+        // std::cout << cornerFace.first << ", " << cornerFace.second << std::endl;
+    }
+    cornerEdges = cornerFaces[randomCorner(cornerFaces.size())];
+    seenCornerFaces.push_back(cornerEdges);
     setCurrAdjPair();
+    detectOverlappingCorners();
+
+    int j = 0;
+    while (cornerFaces.size() > seenCornerFaces.size())
+    {
+        ++j;
+        if (j > 100)
+            break;
+        for (int i = 0; i < 10; i++)
+        {
+            int randthing = randomCorner(cornerFaces.size());
+            auto newCorner = cornerFaces[randthing];
+            if (std::find(seenCornerFaces.begin(), seenCornerFaces.end(), newCorner) == seenCornerFaces.end())
+            {
+                seenCornerFaces.push_back(newCorner);
+                detectOverlappingCorners();
+                break;
+            }
+        }
+    }
+
+    std::cout << cornerFaces.size() << std::endl;
+    std::cout << seenCornerFaces.size() << std::endl;
 
     otherDirIdx = 0;
     verticalDir = false;
     firstRow = true;
+}
+
+void MergeSelect::detectOverlappingCorners()
+{
+    std::pair<int, int> tempAdjPair = {currAdjPair.first, currAdjPair.second};
+    int currIdx = tempAdjPair.first;
+    while (true)
+    {
+        const auto &currEdge = state.mesh.edges[currIdx];
+        if (!currEdge.hasTwin())
+        {
+            auto idxs = state.mesh.getFaceEdgeIdxs(currIdx);
+            const auto &bottomEdge = state.mesh.edges[idxs[3]];
+            const auto &topEdge = state.mesh.edges[idxs[1]];
+            if (!bottomEdge.hasTwin() || !topEdge.hasTwin())
+            {
+                for (int i = 0; i < cornerFaces.size(); i++)
+                {
+                    if (std::find(idxs.begin(), idxs.end(), cornerFaces[i].first) != idxs.end() || std::find(idxs.begin(), idxs.end(), cornerFaces[i].second) != idxs.end())
+                    {
+                        cornerFaces.erase(cornerFaces.begin() + i);
+                        break;
+                    }
+                }
+            }
+
+            if (tempAdjPair.second == -1)
+            {
+                auto idxs = state.mesh.getFaceEdgeIdxs(tempAdjPair.first);
+                for (int i = 0; i < cornerFaces.size(); i++)
+                {
+                    if (std::find(idxs.begin(), idxs.end(), cornerFaces[i].first) != idxs.end() || std::find(idxs.begin(), idxs.end(), cornerFaces[i].second) != idxs.end())
+                    {
+                        cornerFaces.erase(cornerFaces.begin() + i);
+                        break;
+                    }
+                }
+                break;
+            }
+
+            auto nextFaceEdges = state.mesh.getFaceEdgeIdxs(tempAdjPair.second);
+            tempAdjPair.first = nextFaceEdges[0];
+            const auto &nextEdge = state.mesh.edges[nextFaceEdges[1]];
+            if (nextEdge.hasTwin())
+            {
+                tempAdjPair.second = state.mesh.edges[nextEdge.twinIdx].nextIdx;
+            }
+            else
+            {
+                tempAdjPair.second = -1;
+            }
+            currIdx = tempAdjPair.first;
+        }
+        else
+        {
+            currIdx = state.mesh.getFaceEdgeIdxs(state.mesh.getTwinIdx(currIdx))[2];
+        }
+    }
 }
 
 void MergeSelect::findCandidateMerges(std::vector<SingleHalfEdge> *boundaryEdges)
@@ -179,10 +235,11 @@ int MergeSelect::selectVerticalGridEdge()
             verticalDir = false;
             otherDirIdx = 0;
 
-            if (validCorners() == -1)
+            ++currCornerFaceIdx;
+            if (currCornerFaceIdx >= seenCornerFaces.size())
                 return -1;
 
-            setCornerEdges();
+            cornerEdges = seenCornerFaces[currCornerFaceIdx];
             setCurrAdjPair();
             return currAdjPair.first;
         }

@@ -510,7 +510,7 @@ void MergeMetrics::setAABB()
 {
     AABB newAABB = mesh.getMeshAABB();
     // newAABB.resizeToSquare();
-    std::cout << newAABB << std::endl;
+    // std::cout << newAABB << std::endl;
     mergeSettings.globalAABB = newAABB;
 
     newAABB.addPadding(mergeSettings.aabbPadding);

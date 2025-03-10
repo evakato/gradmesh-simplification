@@ -2,6 +2,7 @@
 
 #include <utility>
 #include <vector>
+#include <set>
 
 #include "gms_appstate.hpp"
 
@@ -22,9 +23,9 @@ private:
     int selectDualGridEdge();
     int selectVerticalGridEdge();
 
-    void setCornerEdges();
     void setCurrAdjPair();
-    int validCorners();
+
+    void detectOverlappingCorners();
 
     GmsAppState &state;
     std::vector<int> selectedEdgePool; // for random selection
@@ -38,7 +39,8 @@ private:
     bool firstRow = true;
 
     std::vector<std::pair<int, int>> cornerFaces;
-    std::vector<int> seenCorners;
+    std::vector<std::pair<int, int>> seenCornerFaces;
+    int currCornerFaceIdx = 0;
 
     std::vector<int> seenFailedEdges;
 };

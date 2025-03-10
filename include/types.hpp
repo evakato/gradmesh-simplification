@@ -44,6 +44,10 @@ struct DoubleHalfEdge
     {
         return halfEdgeIdx1;
     }
+    int getHalfEdgeIdx2() const
+    {
+        return halfEdgeIdx2;
+    }
     bool matches(CurveId other)
     {
         return curveId1 == other || curveId2 == other;

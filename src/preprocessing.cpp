@@ -782,7 +782,7 @@ std::vector<EdgeRegion> MergePreprocessor::getEdgeRegions(const std::vector<std:
             edgeRegions.push_back(EdgeRegion{gridIdxPair, faceIdx});
         }
     }
-    std::cout << "size of edge regions: " << edgeRegions.size() << std::endl;
+    // std::cout << "size of edge regions: " << edgeRegions.size() << std::endl;
 
     return edgeRegions;
 }

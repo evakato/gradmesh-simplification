@@ -269,7 +269,6 @@ std::vector<std::pair<int, int>> GradMesh::findCornerFaces() const
                 if (edges[thirdIdx].twinIdx == -1)
                 {
                     cornerFaces.push_back({faceEdges[(i + 3) % faceEdges.size()], -1});
-                    std::cout << "een\n";
                 }
                 std::array<int, 2> nonConsecutiveEdges{};
                 int count = 0;

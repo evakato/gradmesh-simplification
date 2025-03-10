@@ -129,7 +129,7 @@ public:
     float oneStepQuadErrorProgress{-1.0f};
 
     // Metadata
-    std::string filename = "../meshes/global-tulips.hemesh";
+    std::string filename = "../meshes/avocado.hemesh";
     std::string meshname;
     bool filenameChanged = false;
     bool loadSave = false;
